@@ -10,9 +10,9 @@ As Docker containers are started, docksul will inspect them for published ports 
 
 If a container publishes one port, one service will be created. By default, the service will be named after the name of the container. You can override this by setting the environment variable `CONSUL_NAME`. 
 
-If a container publishes more than one port, a service will be created for each published port. By default, the service will be named using the name of the container and the *internal* port published. For example `docker run -p 8000:80 --name foobar progrium/foobar` will result in a service called `foobar-80`, listening on port `8000`. 
+If a container publishes more than one port, a service will be created for each published port. By default, the service will be named using the name of the container and the *internal* port published. For example `docker run -p 8000:80 -p 4443:443 --name foobar progrium/foobar` will result in two services called `foobar-80` and `foobar-443`, listening on ports `8000` and `4443` respectively. 
 
-You can override each port's service name by setting the environment variable `CONSUL_{port}_NAME` where port is the *internal* port. In the previous example, that means `CONSUL_80_NAME`. 
+You can override each port's service name by setting the environment variable `CONSUL_{port}_NAME` where port is the *internal* port. In the previous example, that means `CONSUL_80_NAME` and `CONSUL_443_NAME`. 
 
 All published ports using UDP will produce services with the tag `udp`. You can add more tags to a service by setting `CONSUL_TAGS` or `CONSUL_{port}_TAGS` to a comma-delimited list of tags. 
 
