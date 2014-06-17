@@ -68,6 +68,9 @@ func makeService(container *docker.Container, hostPort, exposedPort, portType st
 	if tags != "" {
 		service["Tags"] = append(service["Tags"].([]string), strings.Split(tags, ",")...)
 	}
+	// allow multiple instances of a service per host by passing 
+	// the container Id as consul service id
+	service["ID"] = container.ID[:12]
 	return service
 }
 
@@ -122,7 +125,7 @@ func (b *ContainerServiceBridge) Link(containerId string) {
 
 func (b *ContainerServiceBridge) Unlink(containerId string) {
 	for _, serviceName := range b.linked[containerId] {
-		b.deregister(serviceName)
+		b.deregister(containerId[:12])
 		log.Println("unlink:", containerId[:12], serviceName)
 	}
 }
