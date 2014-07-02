@@ -130,13 +130,13 @@ func (b *ContainerServiceBridge) Unlink(containerId string) {
 func main() {
 	flag.Parse()
 
-	dockerAddr := flag.Arg(0)
-	if dockerAddr == "" {
-		dockerAddr = "unix:///var/run/docker.sock"
-	}
-	consulAddr := flag.Arg(1)
+	consulAddr := flag.Arg(0)
 	if consulAddr == "" {
 		consulAddr = "http://0.0.0.0:8500"
+	}
+	dockerAddr := flag.Arg(1)
+	if dockerAddr == "" {
+		dockerAddr = "unix:///var/run/docker.sock"
 	}
 
 	client, err := docker.NewClient(dockerAddr)
@@ -151,9 +151,6 @@ func main() {
 	}
 
 	events := make(chan *docker.APIEvents)
-	// TODO: resolve this workaround. https://github.com/fsouza/go-dockerclient/issues/101
-	assert(client.AddEventListener(events))
-	assert(client.RemoveEventListener(events))
 	assert(client.AddEventListener(events))
 	for msg := range events {
 		debug("event:", msg.ID[:12], msg.Status)
