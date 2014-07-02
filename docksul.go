@@ -39,53 +39,77 @@ func containerEnv(container *docker.Container, prefix, key, dfault string) strin
 	} else {
 		key = "consul_" + key
 	}
+
 	for _, env := range container.Config.Env {
 		kv := strings.SplitN(env, "=", 2)
+
 		if strings.ToLower(kv[0]) == strings.ToLower(key) {
 			return kv[1]
 		}
 	}
+
 	return dfault
 }
 
 func makeService(container *docker.Container, hostPort, exposedPort, portType string, multiService bool) map[string]interface{} {
 	var keyPrefix, defaultName string
+
 	if multiService {
 		keyPrefix = exposedPort
 		defaultName = container.Name[1:] + "-" + exposedPort
 	} else {
 		defaultName = container.Name[1:]
 	}
+
 	service := make(map[string]interface{})
 	service["Name"] = containerEnv(container, keyPrefix, "name", defaultName)
 	p, _ := strconv.Atoi(hostPort)
 	service["Port"] = p
 	service["Tags"] = make([]string, 0)
+
 	if portType == "udp" {
 		service["Tags"] = append(service["Tags"].([]string), "udp")
 	}
+
 	tags := containerEnv(container, keyPrefix, "tags", "")
 	if tags != "" {
 		service["Tags"] = append(service["Tags"].([]string), strings.Split(tags, ",")...)
 	}
+
+	// allow multiple instances of a service per host by passing
+	// the container Id as consul service id
+	service["ID"] = keyPrefix + "-" + container.ID[:12]
+
 	return service
 }
 
 type ContainerServiceBridge struct {
 	dockerClient *docker.Client
 	consulAddr   string
-	linked       map[string][]string
+	linked       map[string][]*Linked
+}
+
+type Linked struct {
+	Name     string
+	ConsulId string
+}
+
+func NewLinked(name string, id string) *Linked {
+	return &Linked{Name: name, ConsulId: id}
 }
 
 func (b *ContainerServiceBridge) register(service map[string]interface{}) {
 	url := b.consulAddr + "/v1/agent/service/register"
 	body := bytes.NewBuffer(marshal(service))
 	req, err := http.NewRequest("PUT", url, body)
+
 	if err != nil {
 		panic(err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	_, err = http.DefaultClient.Do(req)
+
 	if err != nil {
 		panic(err)
 	}
@@ -115,16 +139,18 @@ func (b *ContainerServiceBridge) Link(containerId string) {
 	for _, port := range portDefs {
 		service := makeService(container, port[0], port[1], port[2], multiservice)
 		b.register(service)
-		b.linked[container.ID] = append(b.linked[container.ID], service["Name"].(string))
+		b.linked[container.ID] = append(b.linked[container.ID], NewLinked(service["Name"].(string), service["ID"].(string)))
 		log.Println("link:", container.ID[:12], service)
 	}
 }
 
 func (b *ContainerServiceBridge) Unlink(containerId string) {
-	for _, serviceName := range b.linked[containerId] {
-		b.deregister(serviceName)
-		log.Println("unlink:", containerId[:12], serviceName)
+	for _, linked := range b.linked[containerId] {
+		b.deregister(linked.ConsulId)
+		log.Println("unlink:", containerId[:12], linked.Name)
 	}
+
+	delete(b.linked, containerId)
 }
 
 func main() {
@@ -142,7 +168,7 @@ func main() {
 	client, err := docker.NewClient(dockerAddr)
 	assert(err)
 
-	bridge := &ContainerServiceBridge{client, consulAddr, make(map[string][]string)}
+	bridge := &ContainerServiceBridge{client, consulAddr, make(map[string][]*Linked)}
 
 	containers, err := client.ListContainers(docker.ListContainersOptions{})
 	assert(err)
@@ -152,8 +178,10 @@ func main() {
 
 	events := make(chan *docker.APIEvents)
 	assert(client.AddEventListener(events))
+
 	for msg := range events {
 		debug("event:", msg.ID[:12], msg.Status)
+
 		switch msg.Status {
 		case "start":
 			go bridge.Link(msg.ID)
@@ -161,5 +189,6 @@ func main() {
 			go bridge.Unlink(msg.ID)
 		}
 	}
+
 	log.Fatal("docker event loop closed") // todo: loop?
 }
