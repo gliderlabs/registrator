@@ -1,43 +1,37 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"flag"
 	"log"
-	"net/http"
 	"os"
+	"path"
 	"strconv"
 	"strings"
+	"sync"
 
-	"github.com/fsouza/go-dockerclient"
+	"github.com/armon/consul-api"
+	"github.com/cenkalti/backoff"
+	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-func debug(v ...interface{}) {
-	if os.Getenv("DEBUG") != "" {
-		log.Println(v...)
+func getopt(name, def string) string {
+	if env := os.Getenv(name); env != "" {
+		return env
 	}
+	return def
 }
 
 func assert(err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("docksul:", err)
 	}
 }
 
-func marshal(obj interface{}) []byte {
-	bytes, err := json.Marshal(obj)
-	if err != nil {
-		log.Println("marshal:", err)
-	}
-	return bytes
-}
-
-func containerEnv(container *docker.Container, prefix, key, dfault string) string {
+func containerServiceData(container *dockerapi.Container, prefix, key, dfault string) string {
 	if prefix != "" {
-		key = "consul_" + prefix + "_" + key
+		key = "SERVICE_" + prefix + "_" + key
 	} else {
-		key = "consul_" + key
+		key = "SERVICE_" + key
 	}
 
 	for _, env := range container.Config.Env {
@@ -51,81 +45,51 @@ func containerEnv(container *docker.Container, prefix, key, dfault string) strin
 	return dfault
 }
 
-func makeService(container *docker.Container, hostPort, exposedPort, portType string, multiService bool) map[string]interface{} {
+type Bridge struct {
+	sync.Mutex
+	docker   *dockerapi.Client
+	consul   *consulapi.Client
+	nodeName string
+	services map[string][]*consulapi.AgentServiceRegistration
+}
+
+func (b *Bridge) buildService(container *dockerapi.Container, hostPort, exposedPort, portType string, multiService bool) *consulapi.AgentServiceRegistration {
 	var keyPrefix, defaultName string
 
+	defaultName = path.Base(container.Config.Image)
 	if multiService {
 		keyPrefix = exposedPort
-		defaultName = container.Name[1:] + "-" + exposedPort
-	} else {
-		defaultName = container.Name[1:]
+		defaultName = defaultName + "-" + exposedPort
 	}
 
-	service := make(map[string]interface{})
-	service["Name"] = containerEnv(container, keyPrefix, "name", defaultName)
+	service := new(consulapi.AgentServiceRegistration)
+	service.ID = b.nodeName + "/" + container.Name[1:] + ":" + exposedPort
+	service.Name = containerServiceData(container, keyPrefix, "name", defaultName)
 	p, _ := strconv.Atoi(hostPort)
-	service["Port"] = p
-	service["Tags"] = make([]string, 0)
+	service.Port = p
+	service.Tags = make([]string, 0)
 
 	if portType == "udp" {
-		service["Tags"] = append(service["Tags"].([]string), "udp")
+		service.ID = service.ID + "/udp"
+		service.Tags = append(service.Tags, "udp")
 	}
 
-	tags := containerEnv(container, keyPrefix, "tags", "")
+	tags := containerServiceData(container, keyPrefix, "tags", "")
 	if tags != "" {
-		service["Tags"] = append(service["Tags"].([]string), strings.Split(tags, ",")...)
+		service.Tags = append(service.Tags, strings.Split(tags, ",")...)
 	}
-
-	// allow multiple instances of a service per host by passing
-	// the container Id as consul service id
-	service["ID"] = keyPrefix + "-" + container.ID[:12]
 
 	return service
 }
 
-type ContainerServiceBridge struct {
-	dockerClient *docker.Client
-	consulAddr   string
-	linked       map[string][]*Linked
-}
-
-type Linked struct {
-	Name     string
-	ConsulId string
-}
-
-func NewLinked(name string, id string) *Linked {
-	return &Linked{Name: name, ConsulId: id}
-}
-
-func (b *ContainerServiceBridge) register(service map[string]interface{}) {
-	url := b.consulAddr + "/v1/agent/service/register"
-	body := bytes.NewBuffer(marshal(service))
-	req, err := http.NewRequest("PUT", url, body)
-
+func (b *Bridge) Add(containerId string) {
+	b.Lock()
+	defer b.Unlock()
+	container, err := b.docker.InspectContainer(containerId)
 	if err != nil {
-		panic(err)
+		log.Println("docksul: unable to inspect container:", containerId, err)
+		return
 	}
-
-	req.Header.Set("Content-Type", "application/json")
-	_, err = http.DefaultClient.Do(req)
-
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (b *ContainerServiceBridge) deregister(serviceId string) {
-	url := b.consulAddr + "/v1/agent/service/deregister/" + serviceId
-	_, err := http.DefaultClient.Get(url)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (b *ContainerServiceBridge) Link(containerId string) {
-	container, err := b.dockerClient.InspectContainer(containerId)
-	assert(err)
 
 	portDefs := make([][]string, 0)
 	for port, published := range container.NetworkSettings.Ports {
@@ -137,58 +101,83 @@ func (b *ContainerServiceBridge) Link(containerId string) {
 
 	multiservice := len(portDefs) > 1
 	for _, port := range portDefs {
-		service := makeService(container, port[0], port[1], port[2], multiservice)
-		b.register(service)
-		b.linked[container.ID] = append(b.linked[container.ID], NewLinked(service["Name"].(string), service["ID"].(string)))
-		log.Println("link:", container.ID[:12], service)
+		service := b.buildService(container, port[0], port[1], port[2], multiservice)
+		err := backoff.Retry(func() error {
+			return b.consul.Agent().ServiceRegister(service)
+		}, backoff.NewExponentialBackoff())
+		if err != nil {
+			log.Println("docksul: unable to register service:", service, err)
+			continue
+		}
+		b.services[container.ID] = append(b.services[container.ID], service)
+		log.Println("docksul: added:", container.ID[:12], service.ID)
 	}
 }
 
-func (b *ContainerServiceBridge) Unlink(containerId string) {
-	for _, linked := range b.linked[containerId] {
-		b.deregister(linked.ConsulId)
-		log.Println("unlink:", containerId[:12], linked.Name)
+func (b *Bridge) Remove(containerId string) {
+	b.Lock()
+	defer b.Unlock()
+	for _, service := range b.services[containerId] {
+		err := backoff.Retry(func() error {
+			return b.consul.Agent().ServiceDeregister(service.ID)
+		}, backoff.NewExponentialBackoff())
+		if err != nil {
+			log.Println("docksul: unable to deregister service:", service.ID, err)
+			continue
+		}
+		log.Println("docksul: removed:", containerId[:12], service.ID)
 	}
-
-	delete(b.linked, containerId)
+	delete(b.services, containerId)
 }
 
 func main() {
 	flag.Parse()
 
-	consulAddr := flag.Arg(0)
-	if consulAddr == "" {
-		consulAddr = "http://0.0.0.0:8500"
+	consulConfig := consulapi.DefaultConfig()
+	if flag.Arg(0) != "" {
+		consulConfig.Address = flag.Arg(0)
 	}
-	dockerAddr := flag.Arg(1)
-	if dockerAddr == "" {
-		dockerAddr = "unix:///var/run/docker.sock"
-	}
-
-	client, err := docker.NewClient(dockerAddr)
+	consul, err := consulapi.NewClient(consulConfig)
 	assert(err)
 
-	bridge := &ContainerServiceBridge{client, consulAddr, make(map[string][]*Linked)}
+	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
+	assert(err)
 
-	containers, err := client.ListContainers(docker.ListContainersOptions{})
+	log.Println("docksul: Getting Consul nodename...")
+	var nodeName string
+	err = backoff.Retry(func() (e error) {
+		nodeName, e = consul.Agent().NodeName()
+		if e != nil {
+			log.Println(e)
+		}
+		return
+	}, backoff.NewExponentialBackoff())
+	assert(err)
+
+	bridge := &Bridge{
+		docker:   docker,
+		consul:   consul,
+		nodeName: nodeName,
+		services: make(map[string][]*consulapi.AgentServiceRegistration),
+	}
+
+	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
 	assert(err)
 	for _, listing := range containers {
-		bridge.Link(listing.ID[:12])
+		bridge.Add(listing.ID[:12])
 	}
 
-	events := make(chan *docker.APIEvents)
-	assert(client.AddEventListener(events))
-
+	events := make(chan *dockerapi.APIEvents)
+	assert(docker.AddEventListener(events))
+	log.Println("docksul: Listening for Docker events...")
 	for msg := range events {
-		debug("event:", msg.ID[:12], msg.Status)
-
 		switch msg.Status {
 		case "start":
-			go bridge.Link(msg.ID)
+			go bridge.Add(msg.ID)
 		case "die":
-			go bridge.Unlink(msg.ID)
+			go bridge.Remove(msg.ID)
 		}
 	}
 
-	log.Fatal("docker event loop closed") // todo: loop?
+	log.Fatal("docksul: docker event loop closed") // todo: reconnect?
 }
