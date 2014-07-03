@@ -18,3 +18,5 @@ release:
 	echo "$(VERSION)" > release/version
 	echo "progrium/$(NAME)" > release/repo
 	gh-release
+
+.PHONY: release
