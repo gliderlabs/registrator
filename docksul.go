@@ -104,7 +104,7 @@ func (b *Bridge) Add(containerId string) {
 		service := b.buildService(container, port[0], port[1], port[2], multiservice)
 		err := backoff.Retry(func() error {
 			return b.consul.Agent().ServiceRegister(service)
-		}, backoff.NewExponentialBackoff())
+		}, backoff.NewExponentialBackOff())
 		if err != nil {
 			log.Println("docksul: unable to register service:", service, err)
 			continue
@@ -120,7 +120,7 @@ func (b *Bridge) Remove(containerId string) {
 	for _, service := range b.services[containerId] {
 		err := backoff.Retry(func() error {
 			return b.consul.Agent().ServiceDeregister(service.ID)
-		}, backoff.NewExponentialBackoff())
+		}, backoff.NewExponentialBackOff())
 		if err != nil {
 			log.Println("docksul: unable to deregister service:", service.ID, err)
 			continue
@@ -151,7 +151,7 @@ func main() {
 			log.Println(e)
 		}
 		return
-	}, backoff.NewExponentialBackoff())
+	}, backoff.NewExponentialBackOff())
 	assert(err)
 
 	bridge := &Bridge{
