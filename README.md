@@ -2,13 +2,13 @@
 
 Service registry bridge for Docker
 
-Registrator listens for Docker events and register/deregisters services for containers based on published ports and metadata from the container environment. Registrator supports pluggable service registries, which currently includes Consul and Etcd. 
+Registrator listens for Docker events and register/deregisters services for containers based on published ports and metadata from the container environment. Registrator supports pluggable service registries, which currently includes [Consul](http://www.consul.io/) and [etcd](https://github.com/coreos/etcd). 
 
 By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
 
 ## Starting Registrator
 
-Registrator assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. The only argument is a registry URI, which is described in the next section.
+Registrator assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. The only argument is a registry URI, which specifies and configures the registry backend to use.
 
 	$ registrator <registry-uri>
 
@@ -20,7 +20,7 @@ You can run it as a container, but you must pass the Docker socket file as a mou
 
 ### Registry URIs
 
-The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper (not yet supported) can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See further down on adding support for other registries.
+The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper (not yet supported) can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See also [Adding support for other service registries](#adding-support-for-other-service-registries).
 
 #### Consul Service Catalog (recommended)
 
@@ -55,7 +55,7 @@ Service definitions are stored as:
 
 Services are registered and deregistered based on container start and die events from Docker. The service definitions are created with information from the container, including user-defined metadata in the container environment.
 
-For each published port of a container, a `Service` object is created and passed to the `ServiceRegistry` to register. A `Service` object looks like this and defaults explained in the comments:
+For each published port of a container, a `Service` object is created and passed to the `ServiceRegistry` to register. A `Service` object looks like this with defaults explained in the comments:
 
 	type Service struct {
 		ID    string               // <hostname>:<container-name>:<internal-port>
@@ -68,7 +68,9 @@ For each published port of a container, a `Service` object is created and passed
 
 Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
 
-### Simple example with defaults
+Since metadata is stored as environment variables, the container author can include their own metadata defined in the Dockerfile. The operator will still be able to override these author-defined defaults.
+
+### Single service with defaults
 
 	$ docker run -d --name redis.0 -p 10000:6379 dockerfile/redis
 
@@ -83,7 +85,7 @@ Results in `Service`:
 		"Attrs": {}
 	}
 
-### Simple example with metadata
+### Single service with metadata
 
 	$ docker run -d --name redis.0 -p 10000:6379 \
 		-e "SERVICE_NAME=db" \
@@ -101,7 +103,7 @@ Results in `Service`:
 		"Attrs": {"region": "us2"}
 	}
 
-### Complex example with defaults
+### Multiple services with defaults
 
 	$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 progrium/nginx
 
@@ -126,11 +128,12 @@ Results in two `Service` objects:
 		}
 	]
 
-### Complex example with metadata
+### Multiple services with metadata
 
 	$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 \
 		-e "SERVICE_443_NAME=https" \
 		-e "SERVICE_443_ID=https.12345" \
+		-e "SERVICE_443_SNI=enabled" \
 		-e "SERVICE_80_NAME=http" \
 		-e "SERVICE_TAGS=www" progrium/nginx
 
@@ -143,7 +146,7 @@ Results in two `Service` objects:
 			"Port": 4443,
 			"IP": "192.168.1.102",
 			"Tags": ["www"],
-			"Attrs": {},
+			"Attrs": {"sni": "enabled"},
 		},
 		{
 			"ID": "hostname:nginx.0:80",
@@ -172,7 +175,7 @@ Then add your constructor (for example `NewZookeeperRegistry`) to the factory lo
 
 ## Sponsors and Thanks
 
-This project was made possible by [DigitalOcean](http://digitalocean.com). Big thanks to Michael Crosby for [skydock](https://github.com/crosbymichael/skydock).
+This project was made possible by [DigitalOcean](http://digitalocean.com). Big thanks to Michael Crosby for [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list for inspiration.
 
 ## License
 
