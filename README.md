@@ -2,9 +2,11 @@
 
 Service registry bridge for Docker
 
-Registrator listens for Docker events and register/deregisters services for containers based on published ports and metadata from the container environment. Registrator supports pluggable service registries, which currently includes [Consul](http://www.consul.io/) and [etcd](https://github.com/coreos/etcd). 
+Registrator listens for Docker events and register/deregisters services for containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/) and [etcd](https://github.com/coreos/etcd). 
 
 By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
+
+Registrator pairs well with [ambassadord](https://github.com/progrium/ambassadord) and together are part of upcoming opinionated discovery/routing solution [Consulate](https://github.com/progrium/consulate).
 
 ## Starting Registrator
 
@@ -58,7 +60,7 @@ Services are registered and deregistered based on container start and die events
 For each published port of a container, a `Service` object is created and passed to the `ServiceRegistry` to register. A `Service` object looks like this with defaults explained in the comments:
 
 	type Service struct {
-		ID    string               // <hostname>:<container-name>:<internal-port>
+		ID    string               // <hostname>:<container-name>:<internal-port>[:udp if udp]
 		Name  string               // <basename(container-image)>[-<internal-port> if >1 published ports]
 		Port  int                  // <host-port>
 		IP    string               // <host-ip> || <resolve(hostname)> if 0.0.0.0
@@ -167,11 +169,16 @@ As you can see by either the Consul or etcd source files, writing a new registry
 		Deregister(service *Service) error
 	}
 
-Then add your constructor (for example `NewZookeeperRegistry`) to the factory looking function in `registrator.go`.
+Then add your constructor (for example `NewZookeeperRegistry`) to the factory function `NewServiceRegistry` in `registrator.go`.
 
-## Todo
+## Todo / Contribution Ideas
 
  * Consul backend: support custom checks with SERVICE_CHECK_SCRIPT and SERVICE_CHECK_INTERVAL variables
+ * Zookeeper backend
+ * SkyDNS backend
+ * discoverd backend
+ * Netflix Eureka backend
+ * etc...
 
 ## Sponsors and Thanks
 
