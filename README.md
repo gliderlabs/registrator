@@ -1,113 +1,174 @@
-# docksul
+# Registrator
 
-A Docker-Consul bridge that automatically registers containers with published ports as Consul services. As Docker containers are started, docksul will inspect them for published ports and register them as services with Consul. As containers stop, the services are deregistered. If the default service descriptions are unsuitable, you can customize them with environment variables on the container.
+Service registry bridge for Docker
 
-Although available standalone, docksul is used as a component of Consulate and it's recommended you use Consulate instead unless you know what you're doing. 
+Registrator listens for Docker events and register/deregisters services for containers based on published ports and metadata from the container environment. Registrator supports pluggable service registries, which currently includes Consul and Etcd. 
 
-## Starting docksul
+By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
 
-docksul assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. It also uses `0.0.0.0:8500` for Consul, but you can override it by passing an IP and port as an argument. 
+## Starting Registrator
 
-	$ docksul [consul-addr]
+Registrator assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. The only argument is a registry URI, which is described in the next section.
 
-You can run it as a container, but you must pass the Docker socket file as a mount to `/tmp/docker.sock`:
+	$ registrator <registry-uri>
 
-	$ docker run -d -v /var/run/docker.sock:/tmp/docker.sock progrium/docksul [consul-addr]
+You can run it as a container, but you must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
+
+	$ docker run -d \
+		-v /var/run/docker.sock:/tmp/docker.sock \
+		-h $HOSTNAME progrium/registrator <registry-uri>
+
+### Registry URIs
+
+The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper (not yet supported) can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See further down on adding support for other registries.
+
+#### Consul Service Catalog (recommended)
+
+To use the Consul service catalog, specify a Consul URI without a path. If no host is provided, `127.0.0.1:8500` is used. Examples:
+
+	$ registrator consul://10.0.0.1:8500
+	$ registrator consul:
+
+#### Consul Key-value Store
+
+The Consul backend also lets you just use the key-value store. This mode is enabled by specifying a path. Consul key-value support does not currently use service attributes/tags. Example URIs:
+
+	$ registrator consul:///path/to/services
+	$ registrator consul://192.168.1.100/services
+
+Service definitions are stored as:
+
+	<registry-uri-path>/<service-name>/<service-id> = <ip>:<port>
+
+#### Etcd Key-value Store
+
+Etcd support works similar to Consul key-value. It also currently doesn't support service attributes/tags. If no host is provided, `127.0.0.1:4001` is used. Example URIs:
+
+	$ registrator etcd:///path/to/services
+	$ registrator etcd://192.168.1.100/services
+
+Service definitions are stored as:
+
+	<registry-uri-path>/<service-name>/<service-id> = <ip>:<port>
 
 ## How it works
 
-### One published port, the simple case
+Services are registered and deregistered based on container start and die events from Docker. The service definitions are created with information from the container, including user-defined metadata in the container environment.
 
-If a container publishes one port, one service will be created using the host port. By default, the service will be named after the base name of the image. For example:
+For each published port of a container, a `Service` object is created and passed to the `ServiceRegistry` to register. A `Service` object looks like this and defaults explained in the comments:
+
+	type Service struct {
+		ID    string               // <hostname>:<container-name>:<internal-port>
+		Name  string               // <basename(container-image)>[-<internal-port> if >1 published ports]
+		Port  int                  // <host-port>
+		IP    string               // <host-ip> || <resolve(hostname)> if 0.0.0.0
+		Tags  []string             // empty, or includes 'udp' if udp
+		Attrs map[string]string    // any remaining service metadata from environment
+	}
+
+Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
+
+### Simple example with defaults
 
 	$ docker run -d --name redis.0 -p 10000:6379 dockerfile/redis
 
-Will result in a service:
+Results in `Service`:
 
 	{
-		"id": "<nodename>/redis.0:6379",
-		"name": "redis",
-		"port": 10000,
-		"tags": []
+		"ID": "hostname:redis.0:6379",
+		"Name": "redis",
+		"Port": 10000,
+		"IP": "192.168.1.102",
+		"Tags": [],
+		"Attrs": {}
 	}
 
-The service ID is a unique identifier for this service instance. It's produced by the Consul agent's node name (often the hostname), then the name of the container, then the exposed port. You rarely need to use the ID since Consul lookups are done by name.
+### Simple example with metadata
 
-You can override service name by setting the environment variable `SERVICE_NAME`. You also don't have to specify a host port, as it will use the automatically assigned one if not provided.
+	$ docker run -d --name redis.0 -p 10000:6379 \
+		-e "SERVICE_NAME=db" \
+		-e "SERVICE_TAGS=master,backups" \
+		-e "SERVICE_REGION=us2" dockerfile/redis
 
-	$ docker run -d --name redis.0 -e "SERVICE_NAME=db" -p 6379 dockerfile/redis	
-
-Results in the service:
+Results in `Service`:
 
 	{
-		"id": "<nodename>/redis.0:6379",
-		"name": "db",
-		"port": 23210,
-		"tags": []
+		"ID": "hostname:redis.0:6379",
+		"Name": "db",
+		"Port": 10000,
+		"IP": "192.168.1.102",
+		"Tags": ["master", "backups"],
+		"Attrs": {"region": "us2"}
 	}
 
-You can also specify tags with a comma-delimited list. If you publish a port on UDP, it will automatically get a `udp` tag.
+### Complex example with defaults
 
-	$ docker run -d --name consul -p 53/udp -e "SERVICE_TAGS=dns,backup" progrium/consul
+	$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 progrium/nginx
 
-Results in the service:
-
-	{
-		"id": "<nodename>/consul:53",
-		"name": "consul",
-		"port": 18279,
-		"tags": ["dns", "backup", "udp"]
-	}
-
-### Multiple published ports
-
-If a container publishes more than one port, a service will be created for each published port. By default, the services will be named using the base name of the image and the *internal* exposed port. For example:
-	
-	$ docker run -p 8000:80 -p 4443:443 --name nginx.0 progrium/nginx
-
-Results in two services:
+Results in two `Service` objects:
 
 	[
 		{
-			"id": "<nodename>/nginx.0:80",
-			"name": "nginx-80",
-			"port": 8000,
-			"tags": []
+			"ID": "hostname:nginx.0:443",
+			"Name": "nginx-443",
+			"Port": 4443,
+			"IP": "192.168.1.102",
+			"Tags": [],
+			"Attrs": {},
 		},
 		{
-			"id": "<nodename>/nginx.0:443",
-			"name": "nginx-443",
-			"port": 4443,
-			"tags": []
+			"ID": "hostname:nginx.0:80",
+			"Name": "nginx-80",
+			"Port": 8000,
+			"IP": "192.168.1.102",
+			"Tags": [],
+			"Attrs": {}
 		}
 	]
 
-You can override each port's service name by setting the environment variable `SERVICE_{port}_NAME` where port is the *internal* exposed port. For example:
+### Complex example with metadata
 
-	$ docker run -p 8000:80 -p 4443:443 --name nginx.0 -e "SERVICE_80_NAME=http" -e "SERVICE_443_NAME=https" progrium/nginx
+	$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 \
+		-e "SERVICE_443_NAME=https" \
+		-e "SERVICE_443_ID=https.12345" \
+		-e "SERVICE_80_NAME=http" \
+		-e "SERVICE_TAGS=www" progrium/nginx
 
-Resulting in:
+Results in two `Service` objects:
 
 	[
 		{
-			"id": "<nodename>/nginx.0:80",
-			"name": "http",
-			"port": 8000,
-			"tags": []
+			"ID": "https.12345",
+			"Name": "https",
+			"Port": 4443,
+			"IP": "192.168.1.102",
+			"Tags": ["www"],
+			"Attrs": {},
 		},
 		{
-			"id": "<nodename>/nginx.0:443",
-			"name": "https",
-			"port": 4443,
-			"tags": []
+			"ID": "hostname:nginx.0:80",
+			"Name": "http",
+			"Port": 8000,
+			"IP": "192.168.1.102",
+			"Tags": ["www"],
+			"Attrs": {}
 		}
 	]
 
-Setting tags or any future service attributes would use the same prefix convention for multi service containers (ie `SERVICE_80_TAGS`).
+## Adding support for other service registries
+
+As you can see by either the Consul or etcd source files, writing a new registry backend is easy. Just follow the example set by those two. It boils down to writing an object that implements this interface:
+
+	type ServiceRegistry interface {
+		Register(service *Service) error
+		Deregister(service *Service) error
+	}
+
+Then add your constructor (for example `NewZookeeperRegistry`) to the factory looking function in `registrator.go`.
 
 ## Todo
 
- * Support custom Consul checks with SERVICE_CHECK_SCRIPT and SERVICE_CHECK_INTERVAL variables
+ * Consul backend: support custom checks with SERVICE_CHECK_SCRIPT and SERVICE_CHECK_INTERVAL variables
 
 ## Sponsors and Thanks
 

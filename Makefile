@@ -1,11 +1,11 @@
-NAME=docksul
+NAME=registrator
 HARDWARE=$(shell uname -m)
-VERSION=0.1.0
+VERSION=0.2.0
 
 build:
 	mkdir -p stage
-	go build -o stage/docksul
-	docker build -t docksul .
+	go build -o stage/dockser
+	docker build -t registrator .
 
 release:
 	rm -rf release
