@@ -14,7 +14,7 @@ Registrator assumes the default Docker socket at `file:///var/run/docker.sock` o
 
 	$ registrator <registry-uri>
 
-You can run it as a container, but you must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
+However, it was designed to just be run as a container. You must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
 
 	$ docker run -d \
 		-v /var/run/docker.sock:/tmp/docker.sock \
