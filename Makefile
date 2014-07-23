@@ -4,7 +4,7 @@ VERSION=0.2.0
 
 build:
 	mkdir -p stage
-	go build -o stage/dockser
+	go build -o stage/registrator
 	docker build -t registrator .
 
 release:
