@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+	"net/url"
 	"os"
-	"strings"
 
 	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -57,7 +57,9 @@ func main() {
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
 	assert(err)
 
-	registry := NewServiceRegistry(flag.Arg(0))
+	uri, err := url.Parse(flag.Arg(0))
+	assert(err)
+	registry := NewServiceRegistry(uri)
 
 	bridge := &RegistryBridge{
 		docker:   docker,

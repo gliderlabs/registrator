@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
+	"net"
 	"net/url"
+	"strconv"
 
 	"github.com/armon/consul-api"
 )
@@ -42,9 +43,9 @@ func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
 
 func (r *ConsulRegistry) registerWithKV(service *Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
-	port, _ := strconv.Itoa(service.Port)
+	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
-	_, err := r.client.KV().Put(consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
+	_, err := r.client.KV().Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
 	return err
 }
 

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net"
 	"net/url"
 	"strconv"
@@ -23,15 +22,15 @@ func NewEtcdRegistry(uri *url.URL) ServiceRegistry {
 }
 
 func (r *EtcdRegistry) Register(service *Service) error {
-	path := r.path + "/" + serviceName + "/" + serviceID
-	port, _ := strconv.Itoa(service.Port)
+	path := r.path + "/" + service.Name + "/" + service.ID
+	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
-	_, err := s.client.Create(path, addr, 0)
+	_, err := r.client.Create(path, addr, 0)
 	return err
 }
 
 func (r *EtcdRegistry) Deregister(service *Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
-	_, err := s.client.Delete(path, false)
+	_, err := r.client.Delete(path, false)
 	return err
 }

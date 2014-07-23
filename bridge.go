@@ -49,7 +49,7 @@ func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool
 	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
 
 	service := new(Service)
-	service.ID = hostname + ":" + contianer.Name[1:] + ":" + port.ExposedPort
+	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapdefault(metadata, "name", defaultName)
 	p, _ := strconv.Atoi(port.HostPort)
 	service.Port = p
@@ -119,7 +119,12 @@ func (b *RegistryBridge) Add(containerId string) {
 	for port, published := range container.NetworkSettings.Ports {
 		if len(published) > 0 {
 			p := strings.Split(string(port), "/")
-			ports = append(ports, PublishedPort{published[0].HostPort, p[0], p[1]})
+			ports = append(ports, PublishedPort{
+				HostPort:    published[0].HostPort,
+				HostIP:      published[0].HostIp,
+				ExposedPort: p[0],
+				PortType:    p[1],
+			})
 		}
 	}
 
