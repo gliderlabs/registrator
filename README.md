@@ -10,15 +10,19 @@ Registrator pairs well with [ambassadord](https://github.com/progrium/ambassador
 
 ## Starting Registrator
 
-Registrator assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. The only argument is a registry URI, which specifies and configures the registry backend to use.
+Registrator assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. The only  mandatory argument is a registry URI, which specifies and configures the registry backend to use.
 
 	$ registrator <registry-uri>
 
-However, it was designed to just be run as a container. You must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
+By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the -ip argument. This is useful when running registrator inside a container, and the host address resolves to the docker0 interface.
+
+	$ registrator -ip=x.x.x.x <registry-uri>
+
+Registrator was designed to just be run as a container. You must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
 
 	$ docker run -d \
 		-v /var/run/docker.sock:/tmp/docker.sock \
-		-h $HOSTNAME progrium/registrator <registry-uri>
+		-h $HOSTNAME progrium/registrator -ip=x.x.x.x <registry-uri>
 
 ### Registry URIs
 
