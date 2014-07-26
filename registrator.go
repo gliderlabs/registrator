@@ -48,6 +48,7 @@ func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 	if factory == nil {
 		log.Fatal("unrecognized registry backend: ", uri.Scheme)
 	}
+	log.Println("registrator: Using " + uri.Scheme + " registry backend at", uri)
 	return factory(uri)
 }
 
