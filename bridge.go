@@ -46,6 +46,10 @@ func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool
 		}
 	}
 
+	if *hostIp != "" {
+		port.HostIP = *hostIp
+	}
+
 	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
 
 	service := new(Service)

@@ -10,6 +10,8 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
+var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
 		return env
@@ -48,11 +50,17 @@ func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 	if factory == nil {
 		log.Fatal("unrecognized registry backend: ", uri.Scheme)
 	}
+	log.Println("registrator: Using " + uri.Scheme + " registry backend at", uri)
 	return factory(uri)
 }
 
 func main() {
+
 	flag.Parse()
+
+	if *hostIp != "" {
+		log.Println("registrator: Forcing host IP to", *hostIp)
+	}
 
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
 	assert(err)
