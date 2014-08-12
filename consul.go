@@ -62,7 +62,7 @@ func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
 }
 
 func (r *ConsulRegistry) deregisterWithKV(service *Service) error {
-	path := r.path + "/" + service.Name + "/" + service.ID
+	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
 	return err
 }
