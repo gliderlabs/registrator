@@ -42,7 +42,7 @@ func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
 }
 
 func (r *ConsulRegistry) registerWithKV(service *Service) error {
-	path := r.path + "/" + service.Name + "/" + service.ID
+	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
 	_, err := r.client.KV().Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
