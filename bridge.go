@@ -52,34 +52,41 @@ func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool
 
 	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
 
-	service := new(Service)
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	service.Name = mapdefault(metadata, "name", defaultName)
-	p, _ := strconv.Atoi(port.HostPort)
-	service.Port = p
-	service.IP = port.HostIP
+	ignore := mapdefault(metadata, "ignore", "")
+	if ignore == "" {
 
-	service.Tags = make([]string, 0)
-	tags := mapdefault(metadata, "tags", "")
-	if tags != "" {
-		service.Tags = append(service.Tags, strings.Split(tags, ",")...)
+		service := new(Service)
+		service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+		service.Name = mapdefault(metadata, "name", defaultName)
+		p, _ := strconv.Atoi(port.HostPort)
+		service.Port = p
+		service.IP = port.HostIP
+
+		service.Tags = make([]string, 0)
+		tags := mapdefault(metadata, "tags", "")
+		if tags != "" {
+			service.Tags = append(service.Tags, strings.Split(tags, ",")...)
+		}
+		if port.PortType == "udp" {
+			service.Tags = append(service.Tags, "udp")
+			service.ID = service.ID + ":udp"
+		}
+
+		id := mapdefault(metadata, "id", "")
+		if id != "" {
+			service.ID = id
+		}
+
+		delete(metadata, "id")
+		delete(metadata, "tags")
+		delete(metadata, "name")
+		service.Attrs = metadata
+
+		return service
+	} else {
+		return nil
 	}
-	if port.PortType == "udp" {
-		service.Tags = append(service.Tags, "udp")
-		service.ID = service.ID + ":udp"
-	}
 
-	id := mapdefault(metadata, "id", "")
-	if id != "" {
-		service.ID = id
-	}
-
-	delete(metadata, "id")
-	delete(metadata, "tags")
-	delete(metadata, "name")
-	service.Attrs = metadata
-
-	return service
 }
 
 func serviceMetaData(env []string, port string) map[string]string {
@@ -134,15 +141,19 @@ func (b *RegistryBridge) Add(containerId string) {
 
 	for _, port := range ports {
 		service := NewService(container, port, len(ports) > 1)
-		err := retry(func() error {
-			return b.registry.Register(service)
-		})
-		if err != nil {
-			log.Println("registrator: unable to register service:", service, err)
-			continue
+		if service != nil {
+			err := retry(func() error {
+				return b.registry.Register(service)
+			})
+			if err != nil {
+				log.Println("registrator: unable to register service:", service, err)
+				continue
+			}
+			b.services[container.ID] = append(b.services[container.ID], service)
+			log.Println("registrator: added:", container.ID[:12], service.ID)
+		} else {
+			log.Println("registrator: ignoring container as requested:", containerId)
 		}
-		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("registrator: added:", container.ID[:12], service.ID)
 	}
 }
 
