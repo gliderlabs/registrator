@@ -52,6 +52,11 @@ func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool
 
 	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
 
+	ignore := mapdefault(metadata, "ignore", "")
+	if ignore != "" {
+		return nil
+	}
+
 	service := new(Service)
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapdefault(metadata, "name", defaultName)
@@ -134,6 +139,10 @@ func (b *RegistryBridge) Add(containerId string) {
 
 	for _, port := range ports {
 		service := NewService(container, port, len(ports) > 1)
+		if service == nil {
+			log.Println("registrator: ignoring container as requested:", containerId)
+			continue
+		}
 		err := retry(func() error {
 			return b.registry.Register(service)
 		})
