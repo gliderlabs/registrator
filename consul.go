@@ -37,7 +37,27 @@ func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
 	registration.Name = service.Name
 	registration.Port = service.Port
 	registration.Tags = service.Tags
-	// TODO registration.Check
+
+	checkScript, hasCheckScript := service.Attrs["SERVICE_CHECK_SCRIPT"]
+	checkInterval, hasCheckInterval := service.Attrs["SERVICE_CHECK_INTERVAL"]
+	checkTTL, hasCheckTTL := service.Attrs["SERVICE_CHECK_TTL"]
+
+	if hasCheckScript && hasCheckTTL {
+		// TODO: log/raise an error about script and ttl being exclusive?
+	} else if hasCheckScript || hasCheckTTL {
+		check := new(consulapi.AgentServiceCheck)
+		if hasCheckScript {
+			check.Script = checkScript
+			if hasCheckInterval {
+				check.Interval = checkInterval
+			} else {
+				check.Interval = "10s"
+			}
+		} else {
+			check.TTL = checkTTL
+		}
+		registration.Check = check
+	}
 	return r.client.Agent().ServiceRegister(registration)
 }
 
