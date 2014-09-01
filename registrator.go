@@ -50,7 +50,7 @@ func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 	if factory == nil {
 		log.Fatal("unrecognized registry backend: ", uri.Scheme)
 	}
-	log.Println("registrator: Using " + uri.Scheme + " registry backend at", uri)
+	log.Println("registrator: Using", uri.Scheme, "registry backend at", uri)
 	return factory(uri)
 }
 
@@ -87,9 +87,9 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go bridge.Add(msg.ID)
+			go bridge.Add(msg.ID[:12])
 		case "die":
-			go bridge.Remove(msg.ID)
+			go bridge.Remove(msg.ID[:12])
 		}
 	}
 

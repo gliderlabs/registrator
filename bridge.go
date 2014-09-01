@@ -29,7 +29,7 @@ type Service struct {
 }
 
 func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool) *Service {
-	defaultName := path.Base(container.Config.Image)
+	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 	if isgroup {
 		defaultName = defaultName + "-" + port.ExposedPort
 	}
@@ -137,10 +137,15 @@ func (b *RegistryBridge) Add(containerId string) {
 		}
 	}
 
+	if len(ports) == 0 {
+		log.Println("registrator: ignored:", containerId, "no published ports")
+		return
+	}
+
 	for _, port := range ports {
 		service := NewService(container, port, len(ports) > 1)
 		if service == nil {
-			log.Println("registrator: ignoring container as requested:", containerId)
+			log.Println("registrator: ignored:", containerId, "service on port", port.ExposedPort)
 			continue
 		}
 		err := retry(func() error {
