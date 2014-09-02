@@ -78,7 +78,7 @@ func main() {
 	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
 	assert(err)
 	for _, listing := range containers {
-		bridge.Add(listing.ID[:12])
+		bridge.Add(listing.ID)
 	}
 
 	events := make(chan *dockerapi.APIEvents)
@@ -87,9 +87,9 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go bridge.Add(msg.ID[:12])
+			go bridge.Add(msg.ID)
 		case "die":
-			go bridge.Remove(msg.ID[:12])
+			go bridge.Remove(msg.ID)
 		}
 	}
 

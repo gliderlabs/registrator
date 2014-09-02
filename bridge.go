@@ -17,6 +17,7 @@ type PublishedPort struct {
 	HostIP      string
 	ExposedPort string
 	PortType    string
+	Container   *dockerapi.Container
 }
 
 type Service struct {
@@ -26,9 +27,12 @@ type Service struct {
 	IP    string
 	Tags  []string
 	Attrs map[string]string
+
+	pp PublishedPort
 }
 
-func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool) *Service {
+func NewService(port PublishedPort, isgroup bool) *Service {
+	container := port.Container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 	if isgroup {
 		defaultName = defaultName + "-" + port.ExposedPort
@@ -58,6 +62,7 @@ func NewService(container *dockerapi.Container, port PublishedPort, isgroup bool
 	}
 
 	service := new(Service)
+	service.pp = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapdefault(metadata, "name", defaultName)
 	p, _ := strconv.Atoi(port.HostPort)
@@ -120,7 +125,7 @@ func (b *RegistryBridge) Add(containerId string) {
 	defer b.Unlock()
 	container, err := b.docker.InspectContainer(containerId)
 	if err != nil {
-		log.Println("registrator: unable to inspect container:", containerId, err)
+		log.Println("registrator: unable to inspect container:", containerId[:12], err)
 		return
 	}
 
@@ -133,19 +138,20 @@ func (b *RegistryBridge) Add(containerId string) {
 				HostIP:      published[0].HostIp,
 				ExposedPort: p[0],
 				PortType:    p[1],
+				Container:   container,
 			})
 		}
 	}
 
 	if len(ports) == 0 {
-		log.Println("registrator: ignored:", containerId, "no published ports")
+		log.Println("registrator: ignored:", container.ID[:12], "no published ports")
 		return
 	}
 
 	for _, port := range ports {
-		service := NewService(container, port, len(ports) > 1)
+		service := NewService(port, len(ports) > 1)
 		if service == nil {
-			log.Println("registrator: ignored:", containerId, "service on port", port.ExposedPort)
+			log.Println("registrator: ignored:", container.ID[:12], "service on port", port.ExposedPort)
 			continue
 		}
 		err := retry(func() error {

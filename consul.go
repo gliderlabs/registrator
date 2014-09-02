@@ -1,12 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
 
 	"github.com/armon/consul-api"
 )
+
+const DefaultInterval = "10s"
 
 type ConsulRegistry struct {
 	client *consulapi.Client
@@ -37,28 +40,32 @@ func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
 	registration.Name = service.Name
 	registration.Port = service.Port
 	registration.Tags = service.Tags
+	registration.Check = r.buildCheck(service)
 
-	checkScript, hasCheckScript := service.Attrs["SERVICE_CHECK_SCRIPT"]
-	checkInterval, hasCheckInterval := service.Attrs["SERVICE_CHECK_INTERVAL"]
-	checkTTL, hasCheckTTL := service.Attrs["SERVICE_CHECK_TTL"]
-
-	if hasCheckScript && hasCheckTTL {
-		// TODO: log/raise an error about script and ttl being exclusive?
-	} else if hasCheckScript || hasCheckTTL {
-		check := new(consulapi.AgentServiceCheck)
-		if hasCheckScript {
-			check.Script = checkScript
-			if hasCheckInterval {
-				check.Interval = checkInterval
-			} else {
-				check.Interval = "10s"
-			}
-		} else {
-			check.TTL = checkTTL
-		}
-		registration.Check = check
-	}
 	return r.client.Agent().ServiceRegister(registration)
+}
+
+func (r *ConsulRegistry) buildCheck(service *Service) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	if path := service.Attrs["check_http"]; path != "" {
+		check.Script = fmt.Sprintf("check-http %s %s %s", service.pp.Container.ID[:12], service.pp.ExposedPort, path)
+	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
+		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.pp.Container.ID[:12], service.pp.ExposedPort, cmd)
+	} else if script := service.Attrs["check_script"]; script != "" {
+		check.Script = script
+	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
+		check.TTL = ttl
+	} else {
+		return nil
+	}
+	if check.Script != "" {
+		if interval := service.Attrs["check_interval"]; interval != "" {
+			check.Interval = interval
+		} else {
+			check.Interval = DefaultInterval
+		}
+	}
+	return check
 }
 
 func (r *ConsulRegistry) registerWithKV(service *Service) error {
