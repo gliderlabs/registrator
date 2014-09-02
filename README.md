@@ -183,7 +183,7 @@ When using the Consul's service catalog backend, you can specify a health check 
 
 #### Basic HTTP health check
 
-This feature is only available when using the [progrium/consul](http://github.com/progrium/docker-consul) container for Consul.
+This feature is only available when using the [progrium/consul](https://github.com/progrium/docker-consul#health-checking-with-docker) container for Consul.
 
 	SERVICE_80_CHECK_HTTP=/health/endpoint/path
 	SERVICE_80_CHECK_INTERVAL=15s
@@ -192,7 +192,7 @@ It works for an HTTP service on any port, not just 80. If its the only service, 
 
 #### Run a health check script in the service container
 
-This feature is only available when using the [progrium/consul](http://github.com/progrium/docker-consul) container for Consul.
+This feature is only available when using the [progrium/consul](https://github.com/progrium/docker-consul#health-checking-with-docker) container for Consul.
 
 	SERVICE_9000_CHECK_CMD=/path/to/check/script
 
