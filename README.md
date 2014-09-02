@@ -2,11 +2,9 @@
 
 Service registry bridge for Docker
 
-Registrator listens for Docker events and register/deregisters services for containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/) and [etcd](https://github.com/coreos/etcd). 
+Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/) and [etcd](https://github.com/coreos/etcd). 
 
 By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
-
-Registrator pairs well with [ambassadord](https://github.com/progrium/ambassadord) and together are part of upcoming opinionated discovery/routing solution [Consulate](https://github.com/progrium/consulate).
 
 ## Starting Registrator
 
@@ -32,6 +30,8 @@ To use the Consul service catalog, specify a Consul URI without a path. If no ho
 
 	$ registrator consul://10.0.0.1:8500
 	$ registrator consul:
+
+This backend comes with support for specifying service health checks. See [backend specific features](#backend-specific-features).
 
 #### Consul Key-value Store
 
@@ -107,6 +107,8 @@ Results in `Service`:
 		"Attrs": {"region": "us2"}
 	}
 
+Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use. 
+
 ### Multiple services with defaults
 
 	$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 progrium/nginx
@@ -173,9 +175,44 @@ As you can see by either the Consul or etcd source files, writing a new registry
 
 Then add your constructor (for example `NewZookeeperRegistry`) to the factory function `NewServiceRegistry` in `registrator.go`.
 
+## Backend specific features
+
+### Consul Health Checks
+
+When using the Consul's service catalog backend, you can specify a health check associated with a service. Registrator can pull this from your container environment data if provided. Here are some examples:
+
+#### Basic HTTP health check
+
+This feature is only available when using the [progrium/consul](http://github.com/progrium/docker-consul) container for Consul.
+
+	SERVICE_80_CHECK_HTTP=/health/endpoint/path
+	SERVICE_80_CHECK_INTERVAL=15s
+
+It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`. 
+
+#### Run a health check script in the service container
+
+This feature is only available when using the [progrium/consul](http://github.com/progrium/docker-consul) container for Consul.
+
+	SERVICE_9000_CHECK_CMD=/path/to/check/script
+
+This runs the command using this service's container image as a separate container attached to the service's network namespace.
+
+#### Run a regular command from the Consul container
+
+	SERVICE_CHECK_SCRIPT=curl --silent --fail example.com
+
+The default interval for any non-TTL check is 10s, but you can set it with `_CHECK_INTERVAL`.
+
+#### Register a TTL health check
+
+	SERVICE_CHECK_TTL=30s
+
+Remember, this means Consul will be expecting a heartbeat ping within that 30 seconds to keep the service marked as healthy.
+
+
 ## Todo / Contribution Ideas
 
- * Consul backend: support custom checks with SERVICE_CHECK_SCRIPT and SERVICE_CHECK_INTERVAL variables
  * Zookeeper backend
  * SkyDNS backend
  * discoverd backend
