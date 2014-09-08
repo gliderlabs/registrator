@@ -11,6 +11,7 @@ import (
 )
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {

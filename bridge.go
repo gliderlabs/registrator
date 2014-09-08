@@ -15,18 +15,21 @@ import (
 type PublishedPort struct {
 	HostPort    string
 	HostIP      string
+	HostName    string
 	ExposedPort string
+	ExposedIP	string
 	PortType    string
 	Container   *dockerapi.Container
 }
 
 type Service struct {
-	ID    string
-	Name  string
-	Port  int
-	IP    string
-	Tags  []string
-	Attrs map[string]string
+	ID       string
+	Name     string
+	HostName string
+	Port     int
+	IP       string
+	Tags     []string
+	Attrs    map[string]string
 
 	pp PublishedPort
 }
@@ -65,9 +68,16 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	service.pp = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapdefault(metadata, "name", defaultName)
-	p, _ := strconv.Atoi(port.HostPort)
+	var p int
+	if *internal == true {
+		service.IP = port.ExposedIP
+		p, _ = strconv.Atoi(port.ExposedPort)
+		service.HostName = port.HostName
+	} else {
+		service.IP = port.HostIP
+		p, _ = strconv.Atoi(port.HostPort)
+	}
 	service.Port = p
-	service.IP = port.HostIP
 
 	service.Tags = make([]string, 0)
 	tags := mapdefault(metadata, "tags", "")
@@ -131,24 +141,30 @@ func (b *RegistryBridge) Add(containerId string) {
 
 	ports := make([]PublishedPort, 0)
 	for port, published := range container.NetworkSettings.Ports {
+		var hp string
+		var hip string
 		if len(published) > 0 {
+			hp = published[0].HostPort
+			hip = published[0].HostIp
+		}
 			p := strings.Split(string(port), "/")
 			ports = append(ports, PublishedPort{
-				HostPort:    published[0].HostPort,
-				HostIP:      published[0].HostIp,
+				HostPort:    hp,
+				HostIP:      hip,
+				HostName:    container.Config.Hostname,
 				ExposedPort: p[0],
+				ExposedIP:   container.NetworkSettings.IPAddress,
 				PortType:    p[1],
 				Container:   container,
 			})
-		}
-	}
-
-	if len(ports) == 0 {
-		log.Println("registrator: ignored:", container.ID[:12], "no published ports")
-		return
+		// }
 	}
 
 	for _, port := range ports {
+		if ( *internal != true ) && ( port.HostPort == "" ) {
+			log.Println("registrator: ignored", container.ID[:12], "port", port.ExposedPort, "not published on host")
+			continue
+		}
 		service := NewService(port, len(ports) > 1)
 		if service == nil {
 			log.Println("registrator: ignored:", container.ID[:12], "service on port", port.ExposedPort)
@@ -163,6 +179,10 @@ func (b *RegistryBridge) Add(containerId string) {
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
 		log.Println("registrator: added:", container.ID[:12], service.ID)
+	}
+
+	if len(b.services) == 0 {
+		log.Println("registrator: ignored:", container.ID[:12], "no published ports")
 	}
 }
 
