@@ -25,7 +25,7 @@ func (r *EtcdRegistry) Register(service *Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
-	_, err := r.client.Create(path, addr, 0)
+	_, err := r.client.Set(path, addr, uint64(0))
 	return err
 }
 
