@@ -72,6 +72,9 @@ For each published port of a container, a `Service` object is created and passed
 
 Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
 
+Additional supported metadata in the same format `SERVICE_<metadata>`.
+IGNORE: Any value for ignore tells registrator to ignore this entire container and all associated ports.
+
 Since metadata is stored as environment variables, the container author can include their own metadata defined in the Dockerfile. The operator will still be able to override these author-defined defaults.
 
 ### Single service with defaults
