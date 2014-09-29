@@ -2,7 +2,7 @@
 
 Service registry bridge for Docker
 
-Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/) and [etcd](https://github.com/coreos/etcd). 
+Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
 By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
 
@@ -54,6 +54,22 @@ Etcd support works similar to Consul key-value. It also currently doesn't suppor
 Service definitions are stored as:
 
 	<registry-uri-path>/<service-name>/<service-id> = <ip>:<port>
+
+#### SkyDNS 2 backend
+
+SkyDNS 2 support uses an etcd key-value store, writing service definitions in a format compatible with SkyDNS 2. The URI provides an etcd host and a DNS domain name. If no host is provided, `127.0.0.1:4001` is used. The DNS domain name may not be omitted. Example URIs:
+
+	$ registrator skydns2:///skydns.local
+	$ registrator skydns2://192.168.1.100/staging.skydns.local
+
+Using the second example, a service definition for a container with `service-name` redis and `service-id` redis-1 would be stored s:
+Service definitions for the second URI above would be stored in the etcd service at 192.168.1.100:4001, as follows:
+
+	/skydns/local/skydns/staging/<service-name>/<service-id> = {"host":"<ip>","port":<port>}
+
+Note that the default `service-id` includes more than the container name (see below). For legal per-container DNS hostnames, specify the `SERVICE_ID` in the environment of the container, e.g.:
+
+	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
 
 ## How it works
 
@@ -214,7 +230,6 @@ Remember, this means Consul will be expecting a heartbeat ping within that 30 se
 ## Todo / Contribution Ideas
 
  * Zookeeper backend
- * SkyDNS backend
  * discoverd backend
  * Netflix Eureka backend
  * etc...
