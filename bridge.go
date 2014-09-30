@@ -141,8 +141,7 @@ func (b *RegistryBridge) Add(containerId string) {
 
 	ports := make([]PublishedPort, 0)
 	for port, published := range container.NetworkSettings.Ports {
-		var hp string
-		var hip string
+		var hp, hip string
 		if len(published) > 0 {
 			hp = published[0].HostPort
 			hip = published[0].HostIp
@@ -161,7 +160,7 @@ func (b *RegistryBridge) Add(containerId string) {
 	}
 
 	for _, port := range ports {
-		if ( *internal != true ) && ( port.HostPort == "" ) {
+		if *internal != true && port.HostPort == "" {
 			log.Println("registrator: ignored", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			continue
 		}
