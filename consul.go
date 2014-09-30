@@ -35,23 +35,6 @@ func (r *ConsulRegistry) Register(service *Service) error {
 }
 
 func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
-	if *internal == true {
-		agentService := new(consulapi.AgentService)
-		agentService.ID = service.ID
-		agentService.Service = service.Name
-		agentService.Tags = service.Tags
-		agentService.Port = service.Port
-
-		catalog := new(consulapi.CatalogRegistration)
-		catalog.Node = service.HostName
-		catalog.Address = service.IP
-		// catalog.Datacenter = ?
-		catalog.Service = agentService
-
-		wo := new(consulapi.WriteOptions)
-		_, err := r.client.Catalog().Register(catalog, wo)
-		return err
-	}
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
@@ -102,14 +85,6 @@ func (r *ConsulRegistry) Deregister(service *Service) error {
 }
 
 func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
-	if *internal == true {
-		cder := new(consulapi.CatalogDeregistration)
-		cder.Node = service.HostName
-		cder.Address = service.IP
-		wo := new(consulapi.WriteOptions)
-		_, err := r.client.Catalog().Deregister(cder, wo)
-		return err
-	}
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 

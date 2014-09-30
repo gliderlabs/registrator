@@ -45,8 +45,9 @@ type ServiceRegistry interface {
 
 func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 	factory := map[string]func(*url.URL) ServiceRegistry{
-		"consul": NewConsulRegistry,
-		"etcd":   NewEtcdRegistry,
+		"consul":  NewConsulRegistry,
+		"etcd":    NewEtcdRegistry,
+		"skydns2": NewSkydns2Registry,
 	}[uri.Scheme]
 	if factory == nil {
 		log.Fatal("unrecognized registry backend: ", uri.Scheme)
