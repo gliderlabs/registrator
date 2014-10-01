@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -82,6 +83,10 @@ func (r *ConsulRegistry) Deregister(service *Service) error {
 	} else {
 		return r.deregisterWithKV(service)
 	}
+}
+
+func (r *ConsulRegistry) Refresh(service *Service) error {
+	return errors.New("consul backend does not support refresh (use a TTL health check instead)")
 }
 
 func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
