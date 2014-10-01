@@ -19,26 +19,26 @@ func NewSkydns2Registry(uri *url.URL) ServiceRegistry {
 		urls = append(urls, "http://"+uri.Host)
 	}
 
-	return &Skydns2Registry{client: etcd.NewClient(urls), path: DomainPath(uri.Path[1:])}
+	return &Skydns2Registry{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
 }
 
 func (r *Skydns2Registry) Register(service *Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
-	_, err := r.client.Set(r.ServicePath(service), record, uint64(0))
+	_, err := r.client.Set(r.servicePath(service), record, uint64(0))
 	return err
 }
 
 func (r *Skydns2Registry) Deregister(service *Service) error {
-	_, err := r.client.Delete(r.ServicePath(service), false)
+	_, err := r.client.Delete(r.servicePath(service), false)
 	return err
 }
 
-func (r *Skydns2Registry) ServicePath(service *Service) string {
+func (r *Skydns2Registry) servicePath(service *Service) string {
 	return r.path + "/" + service.Name + "/" + service.ID
 }
 
-func DomainPath(domain string) string {
+func domainPath(domain string) string {
 	components := strings.Split(domain, ".")
 	for i, j := 0, len(components)-1; i < j; i, j = i+1, j-1 {
 		components[i], components[j] = components[j], components[i]
