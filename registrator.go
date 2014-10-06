@@ -16,6 +16,7 @@ var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
+var forceTags = flag.String("tags", "", "Append tags for all registered services")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
