@@ -62,8 +62,7 @@ SkyDNS 2 support uses an etcd key-value store, writing service definitions in a 
 	$ registrator skydns2:///skydns.local
 	$ registrator skydns2://192.168.1.100/staging.skydns.local
 
-Using the second example, a service definition for a container with `service-name` redis and `service-id` redis-1 would be stored s:
-Service definitions for the second URI above would be stored in the etcd service at 192.168.1.100:4001, as follows:
+Using the second example, a service definition for a container with `service-name` "redis" and `service-id` "redis-1" would be stored in the etcd service at 192.168.1.100:4001 as follows:
 
 	/skydns/local/skydns/staging/<service-name>/<service-id> = {"host":"<ip>","port":<port>}
 
