@@ -25,7 +25,7 @@ type PublishedPort struct {
 type Service struct {
 	ID       string
 	Name     string
-	HostName string
+	// HostName string
 	Port     int
 	IP       string
 	Tags     []string
@@ -72,7 +72,7 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	if *internal == true {
 		service.IP = port.ExposedIP
 		p, _ = strconv.Atoi(port.ExposedPort)
-		service.HostName = port.HostName
+		// service.HostName = port.HostName
 	} else {
 		service.IP = port.HostIP
 		p, _ = strconv.Atoi(port.HostPort)
