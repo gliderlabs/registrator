@@ -79,7 +79,7 @@ func main() {
 	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
 	assert(err)
 	for _, listing := range containers {
-		bridge.Add(listing.ID)
+		go bridge.Add(listing.ID)
 	}
 
 	events := make(chan *dockerapi.APIEvents)
