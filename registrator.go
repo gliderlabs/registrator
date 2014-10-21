@@ -68,9 +68,9 @@ func main() {
 		log.Println("registrator: Forcing host IP to", *hostIp)
 	}
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
-		assert(errors.New("-ttl and -refresh-interval must be specified together or not at all"))
+		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
 	} else if *refreshTtl <= *refreshInterval {
-		assert(errors.New("-ttl must be greater than -refresh-interval"))
+		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
 
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
