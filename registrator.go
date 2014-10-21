@@ -69,7 +69,7 @@ func main() {
 	}
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
 		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
-	} else if *refreshTtl <= *refreshInterval {
+	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
 
