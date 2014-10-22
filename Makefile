@@ -29,7 +29,7 @@ PACKAGES=$(shell go list -f '{{.Name}}' ./... )
 
 all: build
 
-$(BIN) stage:
+$(BIN) stage target:
 	mkdir -p $@
 
 $(GPM): | $(BIN)
@@ -79,7 +79,7 @@ build: stage/$(NAME)
 
 ## duh
 clean:
-	rm -rf stage .godeps release
+	rm -rf stage target .godeps release
 
 docker: build
 	docker build -t registrator .
@@ -100,20 +100,23 @@ release: | release/$(NAME)_$(VER)_darwin_$(HARDWARE).tgz release/$(NAME)_$(VER)_
 
 	gh-release
 
-deb rpm: build
-	mkdir -p stage/$@/usr/bin stage/$@/etc
+rpm: build
+	mkdir -p target/rpm/usr/bin target/rpm/etc/{logrotate.d,sysconfig,rc.d/init.d}
 	
-	cp stage/$(NAME) stage/$@/usr/bin/
-	chmod 555 stage/$@/usr/bin/$(NAME)
+	cp stage/$(NAME) target/rpm/usr/bin/
+	cp etc/$(NAME).logrotate target/rpm/etc/logrotate.d/$(NAME)
+	cp etc/sysconfig target/rpm/etc/sysconfig/$(NAME)
+	cp etc/sysvinit.sh target/rpm/etc/rc.d/init.d/$(NAME)
 	
-	## config files
-	cp etc/* stage/$@/etc/
-
-	cd stage && fpm \
+	chmod 555 target/rpm/usr/bin/$(NAME) target/rpm/etc/rc.d/init.d/$(NAME)
+	
+	cd target && fpm \
 	    -s dir \
-	    -t $@ \
+	    -t rpm \
 	    -n $(NAME) \
 	    -v $(VER) \
+	    --epoch $(shell git log --format=format:'%ct' --max-count=1 ${PKG_VER} ) \
+	    --pre-install ../etc/rpm-pre-install.sh \
 	    --rpm-use-file-permissions \
-	    -C $@ \
+	    -C rpm \
 	    etc usr
