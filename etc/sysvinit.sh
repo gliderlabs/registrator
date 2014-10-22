@@ -37,7 +37,7 @@ conffile="/etc/sysconfig/$prog"
 
 ## defaults
 export GOMAXPROCS=${GOMAXPROCS:-2}
-TTL=${TTL:0}
+TTL=${TTL:-0}
 TTL_REFERSH=${TTL_REFERSH:-0}
 DOCKER_HOST=${DOCKER_HOST:-"unix:///var/run/docker.sock"}
 
