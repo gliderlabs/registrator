@@ -118,5 +118,7 @@ rpm: build
 	    --epoch $(shell git log --format=format:'%ct' --max-count=1 ${PKG_VER} ) \
 	    --pre-install ../etc/rpm-pre-install.sh \
 	    --rpm-use-file-permissions \
+	    --depends consul \
+	    --depends docker-io \
 	    -C rpm \
 	    etc usr
