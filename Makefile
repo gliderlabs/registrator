@@ -6,9 +6,9 @@ NAME=registrator
 PKG_PATH=github.com/progrium/$(NAME)
 
 ## version, taken from Git tag (like v1.0.0) or hash
-VER=$(shell git describe --always --dirty | sed -e 's/^v//g' )
+VER:=$(shell git describe --always --dirty | sed -e 's/^v//g' )
 
-HARDWARE=$(shell uname -m)
+HARDWARE:=$(shell uname -m)
 
 BIN=.godeps/bin
 GPM=$(BIN)/gpm
@@ -17,10 +17,10 @@ GVP=$(BIN)/gvp
 
 ## @todo should use "$(GVP) in", but that fails
 ## all non-test source files
-SOURCES=$(shell go list -f '{{range .GoFiles}}{{ $$.Dir }}/{{.}} {{end}}' ./... | sed -e "s@$(PWD)/@@g" )
+SOURCES:=$(shell go list -f '{{range .GoFiles}}{{ $$.Dir }}/{{.}} {{end}}' ./... | sed -e "s@$(PWD)/@@g" )
 
 ## all packages in this prject
-PACKAGES=$(shell go list -f '{{.Name}}' ./... )
+PACKAGES:=$(shell go list -f '{{.Name}}' ./... )
 
 .PHONY: all devtools deps test build clean rpm release
 
