@@ -3,7 +3,7 @@
 NAME=registrator
 
 ## the go-get'able path
-PKG_PATH=github.com/blalor/$(NAME)
+PKG_PATH=github.com/progrium/$(NAME)
 
 ## version, taken from Git tag (like v1.0.0) or hash
 VER=$(shell git describe --always --dirty | sed -e 's/^v//g' )
