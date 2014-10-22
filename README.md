@@ -191,6 +191,7 @@ As you can see by either the Consul or etcd source files, writing a new registry
 	type ServiceRegistry interface {
 		Register(service *Service) error
 		Deregister(service *Service) error
+		Refresh(service *Service) error
 	}
 
 Then add your constructor (for example `NewZookeeperRegistry`) to the factory function `NewServiceRegistry` in `registrator.go`.
