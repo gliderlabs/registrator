@@ -1,0 +1,9 @@
+# -*- bash -*-
+
+## required
+# REGISTRY_URI
+
+## defaults
+# TTL="0"
+# TTL_REFERSH="0"
+# DOCKER_HOST="unix:///var/run/docker.sock"

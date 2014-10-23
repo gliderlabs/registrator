@@ -1,0 +1,21 @@
+## main
+github.com/fsouza/go-dockerclient 949b65236a770c3bd15126e9047a41462bb24811
+github.com/coreos/go-etcd/etcd    6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e
+github.com/cenkalti/backoff       6a458ae422d1a8cbfb686ac5f4789bd82956c61b
+github.com/armon/consul-api       1b81c8e0c4cbf1d382310e4c0dc11221632e79d1
+
+## test
+github.com/onsi/ginkgo/ginkgo 90d6a472e25d8096739d5405286ec051c87fade7
+github.com/onsi/gomega        3ca2515afb00bc39bc77d27cdbce85a7caaf103e
+github.com/stretchr/testify   de7fcff264cd05cc0c90c509ea789a436a0dd206
+
+## test codegen
+github.com/vektra/mockery 5e98d9a4390b6c1c9b9f7d326f438b5c3d01a7fc
+
+### transitive deps
+## required by mockery, I think
+github.com/vektra/errors           c64d83aba85aa4392895aadeefabbd24e89f3580
+code.google.com/p/go.tools/imports 7a99b946364f
+
+## required by testify, I think
+github.com/stretchr/objx cbeaeb16a013161a98496fad62933b1d21786672

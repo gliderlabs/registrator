@@ -1,0 +1,9 @@
+/var/log/registrator {
+    daily
+    rotate 5
+    copytruncate
+    delaycompress
+    compress
+    notifempty
+    missingok
+}
