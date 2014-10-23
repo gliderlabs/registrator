@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -12,6 +14,8 @@ import (
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
+var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
+var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -41,6 +45,7 @@ func mapdefault(m map[string]string, key, default_ string) string {
 type ServiceRegistry interface {
 	Register(service *Service) error
 	Deregister(service *Service) error
+	Refresh(service *Service) error
 }
 
 func NewServiceRegistry(uri *url.URL) ServiceRegistry {
@@ -63,6 +68,11 @@ func main() {
 	if *hostIp != "" {
 		log.Println("registrator: Forcing host IP to", *hostIp)
 	}
+	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
+		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
+	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
+		assert(errors.New("-ttl must be greater than -ttl-refresh"))
+	}
 
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
 	assert(err)
@@ -83,6 +93,22 @@ func main() {
 		bridge.Add(listing.ID)
 	}
 
+	quit := make(chan struct{})
+	if *refreshInterval > 0 {
+		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					bridge.Refresh()
+				case <-quit:
+					ticker.Stop()
+					return
+				}
+			}
+		}()
+	}
+
 	events := make(chan *dockerapi.APIEvents)
 	assert(docker.AddEventListener(events))
 	log.Println("registrator: Listening for Docker events...")
@@ -95,5 +121,6 @@ func main() {
 		}
 	}
 
+	close(quit)
 	log.Fatal("registrator: docker event loop closed") // todo: reconnect?
 }

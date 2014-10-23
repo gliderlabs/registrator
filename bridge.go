@@ -30,6 +30,7 @@ type Service struct {
 	IP       string
 	Tags     []string
 	Attrs    map[string]string
+	TTL      int
 
 	pp PublishedPort
 }
@@ -98,6 +99,8 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	delete(metadata, "tags")
 	delete(metadata, "name")
 	service.Attrs = metadata
+
+	service.TTL = *refreshTtl
 
 	return service
 }
@@ -199,4 +202,19 @@ func (b *RegistryBridge) Remove(containerId string) {
 		log.Println("registrator: removed:", containerId[:12], service.ID)
 	}
 	delete(b.services, containerId)
+}
+
+func (b *RegistryBridge) Refresh() {
+	b.Lock()
+	defer b.Unlock()
+	for containerId, services := range b.services {
+		for _, service := range services {
+			err := b.registry.Refresh(service)
+			if err != nil {
+				log.Println("registrator: unable to refresh service:", service.ID, err)
+				continue
+			}
+			log.Println("registrator: refreshed:", containerId[:12], service.ID)
+		}
+	}
 }

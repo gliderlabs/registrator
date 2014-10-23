@@ -2,8 +2,8 @@ package main
 
 import (
 	"net/url"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/coreos/go-etcd/etcd"
 )
@@ -25,13 +25,17 @@ func NewSkydns2Registry(uri *url.URL) ServiceRegistry {
 func (r *Skydns2Registry) Register(service *Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
-	_, err := r.client.Set(r.servicePath(service), record, uint64(0))
+	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	return err
 }
 
 func (r *Skydns2Registry) Deregister(service *Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
 	return err
+}
+
+func (r *Skydns2Registry) Refresh(service *Service) error {
+	return r.Register(service)
 }
 
 func (r *Skydns2Registry) servicePath(service *Service) string {

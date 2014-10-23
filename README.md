@@ -16,6 +16,8 @@ By default, when registering a service, registrator will assign the service addr
 
 If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd only for now)
 
+The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
+
 Registrator was designed to just be run as a container. You must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
 
 	$ docker run -d \
@@ -64,8 +66,7 @@ SkyDNS 2 support uses an etcd key-value store, writing service definitions in a 
 	$ registrator skydns2:///skydns.local
 	$ registrator skydns2://192.168.1.100/staging.skydns.local
 
-Using the second example, a service definition for a container with `service-name` redis and `service-id` redis-1 would be stored s:
-Service definitions for the second URI above would be stored in the etcd service at 192.168.1.100:4001, as follows:
+Using the second example, a service definition for a container with `service-name` "redis" and `service-id` "redis-1" would be stored in the etcd service at 192.168.1.100:4001 as follows:
 
 	/skydns/local/skydns/staging/<service-name>/<service-id> = {"host":"<ip>","port":<port>}
 
@@ -89,6 +90,9 @@ For each published port of a container, a `Service` object is created and passed
 	}
 
 Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
+
+Additional supported metadata in the same format `SERVICE_<metadata>`.
+IGNORE: Any value for ignore tells registrator to ignore this entire container and all associated ports.
 
 Since metadata is stored as environment variables, the container author can include their own metadata defined in the Dockerfile. The operator will still be able to override these author-defined defaults.
 
@@ -189,6 +193,7 @@ As you can see by either the Consul or etcd source files, writing a new registry
 	type ServiceRegistry interface {
 		Register(service *Service) error
 		Deregister(service *Service) error
+		Refresh(service *Service) error
 	}
 
 Then add your constructor (for example `NewZookeeperRegistry`) to the factory function `NewServiceRegistry` in `registrator.go`.
