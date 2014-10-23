@@ -1,0 +1,24 @@
+{
+	"ImportPath": "github.com/progrium/registrator",
+	"GoVersion": "go1.2.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/armon/consul-api",
+			"Rev": "1b81c8e0c4cbf1d382310e4c0dc11221632e79d1"
+		},
+		{
+			"ImportPath": "github.com/cenkalti/backoff",
+			"Rev": "6a458ae422d1a8cbfb686ac5f4789bd82956c61b"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-etcd/etcd",
+			"Comment": "v0.2.0-rc1-127-g6fe04d5",
+			"Rev": "6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e"
+		},
+		{
+			"ImportPath": "github.com/fsouza/go-dockerclient",
+			"Comment": "0.2.1-271-g3c09448",
+			"Rev": "3c0944843a9cee3c34345ef04e75d6bb75b42dfe"
+		}
+	]
+}
