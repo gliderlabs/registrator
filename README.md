@@ -51,7 +51,7 @@ Service definitions are stored as:
 Etcd support works similar to Consul key-value. It also currently doesn't support service attributes/tags. If no host is provided, `127.0.0.1:4001` is used. Example URIs:
 
 	$ registrator etcd:///path/to/services
-	$ registrator etcd://192.168.1.100/services
+	$ registrator etcd://192.168.1.100:4001/services
 
 Service definitions are stored as:
 
@@ -62,7 +62,7 @@ Service definitions are stored as:
 SkyDNS 2 support uses an etcd key-value store, writing service definitions in a format compatible with SkyDNS 2. The URI provides an etcd host and a DNS domain name. If no host is provided, `127.0.0.1:4001` is used. The DNS domain name may not be omitted. Example URIs:
 
 	$ registrator skydns2:///skydns.local
-	$ registrator skydns2://192.168.1.100/staging.skydns.local
+	$ registrator skydns2://192.168.1.100:4001/staging.skydns.local
 
 Using the second example, a service definition for a container with `service-name` "redis" and `service-id` "redis-1" would be stored in the etcd service at 192.168.1.100:4001 as follows:
 
