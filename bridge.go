@@ -35,6 +35,16 @@ type Service struct {
 	pp PublishedPort
 }
 
+func CombineTags(tagParts ...string) []string {
+	tags := make([]string, 0)
+	for _, element := range tagParts {
+		if element != "" {
+			tags = append(tags, strings.Split(element, ",")...)
+		}
+	}
+	return tags
+}
+
 func NewService(port PublishedPort, isgroup bool) *Service {
 	container := port.Container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
@@ -80,14 +90,11 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	}
 	service.Port = p
 
-	service.Tags = make([]string, 0)
-	tags := mapdefault(metadata, "tags", "")
-	if tags != "" {
-		service.Tags = append(service.Tags, strings.Split(tags, ",")...)
-	}
 	if port.PortType == "udp" {
-		service.Tags = append(service.Tags, "udp")
+		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTag, "udp")
 		service.ID = service.ID + ":udp"
+	} else {
+		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTag)
 	}
 
 	id := mapdefault(metadata, "id", "")
