@@ -74,6 +74,19 @@ Note that the default `service-id` includes more than the container name (see be
 
 	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
 
+#### Vulcand backend
+
+Vulcand support service definitions to etcd in a format compatible with Vulcand. The URI provides an etcd host and path which should match the vulcand daemon, if no host is provided, `127.0.0.1:4001` is used. Example URIs:
+
+	$ registrator vulcand:///vulcand
+	$ registrator vulcand://192.168.1.100:4001/vulcand
+
+Service definitions are stored as:
+
+	<registry-uri-path>/upstreams/<service-name>/endpoints/<service-id> = http://<ip>:<port>
+
+Note that this backend only creates an upstream entry. It does not handle creating hosts, locations or linking locations with upstreams. It also registers all service definitions as http.
+
 ## How it works
 
 Services are registered and deregistered based on container start and die events from Docker. The service definitions are created with information from the container, including user-defined metadata in the container environment.
@@ -89,7 +102,7 @@ For each published port of a container, a `Service` object is created and passed
 		Attrs map[string]string    // any remaining service metadata from environment
 	}
 
-Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
+Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service.
 
 Additional supported metadata in the same format `SERVICE_<metadata>`.
 IGNORE: Any value for ignore tells registrator to ignore this entire container and all associated ports.
@@ -129,7 +142,7 @@ Results in `Service`:
 		"Attrs": {"region": "us2"}
 	}
 
-Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use. 
+Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use.
 
 ### Multiple services with defaults
 
@@ -211,7 +224,7 @@ This feature is only available when using the `check-http` script that comes wit
 	SERVICE_80_CHECK_HTTP=/health/endpoint/path
 	SERVICE_80_CHECK_INTERVAL=15s
 
-It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`. 
+It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`.
 
 #### Run a health check script in the service container
 

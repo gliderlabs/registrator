@@ -53,6 +53,7 @@ func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 		"consul":  NewConsulRegistry,
 		"etcd":    NewEtcdRegistry,
 		"skydns2": NewSkydns2Registry,
+		"vulcand": NewVulcandRegistry,
 	}[uri.Scheme]
 	if factory == nil {
 		log.Fatal("unrecognized registry backend: ", uri.Scheme)
