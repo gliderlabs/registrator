@@ -17,20 +17,20 @@ type PublishedPort struct {
 	HostIP      string
 	HostName    string
 	ExposedPort string
-	ExposedIP	string
+	ExposedIP   string
 	PortType    string
 	Container   *dockerapi.Container
 }
 
 type Service struct {
-	ID       string
-	Name     string
+	ID   string
+	Name string
 	// HostName string
-	Port     int
-	IP       string
-	Tags     []string
-	Attrs    map[string]string
-	TTL      int
+	Port  int
+	IP    string
+	Tags  []string
+	Attrs map[string]string
+	TTL   int
 
 	pp PublishedPort
 }
@@ -91,10 +91,10 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	service.Port = p
 
 	if port.PortType == "udp" {
-		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTag, "udp")
+		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTags, "udp")
 		service.ID = service.ID + ":udp"
 	} else {
-		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTag)
+		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTags)
 	}
 
 	id := mapdefault(metadata, "id", "")
@@ -156,16 +156,16 @@ func (b *RegistryBridge) Add(containerId string) {
 			hp = published[0].HostPort
 			hip = published[0].HostIp
 		}
-			p := strings.Split(string(port), "/")
-			ports = append(ports, PublishedPort{
-				HostPort:    hp,
-				HostIP:      hip,
-				HostName:    container.Config.Hostname,
-				ExposedPort: p[0],
-				ExposedIP:   container.NetworkSettings.IPAddress,
-				PortType:    p[1],
-				Container:   container,
-			})
+		p := strings.Split(string(port), "/")
+		ports = append(ports, PublishedPort{
+			HostPort:    hp,
+			HostIP:      hip,
+			HostName:    container.Config.Hostname,
+			ExposedPort: p[0],
+			ExposedIP:   container.NetworkSettings.IPAddress,
+			PortType:    p[1],
+			Container:   container,
+		})
 		// }
 	}
 
