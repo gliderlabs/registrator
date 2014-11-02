@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -12,8 +13,10 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
+var Version string
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
+var version = flag.Bool("version", false, "Prints the version and exists")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
@@ -66,6 +69,10 @@ func main() {
 
 	flag.Parse()
 
+	if *version == true {
+		fmt.Printf("Registrator v%s\n", Version)
+		return
+	}
 	if *hostIp != "" {
 		log.Println("registrator: Forcing host IP to", *hostIp)
 	}

@@ -1,6 +1,6 @@
 NAME=registrator
 HARDWARE=$(shell uname -m)
-VERSION=0.4.0
+VERSION=$(shell cat VERSION)
 
 build:
 	docker build -t registrator .
@@ -8,9 +8,9 @@ build:
 release:
 	rm -rf release
 	mkdir release
-	GOOS=linux godep go build -o release/$(NAME)
+	GOOS=linux godep go build -ldflags "-X main.Version $(VERSION)" -o release/$(NAME)
 	cd release && tar -zcf $(NAME)_$(VERSION)_linux_$(HARDWARE).tgz $(NAME)
-	GOOS=darwin godep go build -o release/$(NAME)
+	GOOS=darwin godep go build -ldflags "-X main.Version $(VERSION)" -o release/$(NAME)
 	cd release && tar -zcf $(NAME)_$(VERSION)_darwin_$(HARDWARE).tgz $(NAME)
 	rm release/$(NAME)
 	echo "$(VERSION)" > release/version
