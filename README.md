@@ -26,7 +26,7 @@ Registrator was designed to just be run as a container. You must pass the Docker
 
 ### Registry URIs
 
-The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper (not yet supported) can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See also [Adding support for other service registries](#adding-support-for-other-service-registries).
+The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See also [Adding support for other service registries](#adding-support-for-other-service-registries).
 
 #### Consul Service Catalog (recommended)
 
@@ -73,6 +73,17 @@ Using the second example, a service definition for a container with `service-nam
 Note that the default `service-id` includes more than the container name (see below). For legal per-container DNS hostnames, specify the `SERVICE_ID` in the environment of the container, e.g.:
 
 	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
+
+#### Zookeeper Key-value Store
+
+Zookeeper support works similar to Consul key-value. It also currently doesn't support service attributes/tags. Zookeeper plugin currently does not supports service refresh. Example URIs:
+
+        $ registrator zookeeper:///path/to/services
+        $ registrator etcd://192.168.1.100:2181/services
+
+Service definitions are stored as:
+
+        <registry-uri-path>/<service-name>/<service-id> = <ip>:<port>
 
 ## How it works
 
@@ -236,7 +247,7 @@ Remember, this means Consul will be expecting a heartbeat ping within that 30 se
 
 ## Todo / Contribution Ideas
 
- * Zookeeper backend
+ * Zookeeper backend (Refresh support)
  * discoverd backend
  * Netflix Eureka backend
  * etc...
