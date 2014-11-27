@@ -79,7 +79,7 @@ Note that the default `service-id` includes more than the container name (see be
 Zookeeper support works similar to Consul key-value. It also currently doesn't support service attributes/tags. Zookeeper plugin currently does not supports service refresh. Example URIs:
 
         $ registrator zookeeper:///path/to/services
-        $ registrator etcd://192.168.1.100:2181/services
+        $ registrator zookeeper://192.168.1.100:2181/services
 
 Service definitions are stored as:
 
