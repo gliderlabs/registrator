@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"log"
 
 	"github.com/mailgun/vulcand/api"
   "github.com/mailgun/vulcand/plugin"
@@ -19,7 +20,7 @@ func NewVulcandRegistry(uri *url.URL) ServiceRegistry {
 	var registry *plugin.Registry
 	
 	if uri.Host != "" {
-		url = uri.String()
+		url = strings.Replace(uri.String(), "vulcand://", "http://", 1)
 	}
 	
 	return &VulcandRegistry{client: api.NewClient(url, registry)}
@@ -29,20 +30,20 @@ func (r *VulcandRegistry) Register(service *Service) error {
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
 
-	upstreamId := getUpstreamId(service.Name)
+	upstreamId := getUpstreamId(service.ID)
 	id := service.ID
-	u := "http://" + addr + ":" + port
+	u := "http://" + addr
 
 	_, err := r.client.AddEndpoint(upstreamId, id, u)
-	return err
+  return err
 }
 
 func (r *VulcandRegistry) Deregister(service *Service) error {
-	upstreamId := getUpstreamId(service.Name)
+	upstreamId := getUpstreamId(service.ID)
 	id := service.ID
 
 	_, err := r.client.DeleteEndpoint(upstreamId, id)
-	return err
+  return err
 }
 
 func (r *VulcandRegistry) Refresh(service *Service) error {
@@ -51,9 +52,10 @@ func (r *VulcandRegistry) Refresh(service *Service) error {
 
 
 func getUpstreamId(name string) string {    
-  upstreamId := name
-  if(strings.ContainsAny(name, "-")){
-    upstreamId = strings.Split(name, "-")[0]
+  upstreamId := strings.Split(name, ":")[1]
+  if(strings.ContainsAny(upstreamId, "-")){
+    upstreamId = strings.Split(upstreamId, "-")[0]
   }
+	log.Println("getUpstreamId() ", name, upstreamId)
   return upstreamId
 }
