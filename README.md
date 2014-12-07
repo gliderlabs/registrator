@@ -106,7 +106,7 @@ We now registered 4 containers of example:1.0.0 to the authbackend upstream, and
 
 Keep in mind, that you should't use any __-__ inside the upstream name, because it won't work then.
 
-Allways name your containers with the following scheme: _upstreamname___-___whateveryouwant_
+Allways name your containers with the following scheme: upstreamname-whateveryouwant
 
 ## How it works
 
