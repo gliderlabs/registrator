@@ -92,15 +92,15 @@ If you want to use this Vulcand Backend, you should configure your Vulcand first
 
 After that step you're able to use this vulcand registry service to register your endpoints automatically. The right upstream found via the hostname of the running docker container.
 
-In this example we bind the port 80 from the container to the local server, to avoid making it available from the outside. If you don't bind the port anywhere, it can't be registered to vulcand!
+In this example we bind the port 80 from the container to the local docker0 interface, to avoid making it available from the outside - but also make it available for our vulcand. If you don't bind the port anywhere, it can't be registered to vulcand!
 
-	$ docker run -d -p 127.0.0.1:80:80 --name authbackend-1 coreos/example:1.0.0
-	$ docker run -d -p 127.0.0.1:81:80 --name authbackend-2 coreos/example:1.0.0
-	$ docker run -d -p 127.0.0.1:82:80 --name authbackend-3 coreos/example:1.0.0
-	$ docker run -d -p 127.0.0.1:83:80 --name authbackend-4-backup-only coreos/example:1.0.0
-	$ docker run -d -p 127.0.0.1:84:80 --name infopage-1 coreos/example:2.0.0
-	$ docker run -d -p 127.0.0.1:85:80 --name infopage-2 coreos/example:2.0.0
-	$ docker run -d -p 127.0.0.1:86:80 --name infopage-3 coreos/example:2.0.0
+	$ docker run -d -p 172.17.42.1:80:80 --name authbackend-1 coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:81:80 --name authbackend-2 coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:82:80 --name authbackend-3 coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:83:80 --name authbackend-4-backup-only coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:84:80 --name infopage-1 coreos/example:2.0.0
+	$ docker run -d -p 172.17.42.1:85:80 --name infopage-2 coreos/example:2.0.0
+	$ docker run -d -p 172.17.42.1:86:80 --name infopage-3 coreos/example:2.0.0
 
 We now registered 4 containers of example:1.0.0 to the authbackend upstream, and 3 example:2.0.0 to the infopage upstream.
 
