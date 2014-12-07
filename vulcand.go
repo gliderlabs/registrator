@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"log"
 
 	"github.com/mailgun/vulcand/api"
   "github.com/mailgun/vulcand/plugin"
@@ -56,6 +55,5 @@ func getUpstreamId(name string) string {
   if(strings.ContainsAny(upstreamId, "-")){
     upstreamId = strings.Split(upstreamId, "-")[0]
   }
-	log.Println("getUpstreamId() ", name, upstreamId)
   return upstreamId
 }
