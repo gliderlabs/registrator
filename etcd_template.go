@@ -12,6 +12,36 @@ import (
 
 const templatePrefix = "ETCD_TMPL"
 
+// Usage:
+// Start docker with one or more ETCD_TMPL_XXXX environment variables. These variables should contain a template of the
+// key value pair you wish published to etcd.
+//
+//   docker run -d -v /var/run/docker.sock:/tmp/docker.sock \
+//		-e ETCD_TMPL_PROXY="{{if .Attrs.proxy}}/load_balancer/{{.Published.ExposedPort}}/{{.Name}} {{.Published.HostIP}}:{{.Published.HostPort}}{{end}}" \
+//		-e ETCD_TMPL_HTTP="{{if .Published.HostPort eq 80}}/http/{{.Name}} {{.Published.HostIP}}:{{.Published.HostPort}}{{end}}" \
+//		-e ETCD_TMPL_ALL="/services/{{.Name}} {{.Published.HostIP}}:{{.Published.HostPort}}" \
+//		progrium/registrator etcd-tmpl://${PRIVATE_IPV4}:4001/
+//
+// If a new container is started with these settings:
+//   docker run -d -e SERVICE_NAME=web.example.com -e SERVICE_80_PROXY=yes -p ${PRIVATE_IPV4}::80 mywebsite
+//
+// ... the following keys would be set in etcd
+//		/load_balancer/80/web.example.com 192.168.33.10:49723
+//		/http/web.example.com 192.168.33.10:49723
+//		/services/web.example.com 192.168.33.10:49723
+//
+//
+// If a new container is started with these settings:
+//   docker run -d -e SERVICE_NAME=secure.example.com -e SERVICE_443_PROXY=yes -p ${PRIVATE_IPV4}::443 mysecurewebsite
+//
+// ... the following keys would be set in etcd
+//		/load_balancer/443/web.example.com 192.168.33.10:49724
+//		/services/web.example.com 192.168.33.10:49724
+// the 'http' key is not set because the template only produces output when the exposed port is 80
+//
+// Note the space (' ') between the key and value in the templates. The first space in the executed template result will be
+// used to delimit between key and value. Thus values may also contain spaces (and could be JSON, etc)
+//
 type EtcdTemplateRegistry struct {
 	client *etcd.Client
 	templates []*template.Template
