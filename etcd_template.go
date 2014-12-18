@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -46,7 +45,6 @@ func (r *EtcdTemplateRegistry) Register(service *Service) error {
 	for key, value := range toSet {
 		_, err = r.client.Set(key, value, uint64(service.TTL))
 		if err != nil {
-			log.Printf("err setting key %s to %s: %v", key, value, err)
 			return err
 		}
 	}
@@ -63,7 +61,6 @@ func (r *EtcdTemplateRegistry) Deregister(service *Service) error {
 	for key, _ := range toSet {
 		_, err = r.client.Delete(key, false)
 		if err != nil {
-			log.Printf("err deleting key %s: %v", key, err)
 			return err
 		}
 	}
@@ -79,13 +76,16 @@ func (r *EtcdTemplateRegistry) executeTemplates(service *Service) (map[string]st
 	results := make(map[string]string, len(r.templates))
 	buf := &bytes.Buffer {}
 	for _, t := range r.templates {
+		// Execute the template with the service as the data item
 		buf.Reset()
 		err := t.Execute(buf, service)
 		if err != nil {
-			log.Printf("err parsing: %v", err)
 			return nil, err
 		}
 
+		// The template needs to return "<key> <value>". The key must conform to the etcd spec and not contain any
+		// spaces, so we use the first space as the split between the two. If nothing is returned, then that says
+		// not to use that template
 		pair := strings.SplitN(buf.String(), " ", 2)
 		if 2 == len(pair) {
 			key := strings.TrimSpace(pair[0])
