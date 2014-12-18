@@ -32,7 +32,7 @@ type Service struct {
 	Attrs map[string]string
 	TTL   int
 
-	pp PublishedPort
+	Published PublishedPort
 }
 
 func CombineTags(tagParts ...string) []string {
@@ -76,7 +76,7 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	}
 
 	service := new(Service)
-	service.pp = port
+	service.Published = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapdefault(metadata, "name", defaultName)
 	var p int

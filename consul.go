@@ -49,9 +49,9 @@ func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
 func (r *ConsulRegistry) buildCheck(service *Service) *consulapi.AgentServiceCheck {
 	check := new(consulapi.AgentServiceCheck)
 	if path := service.Attrs["check_http"]; path != "" {
-		check.Script = fmt.Sprintf("check-http %s %s %s", service.pp.Container.ID[:12], service.pp.ExposedPort, path)
+		check.Script = fmt.Sprintf("check-http %s %s %s", service.Published.Container.ID[:12], service.Published.ExposedPort, path)
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.pp.Container.ID[:12], service.pp.ExposedPort, cmd)
+		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Published.Container.ID[:12], service.Published.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
 		check.Script = script
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
