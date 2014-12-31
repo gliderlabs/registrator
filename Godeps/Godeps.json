@@ -17,8 +17,8 @@
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
-			"Comment": "0.2.1-271-g3c09448",
-			"Rev": "3c0944843a9cee3c34345ef04e75d6bb75b42dfe"
+			"Comment": "0.2.1-334-g9c377ff",
+			"Rev": "9c377ffd9aed48a012adf1c3fd517fe98394120b"
 		}
 	]
 }

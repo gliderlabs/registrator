@@ -120,7 +120,7 @@ func TestListContainers(t *testing.T) {
 			Created: container.Created.Unix(),
 			Status:  container.State.String(),
 			Ports:   container.NetworkSettings.PortMappingAPI(),
-			Names:   []string{container.Name},
+			Names:   []string{"/" + container.Name},
 		}
 	}
 	var got []docker.APIContainers
@@ -789,6 +789,31 @@ func TestPushImageNotFound(t *testing.T) {
 	}
 }
 
+func TestTagImage(t *testing.T) {
+	server := DockerServer{imgIDs: map[string]string{"tsuru/python": "a123"}}
+	server.buildMuxer()
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("POST", "/images/tsuru/python/tag?repo=tsuru/new-python", nil)
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusCreated {
+		t.Errorf("TagImage: wrong status. Want %d. Got %d.", http.StatusCreated, recorder.Code)
+	}
+	if server.imgIDs["tsuru/python"] != server.imgIDs["tsuru/new-python"] {
+		t.Errorf("TagImage: did not tag the image")
+	}
+}
+
+func TestTagImageNotFound(t *testing.T) {
+	server := DockerServer{}
+	server.buildMuxer()
+	recorder := httptest.NewRecorder()
+	request, _ := http.NewRequest("POST", "/images/tsuru/python/tag", nil)
+	server.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("TagImage: wrong status. Want %d. Got %d.", http.StatusNotFound, recorder.Code)
+	}
+}
+
 func addContainers(server *DockerServer, n int) {
 	server.cMut.Lock()
 	defer server.cMut.Unlock()
@@ -912,6 +937,36 @@ func TestRemoveImageByName(t *testing.T) {
 	_, ok := server.imgIDs[imgName]
 	if ok {
 		t.Error("RemoveImage: did not remove image tag name.")
+	}
+}
+
+func TestRemoveImageWithMultipleTags(t *testing.T) {
+	server := DockerServer{}
+	addImages(&server, 1, true)
+	server.buildMuxer()
+	imgID := server.images[0].ID
+	imgName := "docker/python-" + imgID
+	server.imgIDs["docker/python-wat"] = imgID
+	recorder := httptest.NewRecorder()
+	path := fmt.Sprintf("/images/%s", imgName)
+	request, _ := http.NewRequest("DELETE", path, nil)
+	server.ServeHTTP(recorder, request)
+	_, ok := server.imgIDs[imgName]
+	if ok {
+		t.Error("RemoveImage: did not remove image tag name.")
+	}
+	id, ok := server.imgIDs["docker/python-wat"]
+	if !ok {
+		t.Error("RemoveImage: removed the wrong tag name.")
+	}
+	if id != imgID {
+		t.Error("RemoveImage: disassociated the wrong ID from the tag")
+	}
+	if len(server.images) < 1 {
+		t.Fatal("RemoveImage: removed the image, but should keep it")
+	}
+	if server.images[0].ID != imgID {
+		t.Error("RemoveImage: changed the ID of the image!")
 	}
 }
 
