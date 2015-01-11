@@ -14,7 +14,9 @@ go list -f '{{ range .Imports }}{{.}} {{end}}' \
     | while read x; do
         echo "==> updating $x"
         go get -u $x
-        godep update $x
+        ## might fail if we change the import path of a package; expect the save
+        ## to save us
+        godep update $x || true
     done
 
 ## save new deps pulled in by updates
