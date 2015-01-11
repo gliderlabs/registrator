@@ -13,6 +13,7 @@ go list -f '{{ range .Imports }}{{.}} {{end}}' \
     | egrep '\.(com|org|net)/' \
     | while read x; do
         echo "==> updating $x"
+        go get -u $x
         godep update $x
     done
 
