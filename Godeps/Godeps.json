@@ -1,7 +1,12 @@
 {
 	"ImportPath": "github.com/progrium/registrator",
-	"GoVersion": "go1.2.2",
+	"GoVersion": "go1.4",
 	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.6.2-15-gd2f9ffa",
+			"Rev": "d2f9ffa1d9cf25b25191b221229effac1b6de526"
+		},
 		{
 			"ImportPath": "github.com/armon/consul-api",
 			"Rev": "1b81c8e0c4cbf1d382310e4c0dc11221632e79d1"
@@ -16,9 +21,43 @@
 			"Rev": "6fe04d580dfb71c9e34cbce2f4df9eefd1e1241e"
 		},
 		{
+			"ImportPath": "github.com/docker/docker/pkg/archive",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/fileutils",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/ioutils",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/pools",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/promise",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/system",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/vendor/src/code.google.com/p/go/src/pkg/archive/tar",
+			"Comment": "v1.4.1-358-gde97839",
+			"Rev": "de9783980be2a7b3ca10eb8183ea5989acbd3e7e"
+		},
+		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
-			"Comment": "0.2.1-271-g3c09448",
-			"Rev": "3c0944843a9cee3c34345ef04e75d6bb75b42dfe"
+			"Rev": "bc54f3734b9b098e24680d5ad686f602bc152df4"
 		}
 	]
 }
