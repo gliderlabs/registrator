@@ -50,7 +50,7 @@ update-deps: $(GOPATH)/.deps_installed
 	@cd $(GOPATH)/src/$(PKG_PATH) && ./update-deps.sh
 
 ## build the binary for local use
-stage/$(NAME): $(GODEP) deps $(SOURCES) | stage
+stage/$(NAME): $(GODEP) $(SOURCES) | deps stage
 	$(GODEP) go build -o $@ -ldflags '-X main.version $(VERSION)' -v .
 
 ## shortcut
