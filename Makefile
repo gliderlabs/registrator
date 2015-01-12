@@ -50,7 +50,7 @@ deps: $(GOPATH)/.deps_installed
 update-deps: $(GOPATH)/.deps_installed
 	@echo "Retrieving dependencies"
 	@$(GODEP) restore
-	@cd $(GOPATH)/src/$(PKG_PATH) && ./update-deps.sh
+	@cd $(GOPATH)/src/$(PKG_PATH) && ./update-deps.sh $(PKG_PATH)
 
 ## build the binary for local use
 stage/$(NAME): $(GODEP) $(SOURCES) | deps stage
