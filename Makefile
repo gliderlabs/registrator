@@ -32,9 +32,10 @@ $(GODEP): | $(GOPATH)
 	@go get github.com/tools/godep
 
 ## retrieve/restore dependencies with godep
+## hm, turns out that's not necessary!
 $(GOPATH)/.deps_installed: $(GODEP) Godeps/Godeps.json | $(GOPATH)
-	@echo "Retrieving dependencies"
-	@$(GODEP) restore
+#	@echo "Retrieving dependencies"
+#	@$(GODEP) restore
 	
 #	ensure this project can be imported
 	@mkdir -p $(shell dirname $(GOPATH)/src/$(PKG_PATH))
@@ -47,6 +48,8 @@ deps: $(GOPATH)/.deps_installed
 
 ## update dependencies to their latest versions and save *all* dependencies
 update-deps: $(GOPATH)/.deps_installed
+	@echo "Retrieving dependencies"
+	@$(GODEP) restore
 	@cd $(GOPATH)/src/$(PKG_PATH) && ./update-deps.sh
 
 ## build the binary for local use
