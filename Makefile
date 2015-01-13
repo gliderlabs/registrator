@@ -3,6 +3,7 @@ HARDWARE=$(shell uname -m)
 VERSION=0.4.0
 
 build:
+	go build -o stage/registrator
 	docker build -t registrator .
 
 release:

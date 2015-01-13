@@ -88,12 +88,19 @@ func main() {
 		services: make(map[string][]*Service),
 	}
 
+	// Start event listener before listing containers to avoid missing anything
+	events := make(chan *dockerapi.APIEvents)
+	assert(docker.AddEventListener(events))
+	log.Println("registrator: Listening for Docker events...")
+	
+	// List already running containers
 	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
 	assert(err)
 	for _, listing := range containers {
 		bridge.Add(listing.ID)
 	}
 
+	// Start the TTL refresh timer
 	quit := make(chan struct{})
 	if *refreshInterval > 0 {
 		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
@@ -110,9 +117,7 @@ func main() {
 		}()
 	}
 
-	events := make(chan *dockerapi.APIEvents)
-	assert(docker.AddEventListener(events))
-	log.Println("registrator: Listening for Docker events...")
+	// Process Docker events
 	for msg := range events {
 		switch msg.Status {
 		case "start":
