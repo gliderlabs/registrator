@@ -75,8 +75,8 @@ func (r *ConsulRegistry) registerWithKV(service *Service) error {
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
 	_, err := r.client.KV().Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
-	if (err != nil) {
-		log.Println("registrator: consul: failed to register service: " + err.Error())
+	if err != nil {
+		log.Println("registrator: consul: failed to register service:", err)
 	}
 	return err
 }
@@ -100,8 +100,8 @@ func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
 func (r *ConsulRegistry) deregisterWithKV(service *Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
-	if (err != nil) {
-		log.Println("registrator: consul: failed to register service: " + err.Error())
+	if err != nil {
+		log.Println("registrator: consul: failed to register service:", err)
 	}
 	return err
 }
