@@ -92,7 +92,7 @@ func main() {
 	events := make(chan *dockerapi.APIEvents)
 	assert(docker.AddEventListener(events))
 	log.Println("registrator: Listening for Docker events...")
-	
+
 	// List already running containers
 	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
 	assert(err)
@@ -122,6 +122,8 @@ func main() {
 		switch msg.Status {
 		case "start":
 			go bridge.Add(msg.ID)
+		case "stop":
+			go bridge.Remove(msg.ID)
 		case "die":
 			go bridge.Remove(msg.ID)
 		}
