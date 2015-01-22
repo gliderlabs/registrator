@@ -166,7 +166,6 @@ func (b *RegistryBridge) Add(containerId string) {
 			PortType:    p[1],
 			Container:   container,
 		})
-		// }
 	}
 
 	for _, port := range ports {
