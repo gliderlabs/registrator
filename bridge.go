@@ -31,6 +31,7 @@ type Service struct {
 	Tags  []string
 	Attrs map[string]string
 	TTL   int
+	Type  string
 
 	pp PublishedPort
 }
@@ -77,7 +78,11 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.pp = port
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	if *internal {
+		service.ID = port.HostName + ":" + container.Name[1:] + ":" + port.ExposedPort
+	} else {
+		service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	}
 	service.Name = mapdefault(metadata, "name", defaultName)
 	var p int
 	if *internal == true {
@@ -101,6 +106,8 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	if id != "" {
 		service.ID = id
 	}
+
+	service.Type = mapdefault(metadata, "type", "agent")
 
 	delete(metadata, "id")
 	delete(metadata, "tags")
