@@ -30,7 +30,7 @@ func NewConsulRegistry(uri *url.URL) ServiceRegistry {
 
 func (r *ConsulRegistry) Register(service *Service) error {
 	if r.path == "" || r.path == "/" {
-		if *catalog {
+		if *internal {
 			return r.registerWithCatalog(service)
 		} else {
 			return r.registerWithAgent(service)
@@ -107,7 +107,7 @@ func (r *ConsulRegistry) registerWithKV(service *Service) error {
 
 func (r *ConsulRegistry) Deregister(service *Service) error {
 	if r.path == "" || r.path == "/" {
-		if *catalog {
+		if *internal {
 			return r.deregisterWithCatalog(service)
 		} else {
 			return r.deregisterWithAgent(service)

@@ -17,7 +17,6 @@ var internal = flag.Bool("internal", false, "Use internal ports instead of publi
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
-var catalog = flag.Bool("catalog", false, "Use consul's catalog register instead of agent register")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
