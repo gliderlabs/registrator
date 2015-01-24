@@ -14,7 +14,7 @@ Registrator assumes the default Docker socket at `file:///var/run/docker.sock` o
 
 By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the `-ip` argument.
 
-If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd only for now) (Consul backend is also working like this if you change the TYPE container environment to `catalog`)
+If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd and consul only for now)
 
 The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
 
@@ -86,12 +86,10 @@ For each published port of a container, a `Service` object is created and passed
 		Port  int                  // <host-port>
 		IP    string               // <host-ip> || <resolve(hostname)> if 0.0.0.0
 		Tags  []string             // empty, or includes 'udp' if udp
-                Type  string               // 'agent', you can set it to 'catalog'
 		Attrs map[string]string    // any remaining service metadata from environment
 	}
 
-Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service.
-If you set the Type to `catalog` then new node is created with the given hostname and the services registered under it. In case of `internal` mode the published IP and Port are registered for the service. In this mode there is no check!
+Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
 
 Additional supported metadata in the same format `SERVICE_<metadata>`.
 IGNORE: Any value for ignore tells registrator to ignore this entire container and all associated ports.
@@ -110,7 +108,6 @@ Results in `Service`:
 		"Port": 10000,
 		"IP": "192.168.1.102",
 		"Tags": [],
-                "Type": "agent",
 		"Attrs": {}
 	}
 
@@ -129,11 +126,10 @@ Results in `Service`:
 		"Port": 10000,
 		"IP": "192.168.1.102",
 		"Tags": ["master", "backups"],
-                "Type": "agent",
 		"Attrs": {"region": "us2"}
 	}
 
-Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use.
+Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use. 
 
 ### Multiple services with defaults
 
@@ -148,7 +144,6 @@ Results in two `Service` objects:
 			"Port": 4443,
 			"IP": "192.168.1.102",
 			"Tags": [],
-                        "Type": "agent",
 			"Attrs": {},
 		},
 		{
@@ -157,7 +152,6 @@ Results in two `Service` objects:
 			"Port": 8000,
 			"IP": "192.168.1.102",
 			"Tags": [],
-                        "Type": "agent",
 			"Attrs": {}
 		}
 	]
@@ -180,7 +174,6 @@ Results in two `Service` objects:
 			"Port": 4443,
 			"IP": "192.168.1.102",
 			"Tags": ["www"],
-                        "Type": "agent",
 			"Attrs": {"sni": "enabled"},
 		},
 		{
@@ -189,26 +182,9 @@ Results in two `Service` objects:
 			"Port": 8000,
 			"IP": "192.168.1.102",
 			"Tags": ["www"],
-                        "Type": "agent",
 			"Attrs": {}
 		}
 	]
-
-### Single service with Type catalog in internal mode
-
-	$ docker run -d -h redisNode --name redis.0 -p 10000:6379 -e "SERVICE_TYPE=catalog" dockerfile/redis
-
-Results in `Service`:
-
-	{
-		"ID": "redisNode:redis.0:6379",
-		"Name": "redis",
-		"Port": 6379,
-		"IP": "172.17.0.32",
-		"Tags": [],
-                "Type": "catalog",
-		"Attrs": {}
-	}
 
 ## Adding support for other service registries
 
@@ -235,7 +211,7 @@ This feature is only available when using the `check-http` script that comes wit
 	SERVICE_80_CHECK_HTTP=/health/endpoint/path
 	SERVICE_80_CHECK_INTERVAL=15s
 
-It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`.
+It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`. 
 
 #### Run a health check script in the service container
 
