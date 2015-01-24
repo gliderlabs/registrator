@@ -30,10 +30,10 @@ func NewConsulRegistry(uri *url.URL) ServiceRegistry {
 
 func (r *ConsulRegistry) Register(service *Service) error {
 	if r.path == "" || r.path == "/" {
-		if service.Type == "agent" {
-			return r.registerWithAgent(service)
-		} else {
+		if *catalog {
 			return r.registerWithCatalog(service)
+		} else {
+			return r.registerWithAgent(service)
 		}
 	} else {
 		return r.registerWithKV(service)
@@ -107,10 +107,10 @@ func (r *ConsulRegistry) registerWithKV(service *Service) error {
 
 func (r *ConsulRegistry) Deregister(service *Service) error {
 	if r.path == "" || r.path == "/" {
-		if service.Type == "agent" {
-			return r.deregisterWithAgent(service)
-		} else {
+		if *catalog {
 			return r.deregisterWithCatalog(service)
+		} else {
+			return r.deregisterWithAgent(service)
 		}
 	} else {
 		return r.deregisterWithKV(service)

@@ -31,7 +31,6 @@ type Service struct {
 	Tags  []string
 	Attrs map[string]string
 	TTL   int
-	Type  string
 
 	pp PublishedPort
 }
@@ -106,8 +105,6 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 	if id != "" {
 		service.ID = id
 	}
-
-	service.Type = mapdefault(metadata, "type", "agent")
 
 	delete(metadata, "id")
 	delete(metadata, "tags")
