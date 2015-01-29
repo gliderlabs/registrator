@@ -77,7 +77,11 @@ func NewService(port PublishedPort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.pp = port
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	if *internal {
+		service.ID = port.HostName + ":" + container.Name[1:] + ":" + port.ExposedPort
+	} else {
+		service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	}
 	service.Name = mapdefault(metadata, "name", defaultName)
 	var p int
 	if *internal == true {

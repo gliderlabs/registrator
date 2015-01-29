@@ -1,9 +1,9 @@
 package main
 
 import (
-	"log"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"strconv"
@@ -30,13 +30,37 @@ func NewConsulRegistry(uri *url.URL) ServiceRegistry {
 
 func (r *ConsulRegistry) Register(service *Service) error {
 	if r.path == "" || r.path == "/" {
-		return r.registerWithCatalog(service)
+		if *internal {
+			return r.registerWithCatalog(service)
+		} else {
+			return r.registerWithAgent(service)
+		}
 	} else {
 		return r.registerWithKV(service)
 	}
 }
 
 func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
+	writeOptions := new(consulapi.WriteOptions)
+	regCatalog := new(consulapi.CatalogRegistration)
+	regCatalog.Datacenter = "dc1"
+	regCatalog.Node = service.pp.HostName
+	regCatalog.Address = service.IP
+
+	regCatalog.Service = new(consulapi.AgentService)
+	regCatalog.Service.ID = service.ID
+	regCatalog.Service.Service = service.Name
+	regCatalog.Service.Port = service.Port
+	regCatalog.Service.Tags = service.Tags
+
+	_, err := r.client.Catalog().Register(regCatalog, writeOptions)
+	if err != nil {
+		log.Println("registrator: consul: failed to register catalog service:", err)
+	}
+	return err
+}
+
+func (r *ConsulRegistry) registerWithAgent(service *Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
@@ -83,7 +107,11 @@ func (r *ConsulRegistry) registerWithKV(service *Service) error {
 
 func (r *ConsulRegistry) Deregister(service *Service) error {
 	if r.path == "" || r.path == "/" {
-		return r.deregisterWithCatalog(service)
+		if *internal {
+			return r.deregisterWithCatalog(service)
+		} else {
+			return r.deregisterWithAgent(service)
+		}
 	} else {
 		return r.deregisterWithKV(service)
 	}
@@ -94,6 +122,21 @@ func (r *ConsulRegistry) Refresh(service *Service) error {
 }
 
 func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
+	writeOptions := new(consulapi.WriteOptions)
+	deregCatalog := new(consulapi.CatalogDeregistration)
+	deregCatalog.Datacenter = "dc1"
+	deregCatalog.Node = service.pp.HostName
+	deregCatalog.Address = service.IP
+	deregCatalog.ServiceID = service.ID
+
+	_, err := r.client.Catalog().Deregister(deregCatalog, writeOptions)
+	if err != nil {
+		log.Println("registrator: consul: failed to deregister catalog service:", err)
+	}
+	return err
+}
+
+func (r *ConsulRegistry) deregisterWithAgent(service *Service) error {
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 

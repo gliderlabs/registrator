@@ -14,7 +14,7 @@ Registrator assumes the default Docker socket at `file:///var/run/docker.sock` o
 
 By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the `-ip` argument.
 
-If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd only for now)
+If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd and consul only for now)
 
 The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
 
