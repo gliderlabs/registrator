@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -26,11 +27,17 @@ func (r *Skydns2Registry) Register(service *Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+	if err != nil {
+		log.Println("registrator: skydns2: failed to register service:", err)
+	}
 	return err
 }
 
 func (r *Skydns2Registry) Deregister(service *Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
+	if err != nil {
+		log.Println("registrator: skydns2: failed to register service:", err)
+	}
 	return err
 }
 
