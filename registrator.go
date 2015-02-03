@@ -20,6 +20,7 @@ var internal = flag.Bool("internal", false, "Use internal ports instead of publi
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
+var serviceRefreshInterval = flag.Int("refresh", 0, "Frequency with which services are reregistered")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -119,6 +120,20 @@ func main() {
 				case <-quit:
 					ticker.Stop()
 					return
+				}
+			}
+		}()
+	}
+
+	if *serviceRefreshInterval > 0 {
+		refreshTicker := time.NewTicker(time.Duration(*serviceRefreshInterval) * time.Second)
+		go func() {
+			for {
+				select {
+				case <-refreshTicker.C:
+					bridge.ResubmitAll()
+				case <-quit:
+					refreshTicker.Stop()
 				}
 			}
 		}()
