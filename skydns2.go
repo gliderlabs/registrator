@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/url"
 	"strconv"
+	"regexp"
 	"strings"
 
 	"github.com/coreos/go-etcd/etcd"
@@ -46,7 +47,13 @@ func (r *Skydns2Registry) Refresh(service *Service) error {
 }
 
 func (r *Skydns2Registry) servicePath(service *Service) string {
-	return r.path + "/" + service.Name + "/" + service.ID
+	return r.path + "/" + slugify(service.Name) + "/" + slugify(service.ID)
+}
+
+func slugify(slug string) string {
+	slug = strings.ToLower(slug)
+	slug = regexp.MustCompile("[^a-z0-9-]").ReplaceAllString(slug, "-")
+	return strings.Trim(slug, "-")
 }
 
 func domainPath(domain string) string {
