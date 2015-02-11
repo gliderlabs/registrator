@@ -230,6 +230,7 @@ func (b *RegistryBridge) Remove(containerId string) {
 	b.Lock()
 	defer b.Unlock()
 	for _, service := range b.services[containerId] {
+		log.Println(service.ID)
 		err := retry(func() error {
 			return b.registry.Deregister(service)
 		})
@@ -257,16 +258,18 @@ func (b *RegistryBridge) Refresh() {
 	}
 }
 
-func (b *RegistryBridge) ResubmitAll() {
+func (b *RegistryBridge) Sync(quiet bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	log.Println("registrator: reregistering services")
+	log.Println("registrator: resyncing services")
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
-	if err != nil {
-		log.Println("registrator: error listing containers, skipping resubmit")
+	if err != nil && quiet {
+		log.Println("registrator: error listing containers, skipping sync")
 		return
+	} else if err != nil && !quiet {
+		log.Fatal(err)
 	}
 
 	// NOTE: This assumes reregistering will do the right thing, i.e. nothing.
@@ -274,14 +277,14 @@ func (b *RegistryBridge) ResubmitAll() {
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
-			b.addInternal(listing.ID, true)
+			b.addInternal(listing.ID, quiet)
 		} else {
 			for _, service := range services {
 				err := retry(func() error {
 					return b.registry.Register(service)
 				})
 				if err != nil {
-					log.Println("registrator: unable to resubmit service:", service, err)
+					log.Println("registrator: unable to sync service:", service, err)
 				}
 			}
 		}

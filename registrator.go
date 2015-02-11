@@ -20,7 +20,7 @@ var internal = flag.Bool("internal", false, "Use internal ports instead of publi
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
-var serviceRefreshInterval = flag.Int("refresh", 0, "Frequency with which services are reregistered")
+var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -102,11 +102,7 @@ func main() {
 	log.Printf("registrator %s listening for Docker events...\n", Version)
 
 	// List already running containers
-	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
-	assert(err)
-	for _, listing := range containers {
-		bridge.Add(listing.ID)
-	}
+	bridge.Sync(false)
 
 	// Start the TTL refresh timer
 	quit := make(chan struct{})
@@ -125,15 +121,16 @@ func main() {
 		}()
 	}
 
-	if *serviceRefreshInterval > 0 {
-		refreshTicker := time.NewTicker(time.Duration(*serviceRefreshInterval) * time.Second)
+	if *resyncInterval > 0 {
+		resyncTicker := time.NewTicker(time.Duration(*resyncInterval) * time.Second)
 		go func() {
 			for {
 				select {
-				case <-refreshTicker.C:
-					bridge.ResubmitAll()
+				case <-resyncTicker.C:
+					bridge.Sync(true)
 				case <-quit:
-					refreshTicker.Stop()
+					resyncTicker.Stop()
+					return
 				}
 			}
 		}()
