@@ -230,7 +230,6 @@ func (b *RegistryBridge) Remove(containerId string) {
 	b.Lock()
 	defer b.Unlock()
 	for _, service := range b.services[containerId] {
-		log.Println(service.ID)
 		err := retry(func() error {
 			return b.registry.Deregister(service)
 		})
