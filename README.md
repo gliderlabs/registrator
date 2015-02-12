@@ -24,6 +24,12 @@ Registrator was designed to just be run as a container. You must pass the Docker
 		-v /var/run/docker.sock:/tmp/docker.sock \
 		-h $HOSTNAME progrium/registrator <registry-uri>
 
+### Host mode services
+
+Registrator will discover services running in Docker net=host mode provided that their exposed ports are explicitly listed using the -p flag:
+
+	$ docker run --net=host -p 8080:8080 -p 8443:8443 ...
+		
 ### Registry URIs
 
 The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper (not yet supported) can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See also [Adding support for other service registries](#adding-support-for-other-service-registries).
