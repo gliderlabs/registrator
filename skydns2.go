@@ -52,7 +52,7 @@ func (r *Skydns2Registry) servicePath(service *Service) string {
 
 func slugify(slug string) string {
 	slug = strings.ToLower(slug)
-	slug = regexp.MustCompile("[^a-z0-9-]").ReplaceAllString(slug, "-")
+	slug = regexp.MustCompile("[^a-z0-9-/]").ReplaceAllString(slug, "-")
 	return strings.Trim(slug, "-")
 }
 
