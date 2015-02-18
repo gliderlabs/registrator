@@ -144,6 +144,27 @@ type RegistryBridge struct {
 	services map[string][]*Service
 }
 
+func MakePublishedPort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) PublishedPort {
+	var hp, hip string
+	if len(published) > 0 {
+		hp = published[0].HostPort
+		hip = published[0].HostIP
+	}
+	if (hip == "") {
+		hip = "0.0.0.0"
+	}		
+	p := strings.Split(string(port), "/")
+	return PublishedPort{
+		HostPort:    hp,
+		HostIP:      hip,
+		HostName:    container.Config.Hostname,
+		ExposedPort: p[0],
+		ExposedIP:   container.NetworkSettings.IPAddress,
+		PortType:    p[1],
+		Container:   container,
+	}
+}
+
 func (b *RegistryBridge) Add(containerId string) {
 	b.Lock()
 	defer b.Unlock()
@@ -153,23 +174,16 @@ func (b *RegistryBridge) Add(containerId string) {
 		return
 	}
 
-	ports := make([]PublishedPort, 0)
+	ports := make(map[string]PublishedPort)
+	
+	// Extract configured host port mappings, relevant when using --net=host
+	for port, published := range container.HostConfig.PortBindings {
+		ports[string(port)] = MakePublishedPort(container, port, published)
+	}
+	
+	// Extract runtime port mappings, relevant when using e.g. --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
-		var hp, hip string
-		if len(published) > 0 {
-			hp = published[0].HostPort
-			hip = published[0].HostIP
-		}
-		p := strings.Split(string(port), "/")
-		ports = append(ports, PublishedPort{
-			HostPort:    hp,
-			HostIP:      hip,
-			HostName:    container.Config.Hostname,
-			ExposedPort: p[0],
-			ExposedIP:   container.NetworkSettings.IPAddress,
-			PortType:    p[1],
-			Container:   container,
-		})
+		ports[string(port)] = MakePublishedPort(container, port, published)
 	}
 
 	for _, port := range ports {
@@ -193,7 +207,7 @@ func (b *RegistryBridge) Add(containerId string) {
 		log.Println("registrator: added:", container.ID[:12], service.ID)
 	}
 
-	if len(b.services) == 0 {
+	if len(b.services[container.ID]) == 0 {
 		log.Println("registrator: ignored:", container.ID[:12], "no published ports")
 	}
 }
