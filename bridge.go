@@ -196,6 +196,38 @@ func (b *RegistryBridge) addInternal(containerId string, quiet bool) {
 		ports[string(port)] = MakePublishedPort(container, port, published)
 	}
 
+	for _, kv := range container.Config.Env {
+		parts := strings.SplitN(kv, "=", 2)
+		if parts[0] != "SERVICES_EXT" {
+			continue
+		}
+		for _, addr := range strings.Split(parts[1], ",") {
+			port := addr
+			hip := "0.0.0.0"
+			parts := strings.SplitN(addr, ":", 2)
+			if len(parts) == 2 {
+				addr = parts[0]
+				port = parts[1]
+			}
+
+			portType := "tcp"
+			p := strings.SplitN(string(port), "/", 2)
+			if len(p) == 2 {
+				port = p[0]
+				portType = p[1]
+			}
+			ports = append(ports, PublishedPort{
+				HostPort:    port,
+				HostIP:      hip,
+				HostName:    container.Config.Hostname,
+				ExposedPort: port,
+				ExposedIP:   container.NetworkSettings.IPAddress,
+				PortType:    portType,
+				Container:   container,
+			})
+		}
+	}
+
 	for _, port := range ports {
 		if *internal != true && port.HostPort == "" {
 			if !quiet {
