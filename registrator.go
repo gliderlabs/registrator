@@ -57,6 +57,7 @@ func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 	factory := map[string]func(*url.URL) ServiceRegistry{
 		"consul":  NewConsulRegistry,
 		"etcd":    NewEtcdRegistry,
+		"vulcand": NewVulcandRegistry,
 		"skydns2": NewSkydns2Registry,
 	}[uri.Scheme]
 	if factory == nil {
