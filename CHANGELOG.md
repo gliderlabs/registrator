@@ -15,7 +15,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Automated, PR-driven release process
 - Development Dockerfile and make task
-- CircleCI artifacts for every build
+- CircleCI config with artifacts for every build
 - `--version` flag to see version
 
 ### Changed
