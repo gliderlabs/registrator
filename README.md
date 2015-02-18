@@ -30,6 +30,8 @@ By default, when registering a service, registrator will assign the service addr
 
 If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd and consul only for now)
 
+The `-resync` argument controls how often registrator will query Docker for all containers and reregister all services.  This allows registrator and the service registry to get back in sync if they fall out of sync.  The time is measured in seconds, and if set to zero will not resync.
+
 The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
 
 ### Host mode services

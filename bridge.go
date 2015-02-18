@@ -168,6 +168,16 @@ func MakePublishedPort(container *dockerapi.Container, port dockerapi.Port, publ
 func (b *RegistryBridge) Add(containerId string) {
 	b.Lock()
 	defer b.Unlock()
+	b.addInternal(containerId, false)
+}
+
+func (b *RegistryBridge) addInternal(containerId string, quiet bool) {
+	if b.services[containerId] != nil {
+		log.Println("registrator: container, ", containerId[:12], ", already exists, ignoring")
+		// Alternatively, remove and readd or resubmit.
+		return
+	}
+
 	container, err := b.docker.InspectContainer(containerId)
 	if err != nil {
 		log.Println("registrator: unable to inspect container:", containerId[:12], err)
@@ -188,12 +198,16 @@ func (b *RegistryBridge) Add(containerId string) {
 
 	for _, port := range ports {
 		if *internal != true && port.HostPort == "" {
-			log.Println("registrator: ignored", container.ID[:12], "port", port.ExposedPort, "not published on host")
+			if !quiet {
+				log.Println("registrator: ignored", container.ID[:12], "port", port.ExposedPort, "not published on host")
+			}
 			continue
 		}
 		service := NewService(port, len(ports) > 1)
 		if service == nil {
-			log.Println("registrator: ignored:", container.ID[:12], "service on port", port.ExposedPort)
+			if !quiet {
+				log.Println("registrator: ignored:", container.ID[:12], "service on port", port.ExposedPort)
+			}
 			continue
 		}
 		err := retry(func() error {
@@ -207,7 +221,7 @@ func (b *RegistryBridge) Add(containerId string) {
 		log.Println("registrator: added:", container.ID[:12], service.ID)
 	}
 
-	if len(b.services[container.ID]) == 0 {
+	if len(b.services[container.ID]) == 0 && !quiet {
 		log.Println("registrator: ignored:", container.ID[:12], "no published ports")
 	}
 }
@@ -239,6 +253,39 @@ func (b *RegistryBridge) Refresh() {
 				continue
 			}
 			log.Println("registrator: refreshed:", containerId[:12], service.ID)
+		}
+	}
+}
+
+func (b *RegistryBridge) Sync(quiet bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	log.Println("registrator: resyncing services")
+
+	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
+	if err != nil && quiet {
+		log.Println("registrator: error listing containers, skipping sync")
+		return
+	} else if err != nil && !quiet {
+		log.Fatal(err)
+	}
+
+	// NOTE: This assumes reregistering will do the right thing, i.e. nothing.
+	// NOTE: This will NOT remove services.
+	for _, listing := range containers {
+		services := b.services[listing.ID]
+		if services == nil {
+			b.addInternal(listing.ID, quiet)
+		} else {
+			for _, service := range services {
+				err := retry(func() error {
+					return b.registry.Register(service)
+				})
+				if err != nil {
+					log.Println("registrator: unable to sync service:", service, err)
+				}
+			}
 		}
 	}
 }
