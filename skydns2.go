@@ -46,7 +46,7 @@ func (r *Skydns2Registry) Refresh(service *Service) error {
 }
 
 func (r *Skydns2Registry) servicePath(service *Service) string {
-	return r.path + "/" + service.Name + "/" + service.ID
+	return r.path + "/" + service.Name + "/" + strings.Replace(service.ID, ":", "-", -1)
 }
 
 func domainPath(domain string) string {
