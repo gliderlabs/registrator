@@ -89,7 +89,7 @@ For each published port of a container, a `Service` object is created and passed
 		Attrs map[string]string    // any remaining service metadata from environment
 	}
 
-Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service. 
+Most of these (except `IP` and `Port`) can be overridden by container environment metadata variables prefixed with `SERVICE_` or `SERVICE_<internal-port>_`. You use a port in the key name to refer to a particular port's service. Metadata variables without a port in the name are used as the default for all services or can be used to conveniently refer to the single exposed service.
 
 Additional supported metadata in the same format `SERVICE_<metadata>`.
 IGNORE: Any value for ignore tells registrator to ignore this entire container and all associated ports.
@@ -129,7 +129,7 @@ Results in `Service`:
 		"Attrs": {"region": "us2"}
 	}
 
-Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use. 
+Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use.
 
 ### Multiple services with defaults
 
@@ -211,7 +211,7 @@ This feature is only available when using the `check-http` script that comes wit
 	SERVICE_80_CHECK_HTTP=/health/endpoint/path
 	SERVICE_80_CHECK_INTERVAL=15s
 
-It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`. 
+It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`.
 
 #### Run a health check script in the service container
 
@@ -233,6 +233,11 @@ The default interval for any non-TTL check is 10s, but you can set it with `_CHE
 
 Remember, this means Consul will be expecting a heartbeat ping within that 30 seconds to keep the service marked as healthy.
 
+## Contributing
+
+As usual, pull requests are welcome. You can also propose releases by opening a PR against the release branch from master. Please be sure to bump the version and update CHANGELOG.md and include your changelog text in the PR body.
+
+Discuss registrator development with us on Freenode in `#gliderlabs`.
 
 ## Todo / Contribution Ideas
 
