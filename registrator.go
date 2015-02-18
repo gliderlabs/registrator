@@ -3,6 +3,7 @@ package main // import "github.com/progrium/registrator"
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
+
+var Version string
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
@@ -63,6 +66,10 @@ func NewServiceRegistry(uri *url.URL) ServiceRegistry {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--version" {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
 
 	flag.Parse()
 
@@ -75,7 +82,7 @@ func main() {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
 
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
+	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 	assert(err)
 
 	uri, err := url.Parse(flag.Arg(0))
@@ -91,7 +98,7 @@ func main() {
 	// Start event listener before listing containers to avoid missing anything
 	events := make(chan *dockerapi.APIEvents)
 	assert(docker.AddEventListener(events))
-	log.Println("registrator: Listening for Docker events...")
+	log.Printf("registrator %s listening for Docker events...\n", Version)
 
 	// List already running containers
 	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
