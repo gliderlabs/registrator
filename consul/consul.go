@@ -1,4 +1,4 @@
-package main
+package consul
 
 import (
 	"errors"
@@ -8,29 +8,34 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 )
 
 const DefaultInterval = "10s"
+
+var UseCatalog bool // TODO: redesign this
 
 type ConsulRegistry struct {
 	client *consulapi.Client
 	path   string
 }
 
-func NewConsulRegistry(uri *url.URL) ServiceRegistry {
+func NewConsulRegistry(uri *url.URL) bridge.ServiceRegistry {
 	config := consulapi.DefaultConfig()
 	if uri.Host != "" {
 		config.Address = uri.Host
 	}
 	client, err := consulapi.NewClient(config)
-	assert(err)
+	if err != nil {
+		log.Fatal("consul: ", uri.Scheme)
+	}
 	return &ConsulRegistry{client: client, path: uri.Path}
 }
 
-func (r *ConsulRegistry) Register(service *Service) error {
+func (r *ConsulRegistry) Register(service *bridge.Service) error {
 	if r.path == "" || r.path == "/" {
-		if *internal {
+		if UseCatalog {
 			return r.registerWithCatalog(service)
 		} else {
 			return r.registerWithAgent(service)
@@ -40,11 +45,11 @@ func (r *ConsulRegistry) Register(service *Service) error {
 	}
 }
 
-func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
+func (r *ConsulRegistry) registerWithCatalog(service *bridge.Service) error {
 	writeOptions := new(consulapi.WriteOptions)
 	regCatalog := new(consulapi.CatalogRegistration)
 	regCatalog.Datacenter = "dc1"
-	regCatalog.Node = service.pp.HostName
+	regCatalog.Node = service.Origin.HostName
 	regCatalog.Address = service.IP
 
 	regCatalog.Service = new(consulapi.AgentService)
@@ -60,7 +65,7 @@ func (r *ConsulRegistry) registerWithCatalog(service *Service) error {
 	return err
 }
 
-func (r *ConsulRegistry) registerWithAgent(service *Service) error {
+func (r *ConsulRegistry) registerWithAgent(service *bridge.Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
@@ -72,12 +77,12 @@ func (r *ConsulRegistry) registerWithAgent(service *Service) error {
 	return r.client.Agent().ServiceRegister(registration)
 }
 
-func (r *ConsulRegistry) buildCheck(service *Service) *consulapi.AgentServiceCheck {
+func (r *ConsulRegistry) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
 	check := new(consulapi.AgentServiceCheck)
 	if path := service.Attrs["check_http"]; path != "" {
-		check.Script = fmt.Sprintf("check-http %s %s %s", service.pp.Container.ID[:12], service.pp.ExposedPort, path)
+		check.Script = fmt.Sprintf("check-http %s %s %s", service.Origin.Container.ID[:12], service.Origin.ExposedPort, path)
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.pp.Container.ID[:12], service.pp.ExposedPort, cmd)
+		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.Container.ID[:12], service.Origin.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
 		check.Script = script
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
@@ -95,7 +100,7 @@ func (r *ConsulRegistry) buildCheck(service *Service) *consulapi.AgentServiceChe
 	return check
 }
 
-func (r *ConsulRegistry) registerWithKV(service *Service) error {
+func (r *ConsulRegistry) registerWithKV(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
@@ -106,9 +111,9 @@ func (r *ConsulRegistry) registerWithKV(service *Service) error {
 	return err
 }
 
-func (r *ConsulRegistry) Deregister(service *Service) error {
+func (r *ConsulRegistry) Deregister(service *bridge.Service) error {
 	if r.path == "" || r.path == "/" {
-		if *internal {
+		if UseCatalog {
 			return r.deregisterWithCatalog(service)
 		} else {
 			return r.deregisterWithAgent(service)
@@ -118,15 +123,15 @@ func (r *ConsulRegistry) Deregister(service *Service) error {
 	}
 }
 
-func (r *ConsulRegistry) Refresh(service *Service) error {
+func (r *ConsulRegistry) Refresh(service *bridge.Service) error {
 	return errors.New("consul backend does not support refresh (use a TTL health check instead)")
 }
 
-func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
+func (r *ConsulRegistry) deregisterWithCatalog(service *bridge.Service) error {
 	writeOptions := new(consulapi.WriteOptions)
 	deregCatalog := new(consulapi.CatalogDeregistration)
 	deregCatalog.Datacenter = "dc1"
-	deregCatalog.Node = service.pp.HostName
+	deregCatalog.Node = service.Origin.HostName
 	deregCatalog.Address = service.IP
 	deregCatalog.ServiceID = service.ID
 
@@ -137,11 +142,11 @@ func (r *ConsulRegistry) deregisterWithCatalog(service *Service) error {
 	return err
 }
 
-func (r *ConsulRegistry) deregisterWithAgent(service *Service) error {
+func (r *ConsulRegistry) deregisterWithAgent(service *bridge.Service) error {
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 
-func (r *ConsulRegistry) deregisterWithKV(service *Service) error {
+func (r *ConsulRegistry) deregisterWithKV(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
 	if err != nil {

@@ -9,8 +9,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
+
+	"github.com/gliderlabs/registrator/bridge"
+	"github.com/gliderlabs/registrator/consul"
+	"github.com/gliderlabs/registrator/etcd"
+	"github.com/gliderlabs/registrator/skydns2"
 )
 
 var Version string
@@ -35,42 +39,12 @@ func assert(err error) {
 	}
 }
 
-func retry(fn func() error) error {
-	return backoff.Retry(fn, backoff.NewExponentialBackOff())
-}
-
-func mapdefault(m map[string]string, key, default_ string) string {
-	v, ok := m[key]
-	if !ok {
-		return default_
-	}
-	return v
-}
-
-type ServiceRegistry interface {
-	Register(service *Service) error
-	Deregister(service *Service) error
-	Refresh(service *Service) error
-}
-
-func NewServiceRegistry(uri *url.URL) ServiceRegistry {
-	factory := map[string]func(*url.URL) ServiceRegistry{
-		"consul":  NewConsulRegistry,
-		"etcd":    NewEtcdRegistry,
-		"skydns2": NewSkydns2Registry,
-	}[uri.Scheme]
-	if factory == nil {
-		log.Fatal("unrecognized registry backend: ", uri.Scheme)
-	}
-	log.Println("registrator: Using", uri.Scheme, "registry backend at", uri)
-	return factory(uri)
-}
-
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
+	log.Printf("Starting registrator %s\n", Version)
 
 	flag.Parse()
 
@@ -86,23 +60,34 @@ func main() {
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 	assert(err)
 
+	consul.UseCatalog = *internal // temporary hack for Consul
+	b := bridge.New(docker, bridge.Config{
+		HostIp:          *hostIp,
+		Internal:        *internal,
+		ForceTags:       *forceTags,
+		RefreshTtl:      *refreshTtl,
+		RefreshInterval: *refreshInterval,
+	})
+
 	uri, err := url.Parse(flag.Arg(0))
 	assert(err)
-	registry := NewServiceRegistry(uri)
-
-	bridge := &RegistryBridge{
-		docker:   docker,
-		registry: registry,
-		services: make(map[string][]*Service),
+	factory := map[string]func(*url.URL) bridge.ServiceRegistry{
+		"consul":  consul.NewConsulRegistry,
+		"etcd":    etcd.NewEtcdRegistry,
+		"skydns2": skydns2.NewSkydns2Registry,
+	}[uri.Scheme]
+	if factory == nil {
+		log.Fatal("unrecognized registry backend: ", uri.Scheme)
 	}
+	b.Registry = factory(uri)
+	log.Println("registrator: Using", uri.Scheme, "registry backend at", uri)
 
 	// Start event listener before listing containers to avoid missing anything
 	events := make(chan *dockerapi.APIEvents)
 	assert(docker.AddEventListener(events))
-	log.Printf("registrator %s listening for Docker events...\n", Version)
+	log.Println("registrator: Listening for Docker events...")
 
-	// List already running containers
-	bridge.Sync(false)
+	b.Sync(false)
 
 	// Start the TTL refresh timer
 	quit := make(chan struct{})
@@ -112,7 +97,7 @@ func main() {
 			for {
 				select {
 				case <-ticker.C:
-					bridge.Refresh()
+					b.Refresh()
 				case <-quit:
 					ticker.Stop()
 					return
@@ -127,7 +112,7 @@ func main() {
 			for {
 				select {
 				case <-resyncTicker.C:
-					bridge.Sync(true)
+					b.Sync(true)
 				case <-quit:
 					resyncTicker.Stop()
 					return
@@ -140,11 +125,11 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go bridge.Add(msg.ID)
+			go b.Add(msg.ID)
 		case "stop":
-			go bridge.Remove(msg.ID)
+			go b.Remove(msg.ID)
 		case "die":
-			go bridge.Remove(msg.ID)
+			go b.Remove(msg.ID)
 		}
 	}
 

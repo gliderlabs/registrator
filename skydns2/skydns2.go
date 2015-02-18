@@ -1,4 +1,4 @@
-package main
+package skydns2
 
 import (
 	"log"
@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/gliderlabs/registrator/bridge"
 )
 
 type Skydns2Registry struct {
@@ -14,7 +15,7 @@ type Skydns2Registry struct {
 	path   string
 }
 
-func NewSkydns2Registry(uri *url.URL) ServiceRegistry {
+func NewSkydns2Registry(uri *url.URL) bridge.ServiceRegistry {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
@@ -23,7 +24,7 @@ func NewSkydns2Registry(uri *url.URL) ServiceRegistry {
 	return &Skydns2Registry{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
 }
 
-func (r *Skydns2Registry) Register(service *Service) error {
+func (r *Skydns2Registry) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
@@ -33,7 +34,7 @@ func (r *Skydns2Registry) Register(service *Service) error {
 	return err
 }
 
-func (r *Skydns2Registry) Deregister(service *Service) error {
+func (r *Skydns2Registry) Deregister(service *bridge.Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
 	if err != nil {
 		log.Println("registrator: skydns2: failed to register service:", err)
@@ -41,11 +42,11 @@ func (r *Skydns2Registry) Deregister(service *Service) error {
 	return err
 }
 
-func (r *Skydns2Registry) Refresh(service *Service) error {
+func (r *Skydns2Registry) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
 
-func (r *Skydns2Registry) servicePath(service *Service) string {
+func (r *Skydns2Registry) servicePath(service *bridge.Service) string {
 	return r.path + "/" + service.Name + "/" + service.ID
 }
 

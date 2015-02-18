@@ -1,4 +1,5 @@
-package main
+//go:generate go-extpoints .
+package bridge
 
 import (
 	"log"
@@ -9,17 +10,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-type PublishedPort struct {
-	HostPort    string
-	HostIP      string
-	HostName    string
-	ExposedPort string
-	ExposedIP   string
-	PortType    string
-	Container   *dockerapi.Container
+type ServiceRegistry interface {
+	Register(service *Service) error
+	Deregister(service *Service) error
+	Refresh(service *Service) error
 }
 
 type Service struct {
@@ -32,10 +30,32 @@ type Service struct {
 	Attrs map[string]string
 	TTL   int
 
-	pp PublishedPort
+	Origin ServicePort
 }
 
-func CombineTags(tagParts ...string) []string {
+type ServicePort struct {
+	HostPort    string
+	HostIP      string
+	HostName    string
+	ExposedPort string
+	ExposedIP   string
+	PortType    string
+	Container   *dockerapi.Container
+}
+
+func retry(fn func() error) error {
+	return backoff.Retry(fn, backoff.NewExponentialBackOff())
+}
+
+func mapDefault(m map[string]string, key, default_ string) string {
+	v, ok := m[key]
+	if !ok {
+		return default_
+	}
+	return v
+}
+
+func combineTags(tagParts ...string) []string {
 	tags := make([]string, 0)
 	for _, element := range tagParts {
 		if element != "" {
@@ -43,77 +63,6 @@ func CombineTags(tagParts ...string) []string {
 		}
 	}
 	return tags
-}
-
-func NewService(port PublishedPort, isgroup bool) *Service {
-	container := port.Container
-	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	if isgroup {
-		defaultName = defaultName + "-" + port.ExposedPort
-	}
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = port.HostIP
-	} else {
-		if port.HostIP == "0.0.0.0" {
-			ip, err := net.ResolveIPAddr("ip", hostname)
-			if err == nil {
-				port.HostIP = ip.String()
-			}
-		}
-	}
-
-	if *hostIp != "" {
-		port.HostIP = *hostIp
-	}
-
-	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
-
-	ignore := mapdefault(metadata, "ignore", "")
-	if ignore != "" {
-		return nil
-	}
-
-	service := new(Service)
-	service.pp = port
-	if *internal {
-		service.ID = port.HostName + ":" + container.Name[1:] + ":" + port.ExposedPort
-	} else {
-		service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	}
-	service.Name = mapdefault(metadata, "name", defaultName)
-	var p int
-	if *internal == true {
-		service.IP = port.ExposedIP
-		p, _ = strconv.Atoi(port.ExposedPort)
-		// service.HostName = port.HostName
-	} else {
-		service.IP = port.HostIP
-		p, _ = strconv.Atoi(port.HostPort)
-	}
-	service.Port = p
-
-	if port.PortType == "udp" {
-		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTags, "udp")
-		service.ID = service.ID + ":udp"
-	} else {
-		service.Tags = CombineTags(mapdefault(metadata, "tags", ""), *forceTags)
-	}
-
-	id := mapdefault(metadata, "id", "")
-	if id != "" {
-		service.ID = id
-	}
-
-	delete(metadata, "id")
-	delete(metadata, "tags")
-	delete(metadata, "name")
-	service.Attrs = metadata
-
-	service.TTL = *refreshTtl
-
-	return service
 }
 
 func serviceMetaData(env []string, port string) map[string]string {
@@ -139,22 +88,111 @@ func serviceMetaData(env []string, port string) map[string]string {
 
 type RegistryBridge struct {
 	sync.Mutex
+	Registry ServiceRegistry
 	docker   *dockerapi.Client
-	registry ServiceRegistry
 	services map[string][]*Service
+	config   Config
 }
 
-func MakePublishedPort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) PublishedPort {
+type Config struct {
+	HostIp          string
+	Internal        bool
+	ForceTags       string
+	RefreshTtl      int
+	RefreshInterval int
+}
+
+func New(docker *dockerapi.Client, config Config) *RegistryBridge {
+	return &RegistryBridge{
+		docker:   docker,
+		config:   config,
+		services: make(map[string][]*Service),
+	}
+}
+
+func (b *RegistryBridge) newService(port ServicePort, isgroup bool) *Service {
+	container := port.Container
+	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
+	if isgroup {
+		defaultName = defaultName + "-" + port.ExposedPort
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = port.HostIP
+	} else {
+		if port.HostIP == "0.0.0.0" {
+			ip, err := net.ResolveIPAddr("ip", hostname)
+			if err == nil {
+				port.HostIP = ip.String()
+			}
+		}
+	}
+
+	if b.config.HostIp != "" {
+		port.HostIP = b.config.HostIp
+	}
+
+	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
+
+	ignore := mapDefault(metadata, "ignore", "")
+	if ignore != "" {
+		return nil
+	}
+
+	service := new(Service)
+	service.Origin = port
+	if b.config.Internal {
+		service.ID = port.HostName + ":" + container.Name[1:] + ":" + port.ExposedPort
+	} else {
+		service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	}
+	service.Name = mapDefault(metadata, "name", defaultName)
+	var p int
+	if b.config.Internal == true {
+		service.IP = port.ExposedIP
+		p, _ = strconv.Atoi(port.ExposedPort)
+		// service.HostName = port.HostName
+	} else {
+		service.IP = port.HostIP
+		p, _ = strconv.Atoi(port.HostPort)
+	}
+	service.Port = p
+
+	if port.PortType == "udp" {
+		service.Tags = combineTags(
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
+		service.ID = service.ID + ":udp"
+	} else {
+		service.Tags = combineTags(
+			mapDefault(metadata, "tags", ""), b.config.ForceTags)
+	}
+
+	id := mapDefault(metadata, "id", "")
+	if id != "" {
+		service.ID = id
+	}
+
+	delete(metadata, "id")
+	delete(metadata, "tags")
+	delete(metadata, "name")
+	service.Attrs = metadata
+	service.TTL = b.config.RefreshTtl
+
+	return service
+}
+
+func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
 	var hp, hip string
 	if len(published) > 0 {
 		hp = published[0].HostPort
 		hip = published[0].HostIP
 	}
-	if (hip == "") {
+	if hip == "" {
 		hip = "0.0.0.0"
-	}		
+	}
 	p := strings.Split(string(port), "/")
-	return PublishedPort{
+	return ServicePort{
 		HostPort:    hp,
 		HostIP:      hip,
 		HostName:    container.Config.Hostname,
@@ -184,16 +222,16 @@ func (b *RegistryBridge) addInternal(containerId string, quiet bool) {
 		return
 	}
 
-	ports := make(map[string]PublishedPort)
-	
+	ports := make(map[string]ServicePort)
+
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, published := range container.HostConfig.PortBindings {
-		ports[string(port)] = MakePublishedPort(container, port, published)
+		ports[string(port)] = servicePort(container, port, published)
 	}
-	
-	// Extract runtime port mappings, relevant when using e.g. --net=bridge
+
+	// Extract runtime port mappings, relevant when using --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = MakePublishedPort(container, port, published)
+		ports[string(port)] = servicePort(container, port, published)
 	}
 
 	for _, port := range ports {
@@ -203,7 +241,7 @@ func (b *RegistryBridge) addInternal(containerId string, quiet bool) {
 			}
 			continue
 		}
-		service := NewService(port, len(ports) > 1)
+		service := b.newService(port, len(ports) > 1)
 		if service == nil {
 			if !quiet {
 				log.Println("registrator: ignored:", container.ID[:12], "service on port", port.ExposedPort)
@@ -211,7 +249,7 @@ func (b *RegistryBridge) addInternal(containerId string, quiet bool) {
 			continue
 		}
 		err := retry(func() error {
-			return b.registry.Register(service)
+			return b.Registry.Register(service)
 		})
 		if err != nil {
 			log.Println("registrator: unable to register service:", service, err)
@@ -231,7 +269,7 @@ func (b *RegistryBridge) Remove(containerId string) {
 	defer b.Unlock()
 	for _, service := range b.services[containerId] {
 		err := retry(func() error {
-			return b.registry.Deregister(service)
+			return b.Registry.Deregister(service)
 		})
 		if err != nil {
 			log.Println("registrator: unable to deregister service:", service.ID, err)
@@ -247,7 +285,7 @@ func (b *RegistryBridge) Refresh() {
 	defer b.Unlock()
 	for containerId, services := range b.services {
 		for _, service := range services {
-			err := b.registry.Refresh(service)
+			err := b.Registry.Refresh(service)
 			if err != nil {
 				log.Println("registrator: unable to refresh service:", service.ID, err)
 				continue

@@ -1,4 +1,4 @@
-package main
+package etcd
 
 import (
 	"log"
@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/gliderlabs/registrator/bridge"
 )
 
 type EtcdRegistry struct {
@@ -14,7 +15,7 @@ type EtcdRegistry struct {
 	path   string
 }
 
-func NewEtcdRegistry(uri *url.URL) ServiceRegistry {
+func NewEtcdRegistry(uri *url.URL) bridge.ServiceRegistry {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
@@ -22,7 +23,7 @@ func NewEtcdRegistry(uri *url.URL) ServiceRegistry {
 	return &EtcdRegistry{client: etcd.NewClient(urls), path: uri.Path}
 }
 
-func (r *EtcdRegistry) Register(service *Service) error {
+func (r *EtcdRegistry) Register(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
@@ -33,7 +34,7 @@ func (r *EtcdRegistry) Register(service *Service) error {
 	return err
 }
 
-func (r *EtcdRegistry) Deregister(service *Service) error {
+func (r *EtcdRegistry) Deregister(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	_, err := r.client.Delete(path, false)
 	if err != nil {
@@ -42,6 +43,6 @@ func (r *EtcdRegistry) Deregister(service *Service) error {
 	return err
 }
 
-func (r *EtcdRegistry) Refresh(service *Service) error {
+func (r *EtcdRegistry) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
