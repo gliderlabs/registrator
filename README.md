@@ -233,6 +233,25 @@ The default interval for any non-TTL check is 10s, but you can set it with `_CHE
 
 Remember, this means Consul will be expecting a heartbeat ping within that 30 seconds to keep the service marked as healthy.
 
+## FAQ
+
+### Registrator is registering the wrong IP for my Service
+
+Depending on the back end you're using and its set up, Registrator typically uses either its own IP (ie, etcd without the -internal flag) or the IP of the backing store (ie, consul) as the service IP rather than the IP address of the service.
+
+At first glance, this seems wrong, but it is usually what you want.
+
+A service in a Docker based production cluster typically has 3 IP addresses.  The service itself is running in a Docker container, which has an IP address assigned by Docker.   The host that it's running on will have 3 IP addresses:  one for the Docker network, an internal private IP address for all hosts in the cluster, and a public address on the Internet.
+
+Unless you've bridged your docker networks, the IP address of the service container is not accessible from other hosts in the cluster.  Instead you use the "-P" or "-p" option to Docker to map the service port onto the host.  You then advertise a Host IP as the service IP.  The public IP address should be firewalled, so you want the internal private IP to be advertised.
+
+#### Consul
+
+Use the '-advertise=ip' option in Consul to set the advertised IP address.
+
+A production registrator/consul environment would have one registrator and one consul instance per host.  Each consul instance would advertise the IP of its host, and the registrator instance for that host would point to its local consul.
+
+The local consul instance may be a server or a client.  A typical cluster would have 3-5 masters and remaining hosts would run consul clients.
 
 ## Todo / Contribution Ideas
 
