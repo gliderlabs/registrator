@@ -90,6 +90,8 @@ Note that the default `service-id` includes more than the container name (see be
 
 	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
 
+Registrator will remove invalid characters to ensure valid dns hostnames. So `myhostname:adoring_hopper:1337` will become `myhost-adoring-hopper-1337`.
+
 ## How it works
 
 Services are registered and deregistered based on container start and die events from Docker. The service definitions are created with information from the container, including user-defined metadata in the container environment.
