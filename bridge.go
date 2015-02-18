@@ -158,7 +158,7 @@ func (b *RegistryBridge) Add(containerId string) {
 		var hp, hip string
 		if len(published) > 0 {
 			hp = published[0].HostPort
-			hip = published[0].HostIP
+			hip = published[0].HostIp
 		}
 		p := strings.Split(string(port), "/")
 		ports = append(ports, PublishedPort{
