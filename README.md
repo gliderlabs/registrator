@@ -74,6 +74,40 @@ Note that the default `service-id` includes more than the container name (see be
 
 	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
 
+#### Vulcand backend
+
+Vulcand support uses the vulcand API to register new endpoints on vulcand upstreams. Example URIs:
+
+	$ registrator vulcand://vulcand.local:8182
+	$ registrator vulcand://172.17.42.1:8182
+
+If you want to use this Vulcand Backend, you should configure your Vulcand first, like add a host, upstream, location and a listener.
+
+	$ vulcanctl --vulcan "http://vulcand.local:8182" host add --name myhost.tld
+	$ vulcanctl --vulcan "http://vulcand.local:8182" upstream add --id infopage
+	$ vulcanctl --vulcan "http://vulcand.local:8182" upstream add --id authbackend
+	$ vulcanctl --vulcan "http://vulcand.local:8182" location add --id slash --host myhost.tld --path '/.*' --upstream infopage
+	$ vulcanctl --vulcan "http://vulcand.local:8182" location add --id slash --host myhost.tld --path '/auth.*' --upstream authbackend
+	$ vulcanctl --vulcan "http://vulcand.local:8182" listener add --host myhost.tld --proto 'http' --net 'tcp' --addr '0.0.0.0:80'
+
+After that step you're able to use this vulcand registry service to register your endpoints automatically. The right upstream found via the hostname of the running docker container.
+
+In this example we bind the port 80 from the container to the local docker0 interface, to avoid making it available from the outside - but also make it available for our vulcand. If you don't bind the port anywhere, it can't be registered to vulcand!
+
+	$ docker run -d -p 172.17.42.1:80:80 --name authbackend-1 coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:81:80 --name authbackend-2 coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:82:80 --name authbackend-3 coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:83:80 --name authbackend-4-backup-only coreos/example:1.0.0
+	$ docker run -d -p 172.17.42.1:84:80 --name infopage-1 coreos/example:2.0.0
+	$ docker run -d -p 172.17.42.1:85:80 --name infopage-2 coreos/example:2.0.0
+	$ docker run -d -p 172.17.42.1:86:80 --name infopage-3 coreos/example:2.0.0
+
+We now registered 4 containers of example:1.0.0 to the authbackend upstream, and 3 example:2.0.0 to the infopage upstream.
+
+Keep in mind, that you should't use any __-__ inside the upstream name, because it won't work then.
+
+Allways name your containers with the following scheme: upstreamname-whateveryouwant
+
 ## How it works
 
 Services are registered and deregistered based on container start and die events from Docker. The service definitions are created with information from the container, including user-defined metadata in the container environment.
