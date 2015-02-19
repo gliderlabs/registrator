@@ -38,6 +38,11 @@ type Service struct {
 	Origin ServicePort
 }
 
+type DeadContainer struct {
+	TTL      int
+	Services []*Service
+}
+
 type ServicePort struct {
 	HostPort          string
 	HostIP            string

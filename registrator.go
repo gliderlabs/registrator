@@ -109,9 +109,9 @@ func main() {
 		switch msg.Status {
 		case "start":
 			go b.Add(msg.ID)
-		case "stop":
-			go b.Remove(msg.ID)
 		case "die":
+			go b.RemoveOnExit(msg.ID)
+		case "stop", "kill":
 			go b.Remove(msg.ID)
 		}
 	}
