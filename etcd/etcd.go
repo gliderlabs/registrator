@@ -10,17 +10,27 @@ import (
 	"github.com/gliderlabs/registrator/bridge"
 )
 
-type EtcdRegistry struct {
-	client *etcd.Client
-	path   string
+func init() {
+	bridge.Register(new(Factory), "etcd")
 }
 
-func NewEtcdRegistry(uri *url.URL) bridge.ServiceRegistry {
+type Factory struct{}
+
+func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	}
 	return &EtcdRegistry{client: etcd.NewClient(urls), path: uri.Path}
+}
+
+type EtcdRegistry struct {
+	client *etcd.Client
+	path   string
+}
+
+func (r *EtcdRegistry) Ping() error {
+	return nil // TODO
 }
 
 func (r *EtcdRegistry) Register(service *bridge.Service) error {
@@ -29,7 +39,7 @@ func (r *EtcdRegistry) Register(service *bridge.Service) error {
 	addr := net.JoinHostPort(service.IP, port)
 	_, err := r.client.Set(path, addr, uint64(service.TTL))
 	if err != nil {
-		log.Println("registrator: etcd: failed to register service:", err)
+		log.Println("etcd: failed to register service:", err)
 	}
 	return err
 }
@@ -38,7 +48,7 @@ func (r *EtcdRegistry) Deregister(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	_, err := r.client.Delete(path, false)
 	if err != nil {
-		log.Println("registrator: etcd: failed to register service:", err)
+		log.Println("etcd: failed to register service:", err)
 	}
 	return err
 }

@@ -16,12 +16,13 @@ const DefaultInterval = "10s"
 
 var UseCatalog bool // TODO: redesign this
 
-type ConsulRegistry struct {
-	client *consulapi.Client
-	path   string
+func init() {
+	bridge.Register(new(Factory), "consul")
 }
 
-func NewConsulRegistry(uri *url.URL) bridge.ServiceRegistry {
+type Factory struct{}
+
+func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
 	config := consulapi.DefaultConfig()
 	if uri.Host != "" {
 		config.Address = uri.Host
@@ -31,6 +32,15 @@ func NewConsulRegistry(uri *url.URL) bridge.ServiceRegistry {
 		log.Fatal("consul: ", uri.Scheme)
 	}
 	return &ConsulRegistry{client: client, path: uri.Path}
+}
+
+type ConsulRegistry struct {
+	client *consulapi.Client
+	path   string
+}
+
+func (r *ConsulRegistry) Ping() error {
+	return nil // TODO
 }
 
 func (r *ConsulRegistry) Register(service *bridge.Service) error {
@@ -49,7 +59,7 @@ func (r *ConsulRegistry) registerWithCatalog(service *bridge.Service) error {
 	writeOptions := new(consulapi.WriteOptions)
 	regCatalog := new(consulapi.CatalogRegistration)
 	regCatalog.Datacenter = "dc1"
-	regCatalog.Node = service.Origin.HostName
+	regCatalog.Node = service.Origin.ContainerHostname
 	regCatalog.Address = service.IP
 
 	regCatalog.Service = new(consulapi.AgentService)
@@ -60,7 +70,7 @@ func (r *ConsulRegistry) registerWithCatalog(service *bridge.Service) error {
 
 	_, err := r.client.Catalog().Register(regCatalog, writeOptions)
 	if err != nil {
-		log.Println("registrator: consul: failed to register catalog service:", err)
+		log.Println("consul: failed to register catalog service:", err)
 	}
 	return err
 }
@@ -80,9 +90,9 @@ func (r *ConsulRegistry) registerWithAgent(service *bridge.Service) error {
 func (r *ConsulRegistry) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
 	check := new(consulapi.AgentServiceCheck)
 	if path := service.Attrs["check_http"]; path != "" {
-		check.Script = fmt.Sprintf("check-http %s %s %s", service.Origin.Container.ID[:12], service.Origin.ExposedPort, path)
+		check.Script = fmt.Sprintf("check-http %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, path)
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.Container.ID[:12], service.Origin.ExposedPort, cmd)
+		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
 		check.Script = script
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
@@ -106,7 +116,7 @@ func (r *ConsulRegistry) registerWithKV(service *bridge.Service) error {
 	addr := net.JoinHostPort(service.IP, port)
 	_, err := r.client.KV().Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
 	if err != nil {
-		log.Println("registrator: consul: failed to register service:", err)
+		log.Println("consul: failed to register service:", err)
 	}
 	return err
 }
@@ -131,13 +141,13 @@ func (r *ConsulRegistry) deregisterWithCatalog(service *bridge.Service) error {
 	writeOptions := new(consulapi.WriteOptions)
 	deregCatalog := new(consulapi.CatalogDeregistration)
 	deregCatalog.Datacenter = "dc1"
-	deregCatalog.Node = service.Origin.HostName
+	deregCatalog.Node = service.Origin.ContainerHostname
 	deregCatalog.Address = service.IP
 	deregCatalog.ServiceID = service.ID
 
 	_, err := r.client.Catalog().Deregister(deregCatalog, writeOptions)
 	if err != nil {
-		log.Println("registrator: consul: failed to deregister catalog service:", err)
+		log.Println("consul: failed to deregister catalog service:", err)
 	}
 	return err
 }
@@ -150,7 +160,7 @@ func (r *ConsulRegistry) deregisterWithKV(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
 	if err != nil {
-		log.Println("registrator: consul: failed to register service:", err)
+		log.Println("consul: failed to register service:", err)
 	}
 	return err
 }
