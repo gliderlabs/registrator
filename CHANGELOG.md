@@ -5,10 +5,16 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 ### Added
+- Optional periodic resyncing of services from containers
+- More error logging for registries
+- Support for services on containers with `--net=host`
+- Added `extensions.go` file for adding/disabling components
 
 ### Removed
 
 ### Changed
+- Overall refactoring and cleanup
+- Decoupled registries into subpackages using extpoints
 
 
 ## [v5] - 2015-02-18

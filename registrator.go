@@ -9,12 +9,8 @@ import (
 	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
-
 	"github.com/gliderlabs/registrator/bridge"
-
 	"github.com/gliderlabs/registrator/consul"
-	_ "github.com/gliderlabs/registrator/etcd"
-	_ "github.com/gliderlabs/registrator/skydns2"
 )
 
 var Version string
