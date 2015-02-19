@@ -1,4 +1,4 @@
-package main // import "github.com/progrium/registrator"
+package main // import "github.com/gliderlabs/registrator"
 
 import (
 	"errors"
