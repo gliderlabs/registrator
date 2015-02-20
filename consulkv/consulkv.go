@@ -40,7 +40,7 @@ func (r *ConsulKVAdapter) Ping() error {
 	if err != nil {
 		return err
 	}
-	log.Println("consul: current leader ", leader)
+	log.Println("consulkv: current leader ", leader)
 
 	return nil
 }
