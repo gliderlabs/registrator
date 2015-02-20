@@ -57,7 +57,7 @@ func (b *Bridge) Remove(containerId string) {
 }
 
 func (b *Bridge) RemoveOnExit(containerId string) {
-	b.remove(containerId, b.didExitCleanly(containerId))
+	b.remove(containerId, b.config.DeregisterCheck == "always" || b.didExitCleanly(containerId))
 }
 
 func (b *Bridge) Refresh() {

@@ -24,6 +24,7 @@ type Config struct {
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int
+	DeregisterCheck string
 }
 
 type Service struct {
