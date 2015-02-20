@@ -21,6 +21,7 @@ type RegistryAdapter interface {
 type Config struct {
 	HostIp          string
 	Internal        bool
+	PrivateIP       bool
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int
