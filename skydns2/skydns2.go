@@ -30,7 +30,12 @@ type Skydns2Adapter struct {
 }
 
 func (r *Skydns2Adapter) Ping() error {
-	return nil // TODO
+	rr := etcd.NewRawRequest("GET", "version", nil, nil)
+	_, err := r.client.SendRequest(rr)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {

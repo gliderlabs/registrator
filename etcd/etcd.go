@@ -30,7 +30,12 @@ type EtcdAdapter struct {
 }
 
 func (r *EtcdAdapter) Ping() error {
-	return nil // TODO
+	rr := etcd.NewRawRequest("GET", "version", nil, nil)
+	_, err := r.client.SendRequest(rr)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *EtcdAdapter) Register(service *bridge.Service) error {
