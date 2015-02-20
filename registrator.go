@@ -1,4 +1,4 @@
-package main // import "github.com/gliderlabs/registrator"
+package main
 
 import (
 	"errors"
@@ -56,7 +56,6 @@ func main() {
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 	assert(err)
 
-	consul.UseCatalog = *internal // temporary hack for Consul
 	b := bridge.New(docker, flag.Args(), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,

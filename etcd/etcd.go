@@ -48,7 +48,7 @@ func (r *EtcdRegistry) Deregister(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	_, err := r.client.Delete(path, false)
 	if err != nil {
-		log.Println("etcd: failed to register service:", err)
+		log.Println("etcd: failed to deregister service:", err)
 	}
 	return err
 }
