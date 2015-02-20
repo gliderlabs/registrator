@@ -1,8 +1,6 @@
 package consul
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"net"
 	"net/url"

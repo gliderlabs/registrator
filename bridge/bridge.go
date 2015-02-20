@@ -15,42 +15,32 @@ import (
 
 type Bridge struct {
 	sync.Mutex
-	registries []ServiceRegistry
-	docker     *dockerapi.Client
-	services   map[string][]*Service
-	config     Config
+	registry ServiceRegistry
+	docker   *dockerapi.Client
+	services map[string][]*Service
+	config   Config
 }
 
-func New(docker *dockerapi.Client, registryUris []string, config Config) *Bridge {
-	var registries []ServiceRegistry
-	for _, uri := range registryUris {
-		uri, err := url.Parse(uri)
-		if err != nil {
-			log.Println("Bad regisry URI:", uri)
-			continue
-		}
-		factory, found := RegistryFactories.Lookup(uri.Scheme)
-		if !found {
-			log.Println("Unrecognized registry scheme:", uri)
-			continue
-		}
-		registry := factory.New(uri)
-		err = registry.Ping()
-		if err != nil {
-			log.Printf("%s: %s", uri.Scheme, err)
-			continue
-		}
-		log.Println("Adding", uri.Scheme, "registry:", uri)
-		registries = append(registries, registry)
+func New(docker *dockerapi.Client, registryUri string, config Config) *Bridge {
+	uri, err := url.Parse(registryUri)
+	if err != nil {
+		log.Fatal("Bad regisry URI:", registryUri)
 	}
-	if len(registries) == 0 {
-		log.Fatal("No usable service registries")
+	factory, found := RegistryFactories.Lookup(uri.Scheme)
+	if !found {
+		log.Fatal("Unrecognized registry scheme:", registryUri)
 	}
+	registry := factory.New(uri)
+	err = registry.Ping()
+	if err != nil {
+		log.Fatalf("%s: %s", uri.Scheme, err)
+	}
+	log.Println("Using", uri.Scheme, "registry:", uri)
 	return &Bridge{
-		docker:     docker,
-		config:     config,
-		registries: registries,
-		services:   make(map[string][]*Service),
+		docker:   docker,
+		config:   config,
+		registry: registry,
+		services: make(map[string][]*Service),
 	}
 }
 
@@ -65,13 +55,11 @@ func (b *Bridge) Remove(containerId string) {
 	defer b.Unlock()
 	for _, service := range b.services[containerId] {
 		log.Println("removing:", containerId[:12], service.ID)
-		for _, registry := range b.registries {
-			err := retry(func() error {
-				return registry.Deregister(service)
-			})
-			if err != nil {
-				log.Println("deregister error:", service.ID, err)
-			}
+		err := retry(func() error {
+			return b.registry.Deregister(service)
+		})
+		if err != nil {
+			log.Println("deregister failed:", service.ID, err)
 		}
 	}
 	delete(b.services, containerId)
@@ -83,11 +71,9 @@ func (b *Bridge) Refresh() {
 	for containerId, services := range b.services {
 		for _, service := range services {
 			log.Println("refreshing:", containerId[:12], service.ID)
-			for _, registry := range b.registries {
-				err := registry.Refresh(service)
-				if err != nil {
-					log.Println("refresh error:", service.ID, err)
-				}
+			err := b.registry.Refresh(service)
+			if err != nil {
+				log.Println("refresh failed:", service.ID, err)
 			}
 		}
 	}
@@ -115,13 +101,11 @@ func (b *Bridge) Sync(quiet bool) {
 			b.add(listing.ID, quiet)
 		} else {
 			for _, service := range services {
-				for _, registry := range b.registries {
-					err := retry(func() error {
-						return registry.Register(service)
-					})
-					if err != nil {
-						log.Println("sync register error:", service, err)
-					}
+				err := retry(func() error {
+					return b.registry.Register(service)
+				})
+				if err != nil {
+					log.Println("sync register failed:", service, err)
 				}
 			}
 		}
@@ -168,13 +152,11 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			continue
 		}
 		log.Println("adding:", container.ID[:12], service.ID)
-		for _, registry := range b.registries {
-			err := retry(func() error {
-				return registry.Register(service)
-			})
-			if err != nil {
-				log.Println("register error:", service, err)
-			}
+		err := retry(func() error {
+			return b.registry.Register(service)
+		})
+		if err != nil {
+			log.Println("register failed:", service, err)
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
 	}

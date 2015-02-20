@@ -10,7 +10,6 @@ import (
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/registrator/bridge"
-	"github.com/gliderlabs/registrator/consul"
 )
 
 var Version string
@@ -56,7 +55,7 @@ func main() {
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 	assert(err)
 
-	b := bridge.New(docker, flag.Args(), bridge.Config{
+	b := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		ForceTags:       *forceTags,

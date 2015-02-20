@@ -1,12 +1,9 @@
 package consul
 
 import (
-	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/url"
-	"strconv"
 
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
