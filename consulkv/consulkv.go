@@ -33,8 +33,16 @@ type ConsulKVAdapter struct {
 	path   string
 }
 
+// Ping will try to connect to consul by attempting to retrieve the current leader.
 func (r *ConsulKVAdapter) Ping() error {
-	return nil // TODO
+	status := r.client.Status()
+	leader, err := status.Leader()
+	if err != nil {
+		return err
+	}
+	log.Println("consul: current leader ", leader)
+
+	return nil
 }
 
 func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
