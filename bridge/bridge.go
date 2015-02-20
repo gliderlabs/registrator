@@ -15,31 +15,31 @@ import (
 
 type Bridge struct {
 	sync.Mutex
-	registry ServiceRegistry
+	registry RegistryAdapter
 	docker   *dockerapi.Client
 	services map[string][]*Service
 	config   Config
 }
 
-func New(docker *dockerapi.Client, registryUri string, config Config) *Bridge {
-	uri, err := url.Parse(registryUri)
+func New(docker *dockerapi.Client, adapterUri string, config Config) *Bridge {
+	uri, err := url.Parse(adapterUri)
 	if err != nil {
-		log.Fatal("Bad regisry URI:", registryUri)
+		log.Fatal("Bad adapter URI:", adapterUri)
 	}
-	factory, found := RegistryFactories.Lookup(uri.Scheme)
+	factory, found := AdapterFactories.Lookup(uri.Scheme)
 	if !found {
-		log.Fatal("Unrecognized registry scheme:", registryUri)
+		log.Fatal("Unrecognized adapter:", adapterUri)
 	}
-	registry := factory.New(uri)
-	err = registry.Ping()
+	adapter := factory.New(uri)
+	err = adapter.Ping()
 	if err != nil {
 		log.Fatalf("%s: %s", uri.Scheme, err)
 	}
-	log.Println("Using", uri.Scheme, "registry:", uri)
+	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
 		docker:   docker,
 		config:   config,
-		registry: registry,
+		registry: adapter,
 		services: make(map[string][]*Service),
 	}
 }
@@ -199,11 +199,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.Origin = port
-	if b.config.Internal {
-		service.ID = port.ContainerHostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	} else {
-		service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	}
+	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
 	var p int
 	if b.config.Internal == true {

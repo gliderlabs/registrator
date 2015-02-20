@@ -16,24 +16,24 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
+func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	}
-	return &Skydns2Registry{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
 }
 
-type Skydns2Registry struct {
+type Skydns2Adapter struct {
 	client *etcd.Client
 	path   string
 }
 
-func (r *Skydns2Registry) Ping() error {
+func (r *Skydns2Adapter) Ping() error {
 	return nil // TODO
 }
 
-func (r *Skydns2Registry) Register(service *bridge.Service) error {
+func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
@@ -43,7 +43,7 @@ func (r *Skydns2Registry) Register(service *bridge.Service) error {
 	return err
 }
 
-func (r *Skydns2Registry) Deregister(service *bridge.Service) error {
+func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
@@ -51,11 +51,11 @@ func (r *Skydns2Registry) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *Skydns2Registry) Refresh(service *bridge.Service) error {
+func (r *Skydns2Adapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
 
-func (r *Skydns2Registry) servicePath(service *bridge.Service) string {
+func (r *Skydns2Adapter) servicePath(service *bridge.Service) string {
 	return r.path + "/" + service.Name + "/" + service.ID
 }
 

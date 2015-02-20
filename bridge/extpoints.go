@@ -106,36 +106,36 @@ func Unregister(name string) []string {
 	return ifaces
 }
 
-// RegistryFactory
+// AdapterFactory
 
-var RegistryFactories = &registryFactoryExt{
-	newExtensionPoint(new(RegistryFactory)),
+var AdapterFactories = &adapterFactoryExt{
+	newExtensionPoint(new(AdapterFactory)),
 }
 
-type registryFactoryExt struct {
+type adapterFactoryExt struct {
 	*extensionPoint
 }
 
-func (ep *registryFactoryExt) Unregister(name string) bool {
+func (ep *adapterFactoryExt) Unregister(name string) bool {
 	return ep.unregister(name)
 }
 
-func (ep *registryFactoryExt) Register(component RegistryFactory, name string) bool {
+func (ep *adapterFactoryExt) Register(component AdapterFactory, name string) bool {
 	return ep.register(component, name)
 }
 
-func (ep *registryFactoryExt) Lookup(name string) (RegistryFactory, bool) {
+func (ep *adapterFactoryExt) Lookup(name string) (AdapterFactory, bool) {
 	ext, ok := ep.lookup(name)
 	if !ok {
 		return nil, ok
 	}
-	return ext.(RegistryFactory), ok
+	return ext.(AdapterFactory), ok
 }
 
-func (ep *registryFactoryExt) All() map[string]RegistryFactory {
-	all := make(map[string]RegistryFactory)
+func (ep *adapterFactoryExt) All() map[string]AdapterFactory {
+	all := make(map[string]AdapterFactory)
 	for k, v := range ep.all() {
-		all[k] = v.(RegistryFactory)
+		all[k] = v.(AdapterFactory)
 	}
 	return all
 }

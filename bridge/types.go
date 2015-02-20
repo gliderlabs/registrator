@@ -1,4 +1,4 @@
-//go:generate go-extpoints . RegistryFactory
+//go:generate go-extpoints . AdapterFactory
 package bridge
 
 import (
@@ -7,11 +7,11 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-type RegistryFactory interface {
-	New(uri *url.URL) ServiceRegistry
+type AdapterFactory interface {
+	New(uri *url.URL) RegistryAdapter
 }
 
-type ServiceRegistry interface {
+type RegistryAdapter interface {
 	Ping() error
 	Register(service *Service) error
 	Deregister(service *Service) error

@@ -16,24 +16,24 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
+func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	}
-	return &EtcdRegistry{client: etcd.NewClient(urls), path: uri.Path}
+	return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
 }
 
-type EtcdRegistry struct {
+type EtcdAdapter struct {
 	client *etcd.Client
 	path   string
 }
 
-func (r *EtcdRegistry) Ping() error {
+func (r *EtcdAdapter) Ping() error {
 	return nil // TODO
 }
 
-func (r *EtcdRegistry) Register(service *bridge.Service) error {
+func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
@@ -44,7 +44,7 @@ func (r *EtcdRegistry) Register(service *bridge.Service) error {
 	return err
 }
 
-func (r *EtcdRegistry) Deregister(service *bridge.Service) error {
+func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	_, err := r.client.Delete(path, false)
 	if err != nil {
@@ -53,6 +53,6 @@ func (r *EtcdRegistry) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *EtcdRegistry) Refresh(service *bridge.Service) error {
+func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }

@@ -17,7 +17,7 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
+func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	config := consulapi.DefaultConfig()
 	if uri.Host != "" {
 		config.Address = uri.Host
@@ -26,18 +26,18 @@ func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
 	if err != nil {
 		log.Fatal("consul: ", uri.Scheme)
 	}
-	return &ConsulRegistry{client: client}
+	return &ConsulAdapter{client: client}
 }
 
-type ConsulRegistry struct {
+type ConsulAdapter struct {
 	client *consulapi.Client
 }
 
-func (r *ConsulRegistry) Ping() error {
+func (r *ConsulAdapter) Ping() error {
 	return nil // TODO
 }
 
-func (r *ConsulRegistry) Register(service *bridge.Service) error {
+func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
@@ -48,7 +48,7 @@ func (r *ConsulRegistry) Register(service *bridge.Service) error {
 	return r.client.Agent().ServiceRegister(registration)
 }
 
-func (r *ConsulRegistry) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
+func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
 	check := new(consulapi.AgentServiceCheck)
 	if path := service.Attrs["check_http"]; path != "" {
 		check.Script = fmt.Sprintf("check-http %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, path)
@@ -71,10 +71,10 @@ func (r *ConsulRegistry) buildCheck(service *bridge.Service) *consulapi.AgentSer
 	return check
 }
 
-func (r *ConsulRegistry) Deregister(service *bridge.Service) error {
+func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 
-func (r *ConsulRegistry) Refresh(service *bridge.Service) error {
+func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
 	return nil
 }

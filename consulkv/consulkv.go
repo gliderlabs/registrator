@@ -16,7 +16,7 @@ func init() {
 
 type Factory struct{}
 
-func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
+func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	config := consulapi.DefaultConfig()
 	if uri.Host != "" {
 		config.Address = uri.Host
@@ -25,19 +25,19 @@ func (f *Factory) New(uri *url.URL) bridge.ServiceRegistry {
 	if err != nil {
 		log.Fatal("consulkv: ", uri.Scheme)
 	}
-	return &ConsulRegistry{client: client, path: uri.Path}
+	return &ConsulKVAdapter{client: client, path: uri.Path}
 }
 
-type ConsulRegistry struct {
+type ConsulKVAdapter struct {
 	client *consulapi.Client
 	path   string
 }
 
-func (r *ConsulRegistry) Ping() error {
+func (r *ConsulKVAdapter) Ping() error {
 	return nil // TODO
 }
 
-func (r *ConsulRegistry) Register(service *bridge.Service) error {
+func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
@@ -48,7 +48,7 @@ func (r *ConsulRegistry) Register(service *bridge.Service) error {
 	return err
 }
 
-func (r *ConsulRegistry) Deregister(service *bridge.Service) error {
+func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
 	if err != nil {
@@ -57,6 +57,6 @@ func (r *ConsulRegistry) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *ConsulRegistry) Refresh(service *bridge.Service) error {
+func (r *ConsulKVAdapter) Refresh(service *bridge.Service) error {
 	return nil
 }
