@@ -138,7 +138,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 
 	for _, port := range ports {
-		if b.config.Internal != true && port.HostPort == "" {
+		if b.config.Internal != true && b.config.PrivateIP != true &&  port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			}
@@ -204,6 +204,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	var p int
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
+		p, _ = strconv.Atoi(port.ExposedPort)
+	} else if b.config.PrivateIP == true {
+		service.IP = container.NetworkSettings.IPAddress
 		p, _ = strconv.Atoi(port.ExposedPort)
 	} else {
 		service.IP = port.HostIP
