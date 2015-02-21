@@ -20,6 +20,7 @@ var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service T
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
+var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -55,12 +56,17 @@ func main() {
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 	assert(err)
 
+	if *deregister != "always" && *deregister != "on-success" {
+		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
+	}
+
 	b := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
+		DeregisterCheck: *deregister,
 	})
 
 	// Start event listener before listing containers to avoid missing anything
@@ -109,9 +115,9 @@ func main() {
 		switch msg.Status {
 		case "start":
 			go b.Add(msg.ID)
-		case "stop":
-			go b.Remove(msg.ID)
 		case "die":
+			go b.RemoveOnExit(msg.ID)
+		case "stop", "kill":
 			go b.Remove(msg.ID)
 		}
 	}

@@ -24,6 +24,7 @@ type Config struct {
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int
+	DeregisterCheck string
 }
 
 type Service struct {
@@ -36,6 +37,11 @@ type Service struct {
 	TTL   int
 
 	Origin ServicePort
+}
+
+type DeadContainer struct {
+	TTL      int
+	Services []*Service
 }
 
 type ServicePort struct {

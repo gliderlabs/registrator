@@ -15,10 +15,11 @@ import (
 
 type Bridge struct {
 	sync.Mutex
-	registry RegistryAdapter
-	docker   *dockerapi.Client
-	services map[string][]*Service
-	config   Config
+	registry       RegistryAdapter
+	docker         *dockerapi.Client
+	services       map[string][]*Service
+	deadContainers map[string]*DeadContainer
+	config         Config
 }
 
 func New(docker *dockerapi.Client, adapterUri string, config Config) *Bridge {
@@ -37,10 +38,11 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) *Bridge {
 	}
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
-		docker:   docker,
-		config:   config,
-		registry: adapter,
-		services: make(map[string][]*Service),
+		docker:         docker,
+		config:         config,
+		registry:       adapter,
+		services:       make(map[string][]*Service),
+		deadContainers: make(map[string]*DeadContainer),
 	}
 }
 
@@ -51,23 +53,24 @@ func (b *Bridge) Add(containerId string) {
 }
 
 func (b *Bridge) Remove(containerId string) {
-	b.Lock()
-	defer b.Unlock()
-	for _, service := range b.services[containerId] {
-		log.Println("removing:", containerId[:12], service.ID)
-		err := retry(func() error {
-			return b.registry.Deregister(service)
-		})
-		if err != nil {
-			log.Println("deregister failed:", service.ID, err)
-		}
-	}
-	delete(b.services, containerId)
+	b.remove(containerId, true)
+}
+
+func (b *Bridge) RemoveOnExit(containerId string) {
+	b.remove(containerId, b.config.DeregisterCheck == "always" || b.didExitCleanly(containerId))
 }
 
 func (b *Bridge) Refresh() {
 	b.Lock()
 	defer b.Unlock()
+
+	for containerId, deadContainer := range b.deadContainers {
+		deadContainer.TTL -= b.config.RefreshInterval
+		if deadContainer.TTL <= 0 {
+			delete(b.deadContainers, containerId)
+		}
+	}
+
 	for containerId, services := range b.services {
 		for _, service := range services {
 			log.Println("refreshing:", containerId[:12], service.ID)
@@ -113,6 +116,11 @@ func (b *Bridge) Sync(quiet bool) {
 }
 
 func (b *Bridge) add(containerId string, quiet bool) {
+	if d := b.deadContainers[containerId]; d != nil {
+		b.services[containerId] = d.Services
+		delete(b.deadContainers, containerId)
+	}
+
 	if b.services[containerId] != nil {
 		log.Println("container, ", containerId[:12], ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
@@ -232,4 +240,47 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.TTL = b.config.RefreshTtl
 
 	return service
+}
+
+func (b *Bridge) remove(containerId string, deregister bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if deregister {
+		deregisterAll := func(services []*Service) {
+			for _, service := range services {
+				log.Println("removing:", containerId[:12], service.ID)
+				err := retry(func() error {
+					return b.registry.Deregister(service)
+				})
+				if err != nil {
+					log.Println("deregister failed:", service.ID, err)
+				}
+			}
+		}
+		deregisterAll(b.services[containerId])
+		if d := b.deadContainers[containerId]; d != nil {
+			deregisterAll(d.Services)
+			delete(b.deadContainers, containerId)
+		}
+	} else if b.config.RefreshTtl != 0 && b.services[containerId] != nil {
+		// need to stop the refreshing, but can't delete it yet
+		b.deadContainers[containerId] = &DeadContainer{b.config.RefreshTtl, b.services[containerId]}
+	}
+	delete(b.services, containerId)
+}
+
+func (b *Bridge) didExitCleanly(containerId string) bool {
+	container, err := b.docker.InspectContainer(containerId)
+	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
+		// the container has already been removed from Docker
+		// e.g. probabably run with "--rm" to remove immediately
+		// so its exit code is not accessible
+		log.Printf("registrator: container %v was removed, could not fetch exit code", containerId[:12])
+		return true
+	} else if err != nil {
+		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", containerId[:12], err)
+		return false
+	}
+	return !container.State.Running && container.State.ExitCode == 0
 }
