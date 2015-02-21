@@ -21,6 +21,11 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	}
+
+	if len(uri.Path) < 2 {
+		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
+	}
+
 	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
 }
 
