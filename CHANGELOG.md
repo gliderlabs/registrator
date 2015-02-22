@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - More error logging for registries
 - Support for services on containers with `--net=host`
 - Added `extensions.go` file for adding/disabling components
+- Interpolate SERVICE_PORT and SERVICE_IP in SERVICE_X_CHECK_SCRIPT
 
 ### Removed
 
