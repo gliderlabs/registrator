@@ -241,7 +241,10 @@ This runs the command using this service's container image as a separate contain
 
 	SERVICE_CHECK_SCRIPT=curl --silent --fail example.com
 
-The default interval for any non-TTL check is 10s, but you can set it with `_CHECK_INTERVAL`.
+The default interval for any non-TTL check is 10s, but you can set it with `_CHECK_INTERVAL`. The check command will be
+interpolated with the `$SERVICE_IP` and `$SERVICE_PORT` placeholders:
+
+	SERVICE_CHECK_SCRIPT=nc $SERVICE_IP $SERVICE_PORT | grep OK
 
 #### Register a TTL health check
 
