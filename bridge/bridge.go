@@ -73,11 +73,12 @@ func (b *Bridge) Refresh() {
 
 	for containerId, services := range b.services {
 		for _, service := range services {
-			log.Println("refreshing:", containerId[:12], service.ID)
 			err := b.registry.Refresh(service)
 			if err != nil {
 				log.Println("refresh failed:", service.ID, err)
+				continue
 			}
+			log.Println("refreshed:", containerId[:12], service.ID)
 		}
 	}
 }
@@ -104,9 +105,7 @@ func (b *Bridge) Sync(quiet bool) {
 			b.add(listing.ID, quiet)
 		} else {
 			for _, service := range services {
-				err := retry(func() error {
-					return b.registry.Register(service)
-				})
+				err := b.registry.Register(service)
 				if err != nil {
 					log.Println("sync register failed:", service, err)
 				}
@@ -145,6 +144,11 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
+	if len(ports) == 0 && !quiet {
+		log.Println("ignored:", container.ID[:12], "no published ports")
+		return
+	}
+
 	for _, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
@@ -159,18 +163,13 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			}
 			continue
 		}
-		log.Println("adding:", container.ID[:12], service.ID)
-		err := retry(func() error {
-			return b.registry.Register(service)
-		})
+		err := b.registry.Register(service)
 		if err != nil {
 			log.Println("register failed:", service, err)
+			continue
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
-	}
-
-	if len(b.services[container.ID]) == 0 && !quiet {
-		log.Println("ignored:", container.ID[:12], "no published ports")
+		log.Println("added:", container.ID[:12], service.ID)
 	}
 }
 
@@ -249,13 +248,12 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 	if deregister {
 		deregisterAll := func(services []*Service) {
 			for _, service := range services {
-				log.Println("removing:", containerId[:12], service.ID)
-				err := retry(func() error {
-					return b.registry.Deregister(service)
-				})
+				err := b.registry.Deregister(service)
 				if err != nil {
 					log.Println("deregister failed:", service.ID, err)
+					continue
 				}
+				log.Println("removed:", containerId[:12], service.ID)
 			}
 		}
 		deregisterAll(b.services[containerId])

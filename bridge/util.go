@@ -14,7 +14,7 @@ func retry(fn func() error) error {
 
 func mapDefault(m map[string]string, key, default_ string) string {
 	v, ok := m[key]
-	if !ok {
+	if !ok || v == "" {
 		return default_
 	}
 	return v
