@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 var Version string
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+var hostIface = flag.String("iface", "", "Interface to use for ports mapped to the host (overridden by \"ip\")")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
@@ -46,6 +48,25 @@ func main() {
 
 	if *hostIp != "" {
 		log.Println("Forcing host IP to", *hostIp)
+	} else if *hostIface != "" {
+		iface, err := net.InterfaceByName(*hostIface)
+		assert(err)
+		addrs, err := iface.Addrs()
+		assert(err)
+		if len(addrs) == 0 {
+			assert(errors.New("No IP address found on interface " + *hostIface))
+		}
+		if ipnet, ok := addrs[0].(*net.IPNet); ok {
+			if v4 := ipnet.IP.To4(); v4 != nil {
+				*hostIp = v4.String()
+			} else if v6 := ipnet.IP.To16(); v6 != nil {
+				*hostIp = v6.String()
+			}
+		}
+		if *hostIp == "" {
+			assert(errors.New("Unable to decode address from interface " + *hostIface))
+		}
+		log.Println("Using IP address", *hostIp, "from interface", *hostIface)
 	}
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
 		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
