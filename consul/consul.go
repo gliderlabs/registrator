@@ -19,7 +19,9 @@ func init() {
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
 	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
 	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
-	return withPort
+	withExposedIp := strings.Replace(withPort, "$SERVICE_EXPOSED_IP", service.Origin.ExposedIP, -1)
+	withExposedPort := strings.Replace(withExposedIp, "$SERVICE_EXPOSED_PORT", service.Origin.ExposedPort, -1)
+	return withExposedPort
 }
 
 type Factory struct{}
