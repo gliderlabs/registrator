@@ -5,7 +5,7 @@ dev:
 	docker build -f Dockerfile.dev -t $(NAME):dev .
 	docker run --rm \
 		-v /var/run/docker.sock:/tmp/docker.sock \
-		$(NAME):dev /bin/registrator consul:
+		$(NAME):dev /bin/registrator etcd://172.17.0.5:5003
 
 build:
 	mkdir -p build
