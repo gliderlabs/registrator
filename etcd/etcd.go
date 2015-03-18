@@ -1,13 +1,17 @@
 package etcd
 
 import (
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 
-	"github.com/coreos/go-etcd/etcd"
+	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
+	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
 )
 
 func init() {
@@ -20,13 +24,31 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
+	} else {
+		urls = append(urls, "http://127.0.0.1:4001")
 	}
-	return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
+
+	res, err := http.Get(urls[0] + "/version")
+	if err != nil {
+		log.Fatal("etcd: error retrieving version", err)
+	}
+
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+
+	if match, _ := regexp.Match("0\\.4\\.*", body); match == true {
+		log.Println("etcd: using v0 client")
+		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
+	}
+
+	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}
 }
 
 type EtcdAdapter struct {
-	client *etcd.Client
-	path   string
+	client  *etcd.Client
+	client2 *etcd2.Client
+
+	path string
 }
 
 func (r *EtcdAdapter) Ping() error {
@@ -42,7 +64,14 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
-	_, err := r.client.Set(path, addr, uint64(service.TTL))
+
+	var err error
+	if r.client != nil {
+		_, err = r.client.Set(path, addr, uint64(service.TTL))
+	} else {
+		_, err = r.client2.Set(path, addr, uint64(service.TTL))
+	}
+
 	if err != nil {
 		log.Println("etcd: failed to register service:", err)
 	}
@@ -51,7 +80,14 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	path := r.path + "/" + service.Name + "/" + service.ID
-	_, err := r.client.Delete(path, false)
+
+	var err error
+	if r.client != nil {
+		_, err = r.client.Delete(path, false)
+	} else {
+		_, err = r.client2.Delete(path, false)
+	}
+
 	if err != nil {
 		log.Println("etcd: failed to deregister service:", err)
 	}
