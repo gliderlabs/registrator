@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/gliderlabs/registrator/etcd"
 )
 
 func init() {
@@ -17,36 +17,31 @@ func init() {
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
-	urls := make([]string, 0)
-	if uri.Host != "" {
-		urls = append(urls, "http://"+uri.Host)
+	client, err := etcd.NewEtcdClient(uri.Host)
+	if err != nil {
+		log.Fatal("skydns2: can't allocate client:", err)
 	}
 
 	if len(uri.Path) < 2 {
 		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
-	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+	return &Skydns2Adapter{client: client, path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
-	client *etcd.Client
+	client *etcd.EtcdClient
 	path   string
 }
 
 func (r *Skydns2Adapter) Ping() error {
-	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := r.client.SendRequest(rr)
-	if err != nil {
-		return err
-	}
-	return nil
+	return r.client.Ping()
 }
 
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
-	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+	err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
@@ -54,7 +49,7 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 }
 
 func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
-	_, err := r.client.Delete(r.servicePath(service), false)
+	err := r.client.Delete(r.servicePath(service), false)
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
