@@ -206,13 +206,14 @@ Results in two `Service` objects:
 
 As you can see by either the Consul or etcd source files, writing a new registry backend is easy. Just follow the example set by those two. It boils down to writing an object that implements this interface:
 
-	type ServiceRegistry interface {
+	type RegistryAdapter interface {
+		Ping() error
 		Register(service *Service) error
 		Deregister(service *Service) error
 		Refresh(service *Service) error
 	}
 
-Then add your constructor (for example `NewZookeeperRegistry`) to the factory function `NewServiceRegistry` in `registrator.go`.
+Then add a factory which accepts a uri and returns the registry adapter, and register that factory with the bridge like `bridge.Register(new(Factory), "<backend_name>")`.
 
 ## Backend specific features
 
