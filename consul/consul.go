@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
@@ -59,37 +61,112 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Port = service.Port
 	registration.Tags = service.Tags
 	registration.Address = service.IP
-	registration.Check = r.buildCheck(service)
+	registration.Checks = r.buildChecks(service)
 	return r.client.Agent().ServiceRegister(registration)
 }
 
-func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
-	check := new(consulapi.AgentServiceCheck)
-	if path := service.Attrs["check_http"]; path != "" {
-		check.Script = fmt.Sprintf("check-http %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, path)
-	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
-	} else if script := service.Attrs["check_script"]; script != "" {
-		check.Script = r.interpolateService(script, service)
-	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
-		check.TTL = ttl
-	} else {
-		return nil
-	}
-	if check.Script != "" {
-		if interval := service.Attrs["check_interval"]; interval != "" {
-			check.Interval = interval
-		} else {
-			check.Interval = DefaultInterval
+type Check struct {
+	Service *bridge.Service
+	Type    string
+	Value   string
+}
+type Checks []*Check
+
+func (c Checks) Len() int           { return len(c) }
+func (c Checks) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+func (c Checks) Less(i, j int) bool { return c[i].Type < c[j].Type }
+
+/*
+ * Checks are ordered in Consul. There needs to be a deterministic way of
+ * re-attaching them for refreshes. The simplest solution is to order them
+ * alphabetically.
+ */
+func filterChecks(service *bridge.Service) Checks {
+	checks := make(Checks, 0)
+	for k, v := range service.Attrs {
+		if strings.Index(k, "check_") == 0 && k != "check_interval" && v != "" {
+			check := new(Check)
+			check.Service = service
+			check.Type = k
+			check.Value = v
+			checks = append(checks, check)
 		}
 	}
+	sort.Sort(checks)
+	return checks
+}
+
+func interval(service *bridge.Service) string {
+	interval := DefaultInterval
+	if service.Attrs["check_interval"] != "" {
+		interval = service.Attrs["check_interval"]
+	}
+	return interval
+}
+
+func scriptCheck(interval string, script string) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	check.Script = script
+	check.Interval = interval
 	return check
+}
+
+func ttlCheck(ttl string) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	check.TTL = ttl
+	return check
+}
+
+func (r *ConsulAdapter) buildChecks(service *bridge.Service) consulapi.AgentServiceChecks {
+	interval := interval(service)
+	checks := make(consulapi.AgentServiceChecks, 0)
+
+	for _, c := range filterChecks(service) {
+		switch c.Type {
+		case "check_http":
+			checks = append(checks, scriptCheck(interval, fmt.Sprintf("check-http %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, c.Value)))
+		case "check_cmd":
+			checks = append(checks, scriptCheck(interval, fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, c.Value)))
+		case "check_script":
+			checks = append(checks, scriptCheck(interval, r.interpolateService(c.Value, service)))
+		case "check_ttl":
+			checks = append(checks, ttlCheck(c.Value))
+		default:
+			break
+		}
+	}
+
+	if len(checks) < 1 {
+		return nil
+	}
+	return checks
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 
-func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
+// Used for testing.
+type refresher func(string, string) error
+
+func (r *ConsulAdapter) refresh(service *bridge.Service, refresher refresher) error {
+	checks := filterChecks(service)
+	count := len(checks)
+	for i, c := range checks {
+		if c.Type == "check_ttl" {
+			checkId := ""
+			if count > 1 {
+				checkId = fmt.Sprintf(":%d", i+1)
+			}
+			ttl := fmt.Sprintf("service:%s%s", service.ID, checkId)
+			log.Println("refreshing:", ttl)
+			// Because checks are passed in a map, there will only be one TTL check.
+			return refresher(ttl, time.Now().Format(time.RFC850))
+		}
+	}
 	return nil
+}
+
+func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
+	return r.refresh(service, r.client.Agent().PassTTL)
 }

@@ -30,7 +30,7 @@ If the argument `-internal` is passed, registrator will register the docker0 int
 
 The `-resync` argument controls how often registrator will query Docker for all containers and reregister all services.  This allows registrator and the service registry to get back in sync if they fall out of sync.  The time is measured in seconds, and if set to zero will not resync.
 
-The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
+For backends that support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
 
 ### Host mode services
 
@@ -219,7 +219,7 @@ Then add a factory which accepts a uri and returns the registry adapter, and reg
 
 > All health checking integration is going to change soon, so consider these features deprecated.
 
-When using the Consul's service catalog backend, you can specify a health check associated with a service. Registrator can pull this from your container environment data if provided. Here are some examples:
+When using the Consul's service catalog backend, you can specify several health check to be associated with a service. Registrator can pull this from your container environment data if provided. Here are some examples:
 
 #### Basic HTTP health check
 
