@@ -1,8 +1,6 @@
 # Registrator
 
-> Changes! Obviously we moved the repo. There is also a new build/release system that lets anybody propose a release with a PR. The old `progrium/registrator` repo on Docker Hub points here, but builds are no longer automated after this release. More changes listed [here](https://github.com/gliderlabs/registrator/releases/tag/v5). Join `#gliderlabs` on Freenode to discuss!
-
-Service registry bridge for Docker
+Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 
 Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
@@ -39,7 +37,7 @@ The consul backend does not support automatic expiry of stale registrations afte
 Registrator will discover services running in Docker net=host mode provided that their exposed ports are explicitly listed using the -p flag:
 
 	$ docker run --net=host -p 8080:8080 -p 8443:8443 ...
-		
+
 ### Registry URIs
 
 The registry backend to use is defined by a URI. The scheme is the supported registry name, and an address. Registries based on key-value stores like etcd and Zookeeper (not yet supported) can specify a key path to use to prefix service definitions. Registries may also use query params for other options. See also [Adding support for other service registries](#adding-support-for-other-service-registries).
@@ -219,6 +217,8 @@ Then add a factory which accepts a uri and returns the registry adapter, and reg
 
 ### Consul Health Checks
 
+> All health checking integration is going to change soon, so consider these features deprecated.
+
 When using the Consul's service catalog backend, you can specify a health check associated with a service. Registrator can pull this from your container environment data if provided. Here are some examples:
 
 #### Basic HTTP health check
@@ -268,7 +268,7 @@ Discuss registrator development with us on Freenode in `#gliderlabs`.
 
 ## Sponsors and Thanks
 
-This project was made possible by [DigitalOcean](http://digitalocean.com). Big thanks to Michael Crosby for [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list for inspiration.
+Ongoing support of this project is made possible by [Weave](http://weave.works), the Docker SDN. Big thanks to Michael Crosby for [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list for inspiration.
 
 ## License
 
