@@ -14,7 +14,16 @@ import (
 
 var Version string
 
-var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+func getOpt(name, def string) string {
+	if env := os.Getenv(name); env != "" {
+		return env
+	}
+	return def
+}
+
+var hostIp = flag.String("ip", getOpt("HOST_IP", ""), "IP for ports mapped to the host")
+var tls = flag.Bool("tls", false, "Docker TLS support")
+var tlsCertPath = flag.String("tlscertpath", getOpt("DOCKER_TLS_PATH", "/certs"), "Docker TLS Path to Certs")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
@@ -22,17 +31,26 @@ var forceTags = flag.String("tags", "", "Append tags for all registered services
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 
-func getopt(name, def string) string {
-	if env := os.Getenv(name); env != "" {
-		return env
-	}
-	return def
-}
-
 func assert(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getDocker() *dockerapi.Client {
+	if *tls == false {
+		dockerClient, err := dockerapi.NewClient(
+			getOpt("DOCKER_HOST", "unix:///tmp/docker.sock"))
+		assert(err)
+		return dockerClient
+	}
+	dockerClient, err := dockerapi.NewTLSClient(
+		getOpt("DOCKER_HOST", "unix:///tmp/docker.sock"),
+		"cert",
+		"key",
+		"ca")
+	assert(err)
+	return dockerClient
 }
 
 func main() {
@@ -52,9 +70,7 @@ func main() {
 	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
-
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
-	assert(err)
+	docker := getDocker()
 
 	if *deregister != "always" && *deregister != "on-success" {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
