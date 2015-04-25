@@ -14,16 +14,16 @@ import (
 
 var Version string
 
-func getopt(name, def string) string {
+func getOpt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
 		return env
 	}
 	return def
 }
 
-var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+var hostIp = flag.String("ip", getOpt("HOST_IP", ""), "IP for ports mapped to the host")
 var tls = flag.Bool("tls", false, "Docker TLS support")
-var tlsCertPath = flag.String("tlscertpath", getopt("DOCKER_TLS_PATH", "/certs"), "Docker TLS Path to Certs")
+var tlsCertPath = flag.String("tlscertpath", getOpt("DOCKER_TLS_PATH", "/certs"), "Docker TLS Path to Certs")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
@@ -40,12 +40,12 @@ func assert(err error) {
 func getDocker() *dockerapi.Client {
 	if *tls == false {
 		dockerClient, err := dockerapi.NewClient(
-			getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
+			getOpt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 		assert(err)
 		return dockerClient
 	}
 	dockerClient, err := dockerapi.NewTLSClient(
-		getopt("DOCKER_HOST", "unix:///tmp/docker.sock"),
+		getOpt("DOCKER_HOST", "unix:///tmp/docker.sock"),
 		"cert",
 		"key",
 		"ca")

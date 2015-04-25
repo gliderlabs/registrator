@@ -1,9 +1,11 @@
 FROM gliderlabs/alpine:3.1
 ENTRYPOINT ["/bin/registrator"]
 
-COPY . /go/src/github.com/gliderlabs/registrator
+ENV DOCKER_TLS_PATH="/certs" DOCKER_HOST="unix:///tmp/docker.sock"
+
+COPY . /go/src/github.com/Galexrt/registrator
 RUN apk-install -t build-deps go git mercurial \
-	&& cd /go/src/github.com/gliderlabs/registrator \
+	&& cd /go/src/github.com/Galexrt/registrator \
 	&& export GOPATH=/go \
 	&& go get \
 	&& go build -ldflags "-X main.Version $(cat VERSION)" -o /bin/registrator \
