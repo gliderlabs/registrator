@@ -21,6 +21,7 @@ var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
+var ignoreSilent = flag.Bool("ignore-silent", false, "Ignore services that do not expose metadata via SERVICE_ variables")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -67,6 +68,7 @@ func main() {
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
+		IgnoreSilent:    *ignoreSilent,
 	})
 
 	// Start event listener before listing containers to avoid missing anything
