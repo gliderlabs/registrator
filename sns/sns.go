@@ -32,19 +32,6 @@ type SNSAdapter struct {
 	topicArn string
 }
 
-// Ping will fetch the SNS Topic attributes
-func (r *SNSAdapter) Ping() error {
-	params := &sns.GetTopicAttributesInput{
-		TopicARN: aws.String(r.topicArn),
-	}
-	resp, err := r.svc.GetTopicAttributes(params)
-	if err != nil {
-		return err
-	}
-	log.Println(*(*resp.Attributes)["TopicArn"])
-	return nil
-}
-
 func (r *SNSAdapter) publish(event string, service *bridge.Service) error {
 	msg, err := json.MarshalIndent(service, "", "\t")
 	if err != nil {
@@ -65,8 +52,13 @@ func (r *SNSAdapter) publish(event string, service *bridge.Service) error {
 		return err
 	}
 
-	log.Println("Published to SNS: %s", resp.MessageID)
+	log.Println("Published to SNS:", *resp.MessageID)
 	return nil
+}
+
+// Ping will fetch the SNS Topic attributes
+func (r *SNSAdapter) Ping() error {
+	return r.publish("PING", nil)
 }
 
 func (r *SNSAdapter) Register(service *bridge.Service) error {
