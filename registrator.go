@@ -3,19 +3,24 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/gliderlabs/registrator/bridge"
 )
+
+var Version string
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
+var forceTags = flag.String("tags", "", "Append tags for all registered services")
+var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
+var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -26,48 +31,21 @@ func getopt(name, def string) string {
 
 func assert(err error) {
 	if err != nil {
-		log.Fatal("registrator: ", err)
+		log.Fatal(err)
 	}
-}
-
-func retry(fn func() error) error {
-	return backoff.Retry(fn, backoff.NewExponentialBackOff())
-}
-
-func mapdefault(m map[string]string, key, default_ string) string {
-	v, ok := m[key]
-	if !ok {
-		return default_
-	}
-	return v
-}
-
-type ServiceRegistry interface {
-	Register(service *Service) error
-	Deregister(service *Service) error
-	Refresh(service *Service) error
-}
-
-func NewServiceRegistry(uri *url.URL) ServiceRegistry {
-	factory := map[string]func(*url.URL) ServiceRegistry{
-		"consul":  NewConsulRegistry,
-		"etcd":    NewEtcdRegistry,
-		"skydns2": NewSkydns2Registry,
-		"vulcand": NewVulcandRegistry,
-	}[uri.Scheme]
-	if factory == nil {
-		log.Fatal("unrecognized registry backend: ", uri.Scheme)
-	}
-	log.Println("registrator: Using", uri.Scheme, "registry backend at", uri)
-	return factory(uri)
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--version" {
+		fmt.Println(Version)
+		os.Exit(0)
+	}
+	log.Printf("Starting registrator %s ...", Version)
 
 	flag.Parse()
 
 	if *hostIp != "" {
-		log.Println("registrator: Forcing host IP to", *hostIp)
+		log.Println("Forcing host IP to", *hostIp)
 	}
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
 		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
@@ -75,33 +53,39 @@ func main() {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
 
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
+	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
 	assert(err)
 
-	uri, err := url.Parse(flag.Arg(0))
-	assert(err)
-	registry := NewServiceRegistry(uri)
-
-	bridge := &RegistryBridge{
-		docker:   docker,
-		registry: registry,
-		services: make(map[string][]*Service),
+	if *deregister != "always" && *deregister != "on-success" {
+		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
-	containers, err := docker.ListContainers(dockerapi.ListContainersOptions{})
-	assert(err)
-	for _, listing := range containers {
-		bridge.Add(listing.ID)
-	}
+	b := bridge.New(docker, flag.Arg(0), bridge.Config{
+		HostIp:          *hostIp,
+		Internal:        *internal,
+		ForceTags:       *forceTags,
+		RefreshTtl:      *refreshTtl,
+		RefreshInterval: *refreshInterval,
+		DeregisterCheck: *deregister,
+	})
+
+	// Start event listener before listing containers to avoid missing anything
+	events := make(chan *dockerapi.APIEvents)
+	assert(docker.AddEventListener(events))
+	log.Println("Listening for Docker events ...")
+
+	b.Sync(false)
 
 	quit := make(chan struct{})
+
+	// Start the TTL refresh timer
 	if *refreshInterval > 0 {
 		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
 		go func() {
 			for {
 				select {
 				case <-ticker.C:
-					bridge.Refresh()
+					b.Refresh()
 				case <-quit:
 					ticker.Stop()
 					return
@@ -110,18 +94,34 @@ func main() {
 		}()
 	}
 
-	events := make(chan *dockerapi.APIEvents)
-	assert(docker.AddEventListener(events))
-	log.Println("registrator: Listening for Docker events...")
+	// Start the resync timer if enabled
+	if *resyncInterval > 0 {
+		resyncTicker := time.NewTicker(time.Duration(*resyncInterval) * time.Second)
+		go func() {
+			for {
+				select {
+				case <-resyncTicker.C:
+					b.Sync(true)
+				case <-quit:
+					resyncTicker.Stop()
+					return
+				}
+			}
+		}()
+	}
+
+	// Process Docker events
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go bridge.Add(msg.ID)
+			go b.Add(msg.ID)
 		case "die":
-			go bridge.Remove(msg.ID)
+			go b.RemoveOnExit(msg.ID)
+		case "stop", "kill":
+			go b.Remove(msg.ID)
 		}
 	}
 
 	close(quit)
-	log.Fatal("registrator: docker event loop closed") // todo: reconnect?
+	log.Fatal("Docker event loop closed") // todo: reconnect?
 }

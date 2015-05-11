@@ -1,28 +1,42 @@
 # Registrator
 
-Service registry bridge for Docker
+Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 
 Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
 By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
 
+## Getting Registrator
+
+You can get the latest release of Registrator via Docker Hub:
+
+	$ docker pull gliderlabs/registrator:latest
+
+You can pull the last build in `master` with the `master` tag. If you want to get a specific release, you can download the release artifact listed in [Releases](https://github.com/gliderlabs/registrator/releases) and `docker load` them:
+
+	$ curl -s https://dl.gliderlabs.com/registrator/v5.tgz | docker load
+
 ## Starting Registrator
-
-Registrator assumes the default Docker socket at `file:///var/run/docker.sock` or you can override it with `DOCKER_HOST`. The only  mandatory argument is a registry URI, which specifies and configures the registry backend to use.
-
-	$ registrator <registry-uri>
-
-By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the `-ip` argument.
-
-If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd only for now)
-
-The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
 
 Registrator was designed to just be run as a container. You must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
 
 	$ docker run -d \
 		-v /var/run/docker.sock:/tmp/docker.sock \
-		-h $HOSTNAME progrium/registrator <registry-uri>
+		-h $HOSTNAME gliderlabs/registrator <registry-uri>
+
+By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the `-ip` argument.
+
+If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd, consul, and skydns2 for now). The `-internal` argument must be passed before the `<registry-uri>` argument.
+
+The `-resync` argument controls how often registrator will query Docker for all containers and reregister all services.  This allows registrator and the service registry to get back in sync if they fall out of sync.  The time is measured in seconds, and if set to zero will not resync.
+
+The consul backend does not support automatic expiry of stale registrations after some TTL. Instead, TTL checks must be configured (see below). For backends that do support TTL expiry, registrator can be started with the `-ttl` and `-ttl-refresh` arguments (both disabled by default).
+
+### Host mode services
+
+Registrator will discover services running in Docker net=host mode provided that their exposed ports are explicitly listed using the -p flag:
+
+	$ docker run --net=host -p 8080:8080 -p 8443:8443 ...
 
 ### Registry URIs
 
@@ -203,17 +217,20 @@ Results in two `Service` objects:
 
 As you can see by either the Consul or etcd source files, writing a new registry backend is easy. Just follow the example set by those two. It boils down to writing an object that implements this interface:
 
-	type ServiceRegistry interface {
+	type RegistryAdapter interface {
+		Ping() error
 		Register(service *Service) error
 		Deregister(service *Service) error
 		Refresh(service *Service) error
 	}
 
-Then add your constructor (for example `NewZookeeperRegistry`) to the factory function `NewServiceRegistry` in `registrator.go`.
+Then add a factory which accepts a uri and returns the registry adapter, and register that factory with the bridge like `bridge.Register(new(Factory), "<backend_name>")`.
 
 ## Backend specific features
 
 ### Consul Health Checks
+
+> All health checking integration is going to change soon, so consider these features deprecated.
 
 When using the Consul's service catalog backend, you can specify a health check associated with a service. Registrator can pull this from your container environment data if provided. Here are some examples:
 
@@ -238,7 +255,10 @@ This runs the command using this service's container image as a separate contain
 
 	SERVICE_CHECK_SCRIPT=curl --silent --fail example.com
 
-The default interval for any non-TTL check is 10s, but you can set it with `_CHECK_INTERVAL`.
+The default interval for any non-TTL check is 10s, but you can set it with `_CHECK_INTERVAL`. The check command will be
+interpolated with the `$SERVICE_IP` and `$SERVICE_PORT` placeholders:
+
+	SERVICE_CHECK_SCRIPT=nc $SERVICE_IP $SERVICE_PORT | grep OK
 
 #### Register a TTL health check
 
@@ -246,6 +266,11 @@ The default interval for any non-TTL check is 10s, but you can set it with `_CHE
 
 Remember, this means Consul will be expecting a heartbeat ping within that 30 seconds to keep the service marked as healthy.
 
+## Contributing
+
+As usual, pull requests are welcome. You can also propose releases by opening a PR against the release branch from master. Please be sure to bump the version and update CHANGELOG.md and include your changelog text in the PR body.
+
+Discuss registrator development with us on Freenode in `#gliderlabs`.
 
 ## Todo / Contribution Ideas
 
@@ -256,7 +281,7 @@ Remember, this means Consul will be expecting a heartbeat ping within that 30 se
 
 ## Sponsors and Thanks
 
-This project was made possible by [DigitalOcean](http://digitalocean.com). Big thanks to Michael Crosby for [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list for inspiration.
+Ongoing support of this project is made possible by [Weave](http://weave.works), the Docker SDN. Big thanks to Michael Crosby for [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list for inspiration.
 
 ## License
 
