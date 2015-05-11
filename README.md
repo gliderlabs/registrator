@@ -97,7 +97,7 @@ Vulcand support service definitions to etcd in a format compatible with Vulcand.
 
 Service definitions are stored as:
 
-	<registry-uri-path>/upstreams/<service-name>/endpoints/<service-id> = http://<ip>:<port>
+	<registry-uri-path>/backends/<service-name>/servers/<service-id> = http://<ip>:<port>
 
 Note that this backend only creates an upstream entry. It does not handle creating hosts, locations or linking locations with upstreams. It also registers all service definitions as http.
 
