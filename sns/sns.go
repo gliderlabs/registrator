@@ -70,5 +70,5 @@ func (r *SNSAdapter) Deregister(service *bridge.Service) error {
 }
 
 func (r *SNSAdapter) Refresh(service *bridge.Service) error {
-	return nil
+	return r.publish("SERVICE_REFRESH", service)
 }
