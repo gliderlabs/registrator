@@ -52,8 +52,15 @@ type EtcdAdapter struct {
 }
 
 func (r *EtcdAdapter) Ping() error {
-	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := r.client.SendRequest(rr)
+	var err error
+	if r.client != nil {
+		rr := etcd.NewRawRequest("GET", "version", nil, nil)
+		_, err = r.client.SendRequest(rr)
+	} else {
+		rr := etcd2.NewRawRequest("GET", "version", nil, nil)
+		_, err = r.client2.SendRequest(rr)
+	}
+
 	if err != nil {
 		return err
 	}
