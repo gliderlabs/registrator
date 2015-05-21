@@ -56,9 +56,8 @@ func (r *SNSAdapter) publish(event string, service *bridge.Service) error {
 	return nil
 }
 
-// Ping will fetch the SNS Topic attributes
 func (r *SNSAdapter) Ping() error {
-	return r.publish("PING", nil)
+	return r.publish("BACKEND_PING", nil)
 }
 
 func (r *SNSAdapter) Register(service *bridge.Service) error {

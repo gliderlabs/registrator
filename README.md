@@ -92,9 +92,10 @@ Note that the default `service-id` includes more than the container name (see be
 
 Publishes service registration events to AWS SNS. Each message will contain a custom `MessageAttribute` called `DOCKER.EVENT`, whose value will be one of:
 
- * `PING`
+ * `BACKEND_PING`
  * `SERVICE_REGISTER`
  * `SERVICE_DEREGISTER`
+ * `SERVICE_REFRESH`
 
 The `Message` body will be the JSON encoded `Service` struct (see [How it works](#how-it-works)).
 
