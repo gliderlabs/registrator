@@ -16,6 +16,7 @@ var Version string
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
+var portless = flag.Bool("portless", false, "Show portless containers too")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
@@ -63,6 +64,7 @@ func main() {
 	b := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
+		ShowPortless:    *portless,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,

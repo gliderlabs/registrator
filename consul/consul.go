@@ -56,7 +56,9 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
-	registration.Port = service.Port
+	if service.Port >= 0 {
+		registration.Port = service.Port
+	}
 	registration.Tags = service.Tags
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
