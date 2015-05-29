@@ -22,11 +22,11 @@ Registrator was designed to just be run as a container. You must pass the Docker
 
 	$ docker run -d \
 		-v /var/run/docker.sock:/tmp/docker.sock \
-		-h $HOSTNAME gliderlabs/registrator <registry-uri>
+		-h $HOSTNAME gliderlabs/registrator [-ip <ip> | -internal | -ttl | -ttl-refresh | -resync <seconds> ] <registry-uri>
 
 By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the `-ip` argument.
 
-If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd, consul, and skydns2 for now). The `-internal` argument must be passed before the `<registry-uri>` argument.
+If the argument `-internal` is passed, registrator will register the docker0 internal ip and port instead of the host mapped ones. (etcd, consul, and skydns2 for now). The `-internal` (and all other as well) argument must be passed before the `<registry-uri>` argument.
 
 The `-resync` argument controls how often registrator will query Docker for all containers and reregister all services.  This allows registrator and the service registry to get back in sync if they fall out of sync.  The time is measured in seconds, and if set to zero will not resync.
 
