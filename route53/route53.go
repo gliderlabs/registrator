@@ -16,7 +16,7 @@ import (
 	"github.com/gliderlabs/registrator/bridge"
 )
 
-const EC2MetaDataKey = "EC2HOSTNAME"
+const EC2MetaDataKey = "useEC2MetadataForHostname"
 
 func init() {
 	bridge.Register(new(Factory), "route53")
