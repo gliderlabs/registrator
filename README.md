@@ -21,7 +21,7 @@ You can pull the last build in `master` with the `master` tag. If you want to ge
 Registrator was designed to just be run as a container. You must pass the Docker socket file as a mount to `/tmp/docker.sock`, and it's a good idea to set the hostname to the machine host:
 
 	$ docker run -d \
-		-v /var/run/docker.sock:/tmp/docker.sock \
+		-v /var/run/docker.sock:/tmp/docker.sock:ro \
 		-h $HOSTNAME gliderlabs/registrator <registry-uri>
 
 By default, when registering a service, registrator will assign the service address by attempting to resolve the current hostname. If you would like to force the service address to be a specific address, you can specify the `-ip` argument.
