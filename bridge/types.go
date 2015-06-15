@@ -16,6 +16,7 @@ type RegistryAdapter interface {
 	Register(service *Service) error
 	Deregister(service *Service) error
 	Refresh(service *Service) error
+	Services() ([]*Service, error)
 }
 
 type Config struct {
@@ -25,6 +26,7 @@ type Config struct {
 	RefreshTtl      int
 	RefreshInterval int
 	DeregisterCheck string
+	Cleanup         bool
 }
 
 type Service struct {
@@ -52,5 +54,6 @@ type ServicePort struct {
 	PortType          string
 	ContainerHostname string
 	ContainerID       string
+	ContainerName     string
 	container         *dockerapi.Container
 }
