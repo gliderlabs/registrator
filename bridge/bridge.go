@@ -7,12 +7,15 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
+
+var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
 
 type Bridge struct {
 	sync.Mutex
@@ -98,8 +101,7 @@ func (b *Bridge) Sync(quiet bool) {
 
 	log.Printf("Syncing services on %d containers", len(containers))
 
-	// NOTE: This assumes reregistering will do the right thing, i.e. nothing.
-	// NOTE: This will NOT remove services.
+	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
@@ -111,6 +113,47 @@ func (b *Bridge) Sync(quiet bool) {
 					log.Println("sync register failed:", service, err)
 				}
 			}
+		}
+	}
+
+	// Clean up services that were registered previously, but aren't
+	// acknowledged within registrator
+	if b.config.Cleanup {
+		log.Println("Cleaning up dangling services")
+
+		extServices, err := b.registry.Services()
+		if err != nil {
+			log.Println("cleanup failed:", err)
+			return
+		}
+
+	Outer:
+		for _, extService := range extServices {
+			matches := serviceIDPattern.FindStringSubmatch(extService.ID)
+			if len(matches) != 3 {
+				// There's no way this was registered by us, so leave it
+				continue
+			}
+			serviceHostname := matches[1]
+			if serviceHostname != Hostname {
+				// ignore because registered on a different host
+				continue
+			}
+			serviceContainerName := matches[2]
+			for _, listing := range b.services {
+				for _, service := range listing {
+					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
+						continue Outer
+					}
+				}
+			}
+			log.Println("dangling:", extService.ID)
+			err := b.registry.Deregister(extService)
+			if err != nil {
+				log.Println("deregister failed:", extService.ID, err)
+				continue
+			}
+			log.Println(extService.ID, "removed")
 		}
 	}
 }
@@ -179,15 +222,14 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 	
 	// not sure about this logic. kind of want to remove it.
-	hostname, err := os.Hostname()
-	if err != nil {
+	hostname := Hostname
+	if hostname == "" {
 		hostname = port.HostIP
-	} else {
-		if port.HostIP == "0.0.0.0" {
-			ip, err := net.ResolveIPAddr("ip", hostname)
-			if err == nil {
-				port.HostIP = ip.String()
-			}
+	}
+	if port.HostIP == "0.0.0.0" {
+		ip, err := net.ResolveIPAddr("ip", hostname)
+		if err == nil {
+			port.HostIP = ip.String()
 		}
 	}
 
@@ -282,4 +324,12 @@ func (b *Bridge) didExitCleanly(containerId string) bool {
 		return false
 	}
 	return !container.State.Running && container.State.ExitCode == 0
+}
+
+var Hostname string
+
+func init() {
+	// It's ok for Hostname to ultimately be an empty string
+	// An empty string will fall back to trying to make a best guess
+	Hostname, _ = os.Hostname()
 }

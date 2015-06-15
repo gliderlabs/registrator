@@ -123,3 +123,7 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
+
+func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
+	return []*bridge.Service{}, nil
+}
