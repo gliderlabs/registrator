@@ -30,9 +30,13 @@ func combineTags(tagParts ...string) []string {
 	return tags
 }
 
-func serviceMetaData(env []string, port string) map[string]string {
+func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
+	meta := config.Env
+	for k, v := range config.Labels {
+		meta = append(meta, k + "=" + v)
+	}
 	metadata := make(map[string]string)
-	for _, kv := range env {
+	for _, kv := range meta {
 		kvp := strings.SplitN(kv, "=", 2)
 		if strings.HasPrefix(kvp[0], "SERVICE_") && len(kvp) > 1 {
 			key := strings.ToLower(strings.TrimPrefix(kvp[0], "SERVICE_"))

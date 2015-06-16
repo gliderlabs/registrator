@@ -108,7 +108,9 @@ Most of these (except `IP` and `Port`) can be overridden by container environmen
 Additional supported metadata in the same format `SERVICE_<metadata>`.
 IGNORE: Any value for ignore tells registrator to ignore this entire container and all associated ports.
 
-Since metadata is stored as environment variables, the container author can include their own metadata defined in the Dockerfile. The operator will still be able to override these author-defined defaults.
+Starting with Docker version 1.6 and up, you can use labels instead of environment variables to service definitions.
+
+Since metadata is stored as environment variables or labels, the container author can include their own metadata defined in the Dockerfile. The operator will still be able to override these author-defined defaults.
 
 ### Single service with defaults
 
@@ -199,6 +201,24 @@ Results in two `Service` objects:
 			"Attrs": {}
 		}
 	]
+
+### Using labels to define metadata
+
+	$ docker run -d --name redis.0 -p 10000:6379 \
+		-l "SERVICE_NAME=db" \
+		-l "SERVICE_TAGS=master,backups" \
+		-l "SERVICE_REGION=us2" dockerfile/redis
+
+Results in `Service`:
+
+	{
+		"ID": "hostname:redis.0:6379",
+		"Name": "db",
+		"Port": 10000,
+		"IP": "192.168.1.102",
+		"Tags": ["master", "backups"],
+		"Attrs": {"region": "us2"}
+	}
 
 ## Adding support for other service registries
 
