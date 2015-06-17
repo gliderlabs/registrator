@@ -8,14 +8,10 @@ import (
 	"strings"
 	"regexp"
 	"os"
-	"fmt"
 
 	"github.com/gliderlabs/registrator/bridge"
 	bigip "github.com/scottdware/go-bigip"
-	//bigip "github.com/DealerDotCom/go-bigip"
 )
-
-const POOL_NAME_ATTR = "pool_name"
 
 func init() {
 	bridge.Register(new(Factory), "bigip")
@@ -32,11 +28,11 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		password,_ = uri.User.Password()
 	}
 
-	NAMED_POOLS_ONLY := os.Getenv("NAMED_POOLS_ONLY")
+	REQUIRE_NAME := os.Getenv("REQUIRE_NAME")
 	
 	return &BigIpAdapter {
 		client: bigip.NewSession(uri.Host, user, password), 
-		namedPoolOnly: strings.ToLower(NAMED_POOLS_ONLY) == "true",
+		namedPoolOnly: strings.ToLower(REQUIRE_NAME) == "true",
 	}	
 }
 
@@ -55,22 +51,16 @@ func (r *BigIpAdapter) sanitizeName(name string) string {
 }
 
 func (r *BigIpAdapter) hasNamedPool(service *bridge.Service) bool {
-	for key, _ := range service.Attrs {
-		if key == POOL_NAME_ATTR {
-			return true
-		}
-	}
-	return false
+	v, ok := service.Attrs["name"]
+	return ok && v != ""
 }
 
 func (r *BigIpAdapter) buildPoolName(service *bridge.Service) string {
-	poolName := r.sanitizeName(service.Name)
-	for key, value := range service.Attrs {
-		if key == POOL_NAME_ATTR {
-			poolName = r.sanitizeName(value)
-		}
+	v, ok := service.Attrs["name"]
+	if !ok || v == "" {
+		return r.sanitizeName(service.Name)
 	}
-	return poolName
+	return r.sanitizeName(v)
 }
 
 func (r *BigIpAdapter) buildNode(service *bridge.Service) (string,string) {
@@ -86,16 +76,8 @@ func (r *BigIpAdapter) Ping() error {
 }
 
 func (r *BigIpAdapter) Register(service *bridge.Service) error {
-
-	for _, key := range service.Tags {
-		fmt.Println("Tag " + key)
-	}
-	for key, value := range service.Attrs {
-		fmt.Println("Attr " + key + " = " + value)
-	}
-
 	if r.namedPoolOnly && !r.hasNamedPool(service) {
-		log.Printf("ignored: %s no %s defined", service.ID, POOL_NAME_ATTR)
+		log.Printf("ignored: %s no SERVICE_NAME defined", service.ID)
 		return nil
 	}
 
@@ -183,6 +165,5 @@ func (r *BigIpAdapter) Deregister(service *bridge.Service) error {
 }
 
 func (r *BigIpAdapter) Refresh(service *bridge.Service) error {
-	//TODO: when is this called?
 	return r.Register(service)
 }
