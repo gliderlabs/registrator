@@ -145,21 +145,26 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 
 	if len(ports) == 0 {
-		if b.config.ShowPortless == true {
+		if b.config.ShowPortless {
 			service := b.newService(noServicePort(container), false)
 			b.checkAndRegister(container, service, quiet)
 		} else if !quiet {
-			log.Println("ignored:", container.ID[:12], "no published ports, enable with -showportless")
+			log.Println("ignored:", container.ID[:12], "no published ports, enable with -portless")
 			return
 		}
 	}
 
 	for _, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
-			if !quiet {
-				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
+			if b.config.ShowPortless {
+				service := b.newService(noServicePort(container), len(ports) > 1)
+				b.checkAndRegister(container, service, quiet)
+			} else {
+				if !quiet {
+					log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host, show with -portless")
+				}
+				continue
 			}
-			continue
 		}
 		service := b.newService(port, len(ports) > 1)
 		b.checkAndRegister(container, service, quiet)
