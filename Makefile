@@ -1,20 +1,28 @@
 NAME=registrator
-HARDWARE=$(shell uname -m)
-VERSION=0.4.0
+VERSION=$(shell cat VERSION)
+
+dev:
+	docker build -f Dockerfile.dev -t $(NAME):dev .
+	docker run --rm \
+		-v /var/run/docker.sock:/tmp/docker.sock \
+		$(NAME):dev /bin/registrator consul:
 
 build:
-	docker build -t registrator .
+	mkdir -p build
+	docker build -t $(NAME):$(VERSION) .
+	docker save $(NAME):$(VERSION) | gzip -9 > build/$(NAME)_$(VERSION).tgz
 
 release:
-	rm -rf release
-	mkdir release
-	GOOS=linux godep go build -o release/$(NAME)
-	cd release && tar -zcf $(NAME)_$(VERSION)_linux_$(HARDWARE).tgz $(NAME)
-	GOOS=darwin godep go build -o release/$(NAME)
-	cd release && tar -zcf $(NAME)_$(VERSION)_darwin_$(HARDWARE).tgz $(NAME)
-	rm release/$(NAME)
-	echo "$(VERSION)" > release/version
-	echo "progrium/$(NAME)" > release/repo
-	gh-release # https://github.com/progrium/gh-release
+	rm -rf release && mkdir release
+	go get github.com/progrium/gh-release/...
+	cp build/* release
+	gh-release create gliderlabs/$(NAME) $(VERSION) \
+		$(shell git rev-parse --abbrev-ref HEAD) $(VERSION)
 
-.PHONY: release
+circleci:
+	rm ~/.gitconfig
+ifneq ($(CIRCLE_BRANCH), release)
+	echo build-$$CIRCLE_BUILD_NUM > VERSION
+endif
+
+.PHONY: build release
