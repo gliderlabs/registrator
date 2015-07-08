@@ -1,5 +1,9 @@
 # Registrator
 
+[![CircleCI](https://img.shields.io/circleci/project/gliderlabs/registrator/release.svg)](https://circleci.com/gh/gliderlabs/registrator)
+[![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
+[![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
+
 Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 
 Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and [SkyDNS 2](https://github.com/skynetservices/skydns/).
