@@ -89,7 +89,7 @@ func (r *DynamodbAdapter) Ping() error {
 
 func (r *DynamodbAdapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
-	record := `{"host":"` + service.IP + `","port":` + port + `}`
+	record := service.IP + ":" + port
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
 		log.Println("dynamodb: failed to register service:", err)
