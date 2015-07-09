@@ -68,7 +68,11 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		log.Fatal("dynamodb: table name required e.g.: dynamodb://<table>/<path>")
 	}
 
-	client, _ := NewClient(string(uri.Path[0]))
+	// log.Println("dynamodb: tables name is " + uri.Host)
+	client, err := NewClient(uri.Host)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return &DynamodbAdapter{
 		client: client,
 		path:   domainPath(uri.Path[1:])}
