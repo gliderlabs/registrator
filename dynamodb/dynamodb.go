@@ -2,15 +2,14 @@ package dynamodb
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/gliderlabs/registrator/bridge"
-	"time"
 	"log"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Client struct {
@@ -41,27 +40,21 @@ func (c *Client) Delete(key string, isBool bool) (*dynamodb.DeleteItemOutput, er
 }
 
 func NewClient(table string) (*Client, error) {
-	creds := credentials.NewStaticCredentials("", "", "")
-	_, err := creds.Get()
-	if err != nil {
-		return nil, err
-	}
-
 	var c *aws.Config
 	if os.Getenv("DYNAMODB_LOCAL") != "" {
-		c = &aws.Config{Endpoint: "http://localhost:8000"}
+		c = &aws.Config{Endpoint: os.Getenv("DYNAMODB_LOCAL")}
 	} else {
 		c = nil
 	}
 
 	d := dynamodb.New(c)
 	// Check if the table exists
-	_, err = d.DescribeTable(&dynamodb.DescribeTableInput{TableName: &table})
+	_, err := d.DescribeTable(&dynamodb.DescribeTableInput{TableName: &table})
 	if err != nil {
 		return nil, err
 	}
 
-	return &Client{d, table}, nil
+	return &Client{client: d, table: table}, nil
 }
 
 func init() {
