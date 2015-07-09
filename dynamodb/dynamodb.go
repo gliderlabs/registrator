@@ -19,18 +19,20 @@ type Client struct {
 }
 
 func (c *Client) Set(key, value string, ttl uint64) (*dynamodb.PutItemOutput, error) {
-	now := time.Now()
+	created := time.Now()
+	// log.Println("dynamodb: set key: " + key + ", value: " + value)
 	return c.client.PutItem(&dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{
-			"key": &dynamodb.AttributeValue{S: aws.String(key)},
-			"value": &dynamodb.AttributeValue{S: aws.String(value)},
-			"created": &dynamodb.AttributeValue{N: aws.String(string(now.Unix()))},
-			"expired": &dynamodb.AttributeValue{N: aws.String(string(uint64(now.Unix()) + ttl))},
+			"key":     &dynamodb.AttributeValue{S: aws.String(key)},
+			"value":   &dynamodb.AttributeValue{S: aws.String(value)},
+			"created": &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(created.Unix(), 10))},
+			"expired": &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(created.Unix()+int64(ttl), 10))},
 		},
 		TableName: &c.table})
 }
 
 func (c *Client) Delete(key string, isBool bool) (*dynamodb.DeleteItemOutput, error) {
+	// log.Println("dynamodb: delete key: " + key)
 	return c.client.DeleteItem(&dynamodb.DeleteItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
 			"key": &dynamodb.AttributeValue{S: aws.String(key)},
