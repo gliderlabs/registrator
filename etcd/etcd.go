@@ -104,3 +104,7 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
+
+func (r *EtcdAdapter) Cleanup(validServices map[string]*bridge.Service) error {
+	return nil
+}

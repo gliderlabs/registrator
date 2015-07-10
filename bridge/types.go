@@ -16,6 +16,7 @@ type RegistryAdapter interface {
 	Register(service *Service) error
 	Deregister(service *Service) error
 	Refresh(service *Service) error
+	Cleanup(validServices map[string]*Service) error
 }
 
 type Config struct {
