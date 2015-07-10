@@ -110,6 +110,7 @@ func (r *ConsulAdapter) Cleanup(validServices map[string]*bridge.Service) error 
 
 		service, ok := validServices[idWithoutPrefix]
 		if !ok || service == nil {
+			log.Println("cleanup:", idWithoutPrefix)
 			if err := r.client.Agent().ServiceDeregister(id); err != nil {
 				log.Println("consul deregister during cleanup failed:", id, err)
 			}
