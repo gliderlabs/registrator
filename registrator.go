@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os/user"
+	"strings"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/fsouza/go-dockerclient"
 )
 
 var Version string
@@ -53,7 +56,7 @@ func main() {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
 
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
+	docker, err := getDockerClient()
 	assert(err)
 
 	if *deregister != "always" && *deregister != "on-success" {
@@ -124,4 +127,21 @@ func main() {
 
 	close(quit)
 	log.Fatal("Docker event loop closed") // todo: reconnect?
+}
+
+func getDockerClient() (*docker.Client, error)  {
+	endpoint := getopt("DOCKER_HOST", "unix:///tmp/docker.sock")
+	if getopt("DOCKER_TLS_VERIFY", "") != "" {
+		usr, err := user.Current()
+		assert(err)
+
+		defaultCertPath := strings.Join([]string{usr.HomeDir, "/.docker"}, "")
+		certPath := getopt("DOCKER_CERT_PATH", defaultCertPath)
+		cert := strings.Join([]string{certPath, "/cert.pem"}, "");
+		key := strings.Join([]string{certPath, "/key.pem"}, "");
+		ca := strings.Join([]string{certPath, "/ca.pem"}, "");
+		return dockerapi.NewTLSClient(endpoint, cert, key, ca)
+	} else {
+		return dockerapi.NewClient(endpoint)
+	}
 }
