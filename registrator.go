@@ -12,7 +12,6 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
-	"github.com/fsouza/go-dockerclient"
 )
 
 var Version string
@@ -157,7 +156,7 @@ func main() {
 	log.Fatal("Docker event loop closed") // todo: reconnect?
 }
 
-func getDockerClient() (*docker.Client, error)  {
+func getDockerClient() (*dockerapi.Client, error)  {
 	endpoint := getopt("DOCKER_HOST", "unix:///tmp/docker.sock")
 	if getopt("DOCKER_TLS_VERIFY", "") != "" {
 		usr, err := user.Current()
