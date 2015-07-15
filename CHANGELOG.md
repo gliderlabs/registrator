@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Overall refactoring and cleanup
 - Decoupled registries into subpackages using extpoints
+- Replaced check-http script with Consul's native HTTP checks
+  (requires Consul >= 0.5)
 
 
 ## [v5] - 2015-02-18
