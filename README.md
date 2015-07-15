@@ -298,4 +298,4 @@ Ongoing support of this project is made possible by [Weave](http://weave.works),
 
 BSD
 
-![Analytics](https://ga-beacon.appspot.com/UA-58928488-2/registrator/readme?pixel)]
+<img src="https://ga-beacon.appspot.com/UA-58928488-2/registrator/readme?pixel" />
