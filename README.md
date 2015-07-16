@@ -1,5 +1,9 @@
 # Registrator
 
+[![CircleCI](https://img.shields.io/circleci/project/gliderlabs/registrator/release.svg)](https://circleci.com/gh/gliderlabs/registrator)
+[![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
+[![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
+
 Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 
 Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and [SkyDNS 2](https://github.com/skynetservices/skydns/).
@@ -243,10 +247,12 @@ When using the Consul's service catalog backend, you can specify a health check 
 
 #### Basic HTTP health check
 
-This feature is only available when using the `check-http` script that comes with the [progrium/consul](https://github.com/progrium/docker-consul#health-checking-with-docker) container for Consul.
+This feature is only available when using Consul 0.5 or newer.
 
 	SERVICE_80_CHECK_HTTP=/health/endpoint/path
 	SERVICE_80_CHECK_INTERVAL=15s
+	# Optional, Consul default value is used when not specified
+	SERVICE_80_CHECK_TIMEOUT=1s
 
 It works for an HTTP service on any port, not just 80. If its the only service, you can also use `SERVICE_CHECK_HTTP`.
 
@@ -293,3 +299,5 @@ Ongoing support of this project is made possible by [Weave](http://weave.works),
 ## License
 
 BSD
+
+<img src="https://ga-beacon.appspot.com/UA-58928488-2/registrator/readme?pixel" />
