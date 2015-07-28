@@ -1,6 +1,6 @@
 # Registrator
 
-[![CircleCI](https://img.shields.io/circleci/project/gliderlabs/registrator/release.svg)](https://circleci.com/gh/gliderlabs/registrator)
+[![Circle CI](https://circleci.com/gh/gliderlabs/registrator.png?style=shield)](https://circleci.com/gh/gliderlabs/registrator)
 [![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
 [![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
 
