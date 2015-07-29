@@ -92,6 +92,18 @@ Note that the default `service-id` includes more than the container name (see be
 
 	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
 
+#### Route53 backend
+
+AWS Route53 support for creating SRV DNS records. The URI provides an Route 53 hosted Zone Id. You can also enable the EC2 metadata service for hostname discovery using the `useEC2MetadataForHostname` parameter, otherwise the backend will default to the hostname provided by `os.Hostname()`. 
+
+This backend depends on [aws-sdk-go](https://github.com/awslabs/aws-sdk-go) which requires your aws credentials to be [configured](https://github.com/awslabs/aws-sdk-go#configuring-credentials)
+
+	$ docker run -d \
+		-v /var/run/docker.sock:/tmp/docker.sock \
+		-e "AWS_ACCESS_KEY_ID=<KEY>" \
+		-e "AWS_SECRET_ACCESS_KEY=<SECRET>" \
+		-h $HOSTNAME gliderlabs/registrator route53://<your zone id>?useEC2MetadataForHostname=false
+
 ## How it works
 
 Services are registered and deregistered based on container start and die events from Docker. The service definitions are created with information from the container, including user-defined metadata in the container environment.

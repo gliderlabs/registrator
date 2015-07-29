@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Panic from invalid skydns2 URI.
 
 ### Added
+- Route 53 backend
 - Optional periodic resyncing of services from containers
 - More error logging for registries
 - Support for services on containers with `--net=host`
