@@ -6,7 +6,7 @@
 
 Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 
-Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and [SkyDNS 2](https://github.com/skynetservices/skydns/).
+Registrator automatically register/deregisters services for Docker containers based on published ports and metadata from the container environment. Registrator supports [pluggable service registries](#adding-support-for-other-service-registries), which currently includes [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd), [SkyDNS 2](https://github.com/skynetservices/skydns/) and [Amazon Simple Notification Service](http://aws.amazon.com/sns/).
 
 By default, it can register services without any user-defined metadata. This means it works with *any* container, but allows the container author or Docker operator to override/customize the service definitions.
 
@@ -91,6 +91,23 @@ Using the second example, a service definition for a container with `service-nam
 Note that the default `service-id` includes more than the container name (see below). For legal per-container DNS hostnames, specify the `SERVICE_ID` in the environment of the container, e.g.:
 
 	docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
+
+#### AWS SNS backend
+
+Publishes service registration events to AWS SNS. Each message will contain a custom `MessageAttribute` called `DOCKER.EVENT`, whose value will be one of:
+
+ * `BACKEND_PING`
+ * `SERVICE_REGISTER`
+ * `SERVICE_DEREGISTER`
+ * `SERVICE_REFRESH`
+
+The `Message` body will be the JSON encoded `Service` struct (see [How it works](#how-it-works)).
+
+Example URIs:
+
+    $ registrator sns://arn:aws:sns:us-west-2:123456789012:my-sns-topic
+
+AWS configuration and credentials are discovered as per [convention](https://github.com/awslabs/aws-sdk-go#configuring-credentials).
 
 ## How it works
 
