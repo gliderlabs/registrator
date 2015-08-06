@@ -19,10 +19,13 @@ release:
 	gh-release create gliderlabs/$(NAME) $(VERSION) \
 		$(shell git rev-parse --abbrev-ref HEAD) $(VERSION)
 
+docs:
+	docker run --rm -it -p 8000:8000 -v $(PWD):/work gliderlabs/pagebuilder mkdocs serve
+
 circleci:
 	rm ~/.gitconfig
 ifneq ($(CIRCLE_BRANCH), release)
 	echo build-$$CIRCLE_BUILD_NUM > VERSION
 endif
 
-.PHONY: build release
+.PHONY: build release docs
