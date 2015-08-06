@@ -52,6 +52,8 @@ type EtcdAdapter struct {
 }
 
 func (r *EtcdAdapter) Ping() error {
+	r.syncEtcdCluster()
+
 	var err error
 	if r.client != nil {
 		rr := etcd.NewRawRequest("GET", "version", nil, nil)
@@ -67,7 +69,22 @@ func (r *EtcdAdapter) Ping() error {
 	return nil
 }
 
+func (r *EtcdAdapter) syncEtcdCluster() {
+	var result bool
+	if r.client != nil {
+		result = r.client.SyncCluster()
+	} else {
+		result = r.client2.SyncCluster()
+	}
+
+	if !result {
+		log.Println("etcd: sync cluster was unsuccessful")
+	}
+}
+
 func (r *EtcdAdapter) Register(service *bridge.Service) error {
+	r.syncEtcdCluster()
+
 	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
@@ -86,6 +103,8 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 }
 
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
+	r.syncEtcdCluster()
+
 	path := r.path + "/" + service.Name + "/" + service.ID
 
 	var err error
