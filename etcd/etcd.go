@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"net"
@@ -64,7 +65,28 @@ func (r *EtcdAdapter) Ping() error {
 	if err != nil {
 		return err
 	}
+
+	err = r.syncEtcdCluster()
+	if err != nil {
+		log.Println("etcd: ", err)
+		// Do not return error since existing info may work.
+	}
+
 	return nil
+}
+
+func (r *EtcdAdapter) syncEtcdCluster() error {
+	var result bool
+	if r.client != nil {
+		result = r.client.SyncCluster()
+	} else {
+		result = r.client2.SyncCluster()
+	}
+
+	if result {
+		return nil
+	}
+	return errors.New("sync cluster was unsuccessful")
 }
 
 func (r *EtcdAdapter) Register(service *bridge.Service) error {
@@ -81,8 +103,16 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 
 	if err != nil {
 		log.Println("etcd: failed to register service:", err)
+		return err
 	}
-	return err
+
+	err = r.syncEtcdCluster()
+	if err != nil {
+		log.Println("etcd: ", err)
+		// Do not return error since existing info may work.
+	}
+
+	return nil
 }
 
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
