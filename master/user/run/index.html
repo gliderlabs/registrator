@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic|Vollkorn:400,700' rel='stylesheet' type='text/css'>
+        
+        
+        <link rel="canonical" href="https://gliderlabs.com/registrator/user/run/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+
+	<title>Run Reference - Registrator</title>
+
+        <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="../../css/font-awesome-4.4.0.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="../../css/highlight.css">
+        <link href="../../css/base.css" rel="stylesheet">
+
+        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+        <!--[if lt IE 9]>
+            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+            <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+        <![endif]-->
+
+        
+    </head>
+
+    <body>
+
+        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+
+            <!-- Main title -->
+            <a class="navbar-brand" href="../..">Registrator</a>
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+            <!-- Main navigation -->
+            <ul class="nav navbar-nav">
+            
+            
+                <li >
+                    <a href="../..">Readme</a>
+                </li>
+            
+            
+            
+                <li class="dropdown active">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">User Guide <b class="caret"></b></a>
+                    <ul class="dropdown-menu">
+                    
+                        <li >
+                            <a href="../quickstart/">Quickstart</a>
+                        </li>
+                    
+                        <li class="active">
+                            <a href="./">Run Reference</a>
+                        </li>
+                    
+                        <li >
+                            <a href="../services/">Service Model</a>
+                        </li>
+                    
+                        <li >
+                            <a href="../backends/">Registry Backends</a>
+                        </li>
+                    
+                    </ul>
+                </li>
+            
+            
+            
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Developer Guide <b class="caret"></b></a>
+                    <ul class="dropdown-menu">
+                    
+                        <li >
+                            <a href="../../dev/backends/">Contributing Backends</a>
+                        </li>
+                    
+                        <li >
+                            <a href="../../dev/releases/">Staging Releases</a>
+                        </li>
+                    
+                    </ul>
+                </li>
+            
+            
+            </ul>
+
+            <!-- Search, Navigation and Repo links -->
+            <ul class="nav navbar-nav navbar-right">
+                <!--li >
+                    <a rel="next" href="../quickstart/">
+                        <i class="fa fa-arrow-left"></i> Previous
+                    </a>
+                </li>
+                <li >
+                    <a rel="prev" href="../services/">
+                        Next <i class="fa fa-arrow-right"></i>
+                    </a>
+                </li-->
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Versions <b class="caret"></b></a>
+                    <ul class="dropdown-menu" id="versions-dropdown">
+                    </ul>
+                </li>
+                <li>
+                    <a href="http://glider-slackin.herokuapp.com/">
+                        <i class="fa fa-slack"></i>
+                        Community
+                    </a>
+                </li>
+                
+                <li>
+                    <a href="https://github.com/gliderlabs/registrator">
+                        
+                            <i class="fa fa-github"></i>
+                        
+                        GitHub
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+    </div>
+</div>
+
+        <div class="container">
+            <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+    
+        <li class="main active"><a href="#run-reference">Run Reference</a></li>
+        
+            <li><a href="#running-registrator">Running Registrator</a></li>
+        
+            <li><a href="#docker-options">Docker Options</a></li>
+        
+            <li><a href="#registrator-options">Registrator Options</a></li>
+        
+            <li><a href="#registry-uri">Registry URI</a></li>
+        
+    
+    </ul>
+</div></div>
+            <div class="col-md-8 content" role="main">
+
+<h1 id="run-reference">Run Reference</h1>
+<p>Registrator is designed to be run once on every host. You <em>could</em> run a single
+Registrator for your cluster, but you get better scaling properties and easier
+configuration by ensuring Registrator runs on every host. Assuming some level of
+automation, running everywhere is ironically simpler than running once somewhere.</p>
+<h2 id="running-registrator">Running Registrator</h2>
+<pre><code>docker run [docker options] gliderlabs/registrator[:tag] [options] &lt;registry uri&gt;
+</code></pre>
+<p>Registrator requires and recommends some Docker options, has its own set of options
+and then requires a Registry URI. Here is a typical way to run Registrator:</p>
+<pre><code>$ docker run -d \
+    --name=registrator \
+    --net=host \
+    --volume=/var/run/docker.sock:/tmp/docker.sock \
+    gliderlabs/registrator:latest \
+      consul://localhost:8500
+</code></pre>
+<h2 id="docker-options">Docker Options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--volume=/var/run/docker.sock:/tmp/docker.sock</code></td>
+<td>yes</td>
+<td>Allows Registrator to access Docker API</td>
+</tr>
+<tr>
+<td><code>--net=host</code></td>
+<td>recommended</td>
+<td>Helps Registrator get host-level IP and hostname</td>
+</tr>
+</tbody>
+</table>
+<p>An alternative to host network mode would be to set the container hostname to the host
+hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator option below.</p>
+<h2 id="registrator-options">Registrator Options</h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-internal</code></td>
+<td>Use exposed ports instead of published ports</td>
+</tr>
+<tr>
+<td><code>-ip &lt;ip address&gt;</code></td>
+<td>Force IP address used for registering services</td>
+</tr>
+<tr>
+<td><code>-tags &lt;tags&gt;</code></td>
+<td>Force comma-separated tags on all registered services</td>
+</tr>
+<tr>
+<td><code>-deregister &lt;mode&gt;</code></td>
+<td>Deregister existed services "always" or "on-success". Default: always</td>
+</tr>
+<tr>
+<td><code>-ttl &lt;seconds&gt;</code></td>
+<td>TTL for services. Default: 0, no expiry (supported backends only)</td>
+</tr>
+<tr>
+<td><code>-ttl-refresh &lt;seconds&gt;</code></td>
+<td>Frequency service TTLs are refreshed (supported backends only)</td>
+</tr>
+<tr>
+<td><code>-resync &lt;seconds&gt;</code></td>
+<td>Frequency all services are resynchronized. Default: 0, never</td>
+</tr>
+</tbody>
+</table>
+<p>If the <code>-internal</code> option is used, Registrator will register the docker0
+internal IP and port instead of the host mapped ones.</p>
+<p>By default, when registering a service, Registrator will assign the service
+address by attempting to resolve the current hostname. If you would like to
+force the service address to be a specific address, you can specify the <code>-ip</code>
+argument.</p>
+<p>For registry backends that support TTL expiry, Registrator can both set and
+refresh service TTLs with <code>-ttl</code> and <code>-ttl-refresh</code>.</p>
+<p>The <code>-resync</code> options controls how often Registrator will query Docker for all
+containers and reregister all services.  This allows Registrator and the service
+registry to get back in sync if they fall out of sync.</p>
+<h2 id="registry-uri">Registry URI</h2>
+<pre><code>&lt;backend&gt;://&lt;address&gt;[/&lt;path&gt;]
+</code></pre>
+<p>The registry backend to use is defined by a URI. The scheme is the supported
+registry name. The address is a host or host and port used to connect to the
+registry. Some registries support a path definition used, for example, as the prefix to use
+in service definitions for key-value based registries.</p>
+<p>For full reference of supported backends, see <a href="../backends/">Registry Backends</a>.</p></div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            
+            <center>Documentation built with <a href="https://gliderlabs.com/pagebuilder">Pagebuilder</a>.</center>
+        </footer>
+
+        <script src="../../js/jquery-1.10.2.min.js"></script>
+        <script src="../../js/bootstrap-3.0.3.min.js"></script>
+        <script src="../../js/highlight.pack.js"></script>
+        <script src="../../js/base.js"></script>
+        <script>
+          $( document ).ready(function() {
+              $.getJSON("https://gliderlabs.com/registrator/versions.json", function(data) {
+                $("#versions-dropdown").append('<li><a href="https://gliderlabs.com/registrator/latest">latest ('+data.latest+')</a></li>');
+                $.each(data.versions, function( index, value ) {
+                  $("#versions-dropdown").append('<li><a href="https://gliderlabs.com/registrator/'+value+'">'+value+'</a></li>');
+                });
+              });
+          });
+        </script>
+    </body>
+</html>

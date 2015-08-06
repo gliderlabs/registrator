@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic|Vollkorn:400,700' rel='stylesheet' type='text/css'>
+        
+        
+        <link rel="canonical" href="https://gliderlabs.com/registrator/">
+        <link rel="shortcut icon" href="./img/favicon.ico">
+
+	<title>Registrator</title>
+
+        <link href="./css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="./css/font-awesome-4.4.0.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="./css/highlight.css">
+        <link href="./css/base.css" rel="stylesheet">
+
+        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+        <!--[if lt IE 9]>
+            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+            <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+        <![endif]-->
+
+        
+    </head>
+
+    <body>
+
+        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+
+            <!-- Main title -->
+            <a class="navbar-brand" href=".">Registrator</a>
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+            <!-- Main navigation -->
+            <ul class="nav navbar-nav">
+            
+            
+                <li class="active">
+                    <a href=".">Readme</a>
+                </li>
+            
+            
+            
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">User Guide <b class="caret"></b></a>
+                    <ul class="dropdown-menu">
+                    
+                        <li >
+                            <a href="user/quickstart/">Quickstart</a>
+                        </li>
+                    
+                        <li >
+                            <a href="user/run/">Run Reference</a>
+                        </li>
+                    
+                        <li >
+                            <a href="user/services/">Service Model</a>
+                        </li>
+                    
+                        <li >
+                            <a href="user/backends/">Registry Backends</a>
+                        </li>
+                    
+                    </ul>
+                </li>
+            
+            
+            
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Developer Guide <b class="caret"></b></a>
+                    <ul class="dropdown-menu">
+                    
+                        <li >
+                            <a href="dev/backends/">Contributing Backends</a>
+                        </li>
+                    
+                        <li >
+                            <a href="dev/releases/">Staging Releases</a>
+                        </li>
+                    
+                    </ul>
+                </li>
+            
+            
+            </ul>
+
+            <!-- Search, Navigation and Repo links -->
+            <ul class="nav navbar-nav navbar-right">
+                <!--li class="disabled">
+                    <a rel="next" >
+                        <i class="fa fa-arrow-left"></i> Previous
+                    </a>
+                </li>
+                <li >
+                    <a rel="prev" href="user/quickstart/">
+                        Next <i class="fa fa-arrow-right"></i>
+                    </a>
+                </li-->
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Versions <b class="caret"></b></a>
+                    <ul class="dropdown-menu" id="versions-dropdown">
+                    </ul>
+                </li>
+                <li>
+                    <a href="http://glider-slackin.herokuapp.com/">
+                        <i class="fa fa-slack"></i>
+                        Community
+                    </a>
+                </li>
+                
+                <li>
+                    <a href="https://github.com/gliderlabs/registrator">
+                        
+                            <i class="fa fa-github"></i>
+                        
+                        GitHub
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+    </div>
+</div>
+
+        <div class="container">
+            <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+    
+        <li class="main active"><a href="#registrator">Registrator</a></li>
+        
+            <li><a href="#getting-registrator">Getting Registrator</a></li>
+        
+            <li><a href="#using-registrator">Using Registrator</a></li>
+        
+            <li><a href="#contributing">Contributing</a></li>
+        
+            <li><a href="#sponsors-and-thanks">Sponsors and Thanks</a></li>
+        
+            <li><a href="#license">License</a></li>
+        
+    
+    </ul>
+</div></div>
+            <div class="col-md-8 content" role="main">
+
+<h1 id="registrator">Registrator</h1>
+<p>Service registry bridge for Docker, sponsored by <a href="http://weave.works">Weave</a>.</p>
+<p><a href="https://circleci.com/gh/gliderlabs/registrator"><img alt="Circle CI" src="https://circleci.com/gh/gliderlabs/registrator.png?style=shield" /></a>
+<a href="https://registry.hub.docker.com/u/gliderlabs/registrator/"><img alt="Docker Hub" src="https://img.shields.io/badge/docker-ready-blue.svg" /></a>
+<a href="https://kiwiirc.com/client/irc.freenode.net/#gliderlabs"><img alt="IRC Channel" src="https://img.shields.io/badge/irc-%23gliderlabs-blue.svg" /></a>
+<br /><br /></p>
+<p>Registrator automatically registers and deregisters services for any Docker
+container by inspecting containers as they come online. Registrator
+supports pluggable service registries, which currently includes
+<a href="http://www.consul.io/">Consul</a>, <a href="https://github.com/coreos/etcd">etcd</a> and
+<a href="https://github.com/skynetservices/skydns/">SkyDNS 2</a>.</p>
+<h2 id="getting-registrator">Getting Registrator</h2>
+<p>Get the latest release, master, or any version of Registrator via <a href="https://registry.hub.docker.com/u/gliderlabs/registrator/">Docker Hub</a>:</p>
+<pre><code>$ docker pull gliderlabs/registrator:latest
+</code></pre>
+<h2 id="using-registrator">Using Registrator</h2>
+<p>The quickest way to see Registrator in action is our
+<a href="user/quickstart/">Quickstart</a> tutorial. Otherwise, jump to the <a href="user/run/">Run
+Reference</a> in the User Guide. Typically, running Registrator
+looks like this:</p>
+<pre><code>$ docker run -d \
+    --name=registrator \
+    --net=host \
+    --volume=/var/run/docker.sock:/tmp/docker.sock \
+    gliderlabs/registrator:latest \
+      consul://localhost:8500
+</code></pre>
+<h2 id="contributing">Contributing</h2>
+<p>Pull requests are welcome! We recommend getting feedback before starting by
+opening a <a href="https://github.com/gliderlabs/registrator/issues">GitHub issue</a> or
+discussing in <a href="http://glider-slackin.herokuapp.com/">Slack</a>.</p>
+<p>Also check out our Developer Guide on <a href="dev/backends/">Contributing Backends</a>
+and <a href="dev/releases/">Staging Releases</a>.</p>
+<h2 id="sponsors-and-thanks">Sponsors and Thanks</h2>
+<p>Ongoing support of this project is made possible by <a href="http://weave.works">Weave</a>,
+the Docker SDN. Big thanks to Michael Crosby for
+<a href="https://github.com/crosbymichael/skydock">skydock</a> and the Consul mailing list
+for inspiration.</p>
+<p>For a full list of sponsors, see
+<a href="https://github.com/gliderlabs/registrator/blob/master/SPONSORS">SPONSORS</a>.</p>
+<h2 id="license">License</h2>
+<p>MIT</p>
+<p><img src="https://ga-beacon.appspot.com/UA-58928488-2/registrator/readme?pixel" /></p></div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            
+            <center>Documentation built with <a href="https://gliderlabs.com/pagebuilder">Pagebuilder</a>.</center>
+        </footer>
+
+        <script src="./js/jquery-1.10.2.min.js"></script>
+        <script src="./js/bootstrap-3.0.3.min.js"></script>
+        <script src="./js/highlight.pack.js"></script>
+        <script src="./js/base.js"></script>
+        <script>
+          $( document ).ready(function() {
+              $.getJSON("https://gliderlabs.com/registrator/versions.json", function(data) {
+                $("#versions-dropdown").append('<li><a href="https://gliderlabs.com/registrator/latest">latest ('+data.latest+')</a></li>');
+                $.each(data.versions, function( index, value ) {
+                  $("#versions-dropdown").append('<li><a href="https://gliderlabs.com/registrator/'+value+'">'+value+'</a></li>');
+                });
+              });
+          });
+        </script>
+    </body>
+</html>
