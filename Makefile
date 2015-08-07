@@ -23,9 +23,7 @@ docs:
 	docker run --rm -it -p 8000:8000 -v $(PWD):/work gliderlabs/pagebuilder mkdocs serve
 
 circleci:
-	rm ~/.gitconfig
-ifneq ($(CIRCLE_BRANCH), release)
-	echo build-$$CIRCLE_BUILD_NUM > VERSION
-endif
+	go get -u github.com/gliderlabs/glu
+	glu circleci
 
 .PHONY: build release docs
