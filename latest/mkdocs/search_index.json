@@ -176,6 +176,16 @@
             "title": "SkyDNS 2"
         }, 
         {
+            "location": "/user/faq/", 
+            "text": "Frequently Asked Questions\n\n\nWhy is it registering the wrong service IP?\n\n\nIf you're getting an odd IP registered for services, such as \n127.0.0.1\n, then\nRegistrator was unable to detect the right IP. Since this is hard to do correctly,\nit's best to always set the \n-ip \naddress\n option to the IP you want it to be.", 
+            "title": "FAQ"
+        }, 
+        {
+            "location": "/user/faq/#frequently-asked-questions", 
+            "text": "Why is it registering the wrong service IP?  If you're getting an odd IP registered for services, such as  127.0.0.1 , then\nRegistrator was unable to detect the right IP. Since this is hard to do correctly,\nit's best to always set the  -ip  address  option to the IP you want it to be.", 
+            "title": "Frequently Asked Questions"
+        }, 
+        {
             "location": "/dev/backends/", 
             "text": "Contributing Backends\n\n\nAs you can see by either the Consul or etcd source files, writing a new registry backend is easy. Just follow the example set by those two. It boils down to writing an object that implements this interface:\n\n\n    type RegistryAdapter interface {\n        Ping() error\n        Register(service *Service) error\n        Deregister(service *Service) error\n        Refresh(service *Service) error\n    }\n\n\n\n\nThe \nService\n struct looks like this:\n\n\ntype Service struct {\n    ID    string\n    Name  string\n    Port  int\n    IP    string\n    Tags  []string\n    Attrs map[string]string\n    TTL   int\n    ...\n}\n\n\n\n\nThen add a factory which accepts a uri and returns the registry adapter, and register that factory with the bridge like \nbridge.Register(new(Factory), \"\nbackend_name\n\")\n.", 
             "title": "Contributing Backends"

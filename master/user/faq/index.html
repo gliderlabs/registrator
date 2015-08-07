@@ -7,10 +7,10 @@
         <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic|Vollkorn:400,700' rel='stylesheet' type='text/css'>
         
         
-        <link rel="canonical" href="https://gliderlabs.com/registrator/user/backends/">
+        <link rel="canonical" href="https://gliderlabs.com/registrator/user/faq/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
 
-	<title>Registry Backends - Registrator</title>
+	<title>FAQ - Registrator</title>
 
         <link href="../../css/bootstrap-custom.min.css" rel="stylesheet">
         <link href="../../css/font-awesome-4.4.0.min.css" rel="stylesheet">
@@ -73,12 +73,12 @@
                             <a href="../services/">Service Model</a>
                         </li>
                     
-                        <li class="active">
-                            <a href="./">Registry Backends</a>
+                        <li >
+                            <a href="../backends/">Registry Backends</a>
                         </li>
                     
-                        <li >
-                            <a href="../faq/">FAQ</a>
+                        <li class="active">
+                            <a href="./">FAQ</a>
                         </li>
                     
                     </ul>
@@ -107,12 +107,12 @@
             <!-- Search, Navigation and Repo links -->
             <ul class="nav navbar-nav navbar-right">
                 <!--li >
-                    <a rel="next" href="../services/">
+                    <a rel="next" href="../backends/">
                         <i class="fa fa-arrow-left"></i> Previous
                     </a>
                 </li>
                 <li >
-                    <a rel="prev" href="../faq/">
+                    <a rel="prev" href="../../dev/backends/">
                         Next <i class="fa fa-arrow-right"></i>
                     </a>
                 </li-->
@@ -146,96 +146,20 @@
             <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
     <ul class="nav bs-sidenav">
     
-        <li class="main active"><a href="#backend-reference">Backend Reference</a></li>
+        <li class="main active"><a href="#frequently-asked-questions">Frequently Asked Questions</a></li>
         
-            <li><a href="#consul">Consul</a></li>
-        
-            <li><a href="#consul-kv">Consul KV</a></li>
-        
-            <li><a href="#etcd">Etcd</a></li>
-        
-            <li><a href="#skydns-2">SkyDNS 2</a></li>
+            <li><a href="#why-is-it-registering-the-wrong-service-ip">Why is it registering the wrong service IP?</a></li>
         
     
     </ul>
 </div></div>
             <div class="col-md-8 content" role="main">
 
-<h1 id="backend-reference">Backend Reference</h1>
-<p>Registrator supports a number of backing registries. In order for Registrator to
-be useful, you need to be running one of these. Below are the Registry URIs to
-use for supported backends and documentation specific to their features.</p>
-<p>See also <a href="../../dev/backends/">Contributing Backends</a>.</p>
-<h2 id="consul">Consul</h2>
-<pre><code>consul://&lt;address&gt;:&lt;port&gt;
-</code></pre>
-<p>Consul is the recommended registry since it specifically models services for
-service discovery with health checks.</p>
-<p>If no address and port is specified, it will default to <code>127.0.0.1:8500</code>.</p>
-<p>Consul supports tags but no arbitrary service attributes.</p>
-<h3 id="consul-http-check">Consul HTTP Check</h3>
-<p>This feature is only available when using Consul 0.5 or newer. Containers
-specifying these extra metadata in labels or environment will be used to
-register an HTTP health check with the service.</p>
-<pre><code class="bash">SERVICE_80_CHECK_HTTP=/health/endpoint/path
-SERVICE_80_CHECK_INTERVAL=15s
-SERVICE_80_CHECK_TIMEOUT=1s     # optional, Consul default used otherwise
-</code></pre>
-
-<p>It works for services on any port, not just 80. If its the only service,
-you can also use <code>SERVICE_CHECK_HTTP</code>.</p>
-<h3 id="consul-script-check">Consul Script Check</h3>
-<p>This feature is tricky because it lets you specify a script check to run from
-Consul. If running Consul in a container, you're limited to what you can run
-from that container. For example, curl must be installed for this to work:</p>
-<pre><code class="bash">SERVICE_CHECK_SCRIPT=curl --silent --fail example.com
-</code></pre>
-
-<p>The default interval for any non-TTL check is 10s, but you can set it with
-<code>_CHECK_INTERVAL</code>. The check command will be interpolated with the <code>$SERVICE_IP</code>
-and <code>$SERVICE_PORT</code> placeholders:</p>
-<pre><code class="bash">SERVICE_CHECK_SCRIPT=nc $SERVICE_IP $SERVICE_PORT | grep OK
-</code></pre>
-
-<h3 id="consul-ttl-check">Consul TTL Check</h3>
-<p>You can also register a TTL check with Consul. Keep in mind, this means Consul
-will expect a regular heartbeat ping to its API to keep the service marked
-healthy.</p>
-<pre><code class="bash">SERVICE_CHECK_TTL=30s
-</code></pre>
-
-<h2 id="consul-kv">Consul KV</h2>
-<pre><code>consulkv://&lt;address&gt;:&lt;port&gt;/&lt;prefix&gt;
-</code></pre>
-<p>This is a separate backend to use Consul's key-value store instead of its native
-service catalog. This behaves more like etcd since it has similar semantics, but
-currently doesn't support TTLs.</p>
-<p>If no address and port is specified, it will default to <code>127.0.0.1:8500</code>.</p>
-<p>Using the prefix from the Registry URI, service definitions are stored as:</p>
-<pre><code>&lt;prefix&gt;/&lt;service-name&gt;/&lt;service-id&gt; = &lt;ip&gt;:&lt;port&gt;
-</code></pre>
-<h2 id="etcd">Etcd</h2>
-<pre><code>etcd://&lt;address&gt;:&lt;port&gt;/&lt;prefix&gt;
-</code></pre>
-<p>Etcd works similar to Consul KV, except supports service TTLs. It also currently
-doesn't support service attributes/tags.</p>
-<p>If no address and port is specified, it will default to <code>127.0.0.1:4001</code>.</p>
-<p>Using the prefix from the Registry URI, service definitions are stored as:</p>
-<pre><code>&lt;prefix&gt;/&lt;service-name&gt;/&lt;service-id&gt; = &lt;ip&gt;:&lt;port&gt;
-</code></pre>
-<h2 id="skydns-2">SkyDNS 2</h2>
-<pre><code>skydns2://&lt;address&gt;:&lt;port&gt;/&lt;domain&gt;
-</code></pre>
-<p>SkyDNS 2 uses etcd, so this backend writes service definitions in a format compatible with SkyDNS 2.
-The path may not be omitted and must be a valid DNS domain for SkyDNS.</p>
-<p>If no address and port is specified, it will default to <code>127.0.0.1:4001</code>.</p>
-<p>Using a Registry URI with the domain <code>cluster.local</code>, service definitions are stored as:</p>
-<pre><code>/skydns/local/cluster/&lt;service-name&gt;/&lt;service-id&gt; = {"host":"&lt;ip&gt;","port":&lt;port&gt;}
-</code></pre>
-<p>SkyDNS requires the service ID to be a valid DNS hostname, so this backend requires containers to
-override service ID to a valid DNS name. Example:</p>
-<pre><code>$ docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
-</code></pre></div>
+<h1 id="frequently-asked-questions">Frequently Asked Questions</h1>
+<h3 id="why-is-it-registering-the-wrong-service-ip">Why is it registering the wrong service IP?</h3>
+<p>If you're getting an odd IP registered for services, such as <code>127.0.0.1</code>, then
+Registrator was unable to detect the right IP. Since this is hard to do correctly,
+it's best to always set the <code>-ip &lt;address&gt;</code> option to the IP you want it to be.</p></div>
         </div>
 
         <footer class="col-md-12">
