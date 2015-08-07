@@ -20,6 +20,7 @@ docs:
 	docker run --rm -it -p 8000:8000 -v $(PWD):/work gliderlabs/pagebuilder mkdocs serve
 
 circleci:
+	rm -f ~/.gitconfig
 	go get -u github.com/gliderlabs/glu
 	glu circleci
 
