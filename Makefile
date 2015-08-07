@@ -12,17 +12,16 @@ build:
 	docker build -t $(NAME):$(VERSION) .
 	docker save $(NAME):$(VERSION) | gzip -9 > build/$(NAME)_$(VERSION).tgz
 
-release: build
-	rm -rf release && mkdir release
-	go get github.com/progrium/gh-release/...
-	cp build/* release
-	gh-release create gliderlabs/$(NAME) $(VERSION) \
-		$(shell git rev-parse --abbrev-ref HEAD) $(VERSION)
+release:
+	glu release gliderlabs/$(NAME) $(VERSION)
+	glu hubtag gliderlabs/$(NAME) $(VERSION)
+
+docs:
+	docker run --rm -it -p 8000:8000 -v $(PWD):/work gliderlabs/pagebuilder mkdocs serve
 
 circleci:
-	rm ~/.gitconfig
-ifneq ($(CIRCLE_BRANCH), release)
-	echo build-$$CIRCLE_BUILD_NUM > VERSION
-endif
+	rm -f ~/.gitconfig
+	go get -u github.com/gliderlabs/glu
+	glu circleci
 
-.PHONY: build release
+.PHONY: build release docs

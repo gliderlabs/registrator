@@ -11,6 +11,30 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 
+## [v6] - 2015-08-07
+### Fixed
+- Support for etcd v0 and v2
+- Panic from invalid skydns2 URI.
+
+### Added
+- Optional periodic resyncing of services from containers
+- More error logging for registries
+- Support for services on containers with `--net=host`
+- Added `extensions.go` file for adding/disabling components
+- Interpolate SERVICE_PORT and SERVICE_IP in SERVICE_X_CHECK_SCRIPT
+- Ability to force IP for a service in Consul
+- Implemented initial ping for every service registry
+- Option to only deregister containers cleanly shutdown #113
+- Added support for label metadata along with environment variables
+
+### Removed
+
+### Changed
+- Overall refactoring and cleanup
+- Decoupled registries into subpackages using extpoints
+- Replaced check-http script with Consul's native HTTP checks
+
+
 ## [v5] - 2015-02-18
 ### Added
 - Automated, PR-driven release process
@@ -30,5 +54,6 @@ All notable changes to this project will be documented in this file.
 - Dropped Godeps for now
 
 
-[unreleased]: https://github.com/gliderlabs/registrator/compare/v5...HEAD
+[unreleased]: https://github.com/gliderlabs/registrator/compare/v6...HEAD
+[v6]: https://github.com/gliderlabs/registrator/compare/v5...v6
 [v5]: https://github.com/gliderlabs/registrator/compare/v0.4.0...v5

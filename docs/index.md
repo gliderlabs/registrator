@@ -22,10 +22,9 @@ Get the latest release, master, or any version of Registrator via [Docker Hub](h
 ## Using Registrator
 
 The quickest way to see Registrator in action is our
-[Quickstart](https://gliderlabs.com/registrator/latest/user/quickstart)
-tutorial. Otherwise, jump to the [Run
-Reference](https://gliderlabs.com/registrator/latest/user/run) in the User
-Guide. Typically, running Registrator looks like this:
+[Quickstart](user/quickstart.md) tutorial. Otherwise, jump to the [Run
+Reference](user/run.md) in the User Guide. Typically, running Registrator
+looks like this:
 
     $ docker run -d \
         --name=registrator \
@@ -40,9 +39,8 @@ Pull requests are welcome! We recommend getting feedback before starting by
 opening a [GitHub issue](https://github.com/gliderlabs/registrator/issues) or
 discussing in [Slack](http://glider-slackin.herokuapp.com/).
 
-Also check out our Developer Guide on [Contributing
-Backends](https://gliderlabs.com/registrator/latest/dev/backends) and [Staging
-Releases](https://gliderlabs.com/registrator/latest/dev/releases.).
+Also check out our Developer Guide on [Contributing Backends](dev/backends.md)
+and [Staging Releases](dev/releases.md).
 
 ## Sponsors and Thanks
 
