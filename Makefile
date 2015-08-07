@@ -13,7 +13,11 @@ build:
 	docker save $(NAME):$(VERSION) | gzip -9 > build/$(NAME)_$(VERSION).tgz
 
 release:
-	glu release gliderlabs/$(NAME) $(VERSION)
+	rm -rf release && mkdir release
+	go get github.com/progrium/gh-release/...
+	cp build/* release
+	gh-release create gliderlabs/$(NAME) $(VERSION) \
+		$(shell git rev-parse --abbrev-ref HEAD) $(VERSION)
 	glu hubtag gliderlabs/$(NAME) $(VERSION)
 
 docs:
