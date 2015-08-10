@@ -19,6 +19,9 @@ Get the latest release, master, or any version of Registrator via [Docker Hub](h
 
 	$ docker pull gliderlabs/registrator:latest
 
+Latest tag always points to the latest release. There is also a `:master` tag
+and version tags to pin to specific releases.
+
 ## Using Registrator
 
 The quickest way to see Registrator in action is our
