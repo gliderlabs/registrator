@@ -175,7 +175,8 @@ service registry, such as Consul or etcd.</p>
 container that will automatically get added to Consul.</p>
 <h2 id="before-starting">Before Starting</h2>
 <p>We're going to need a host running Docker, which could just be a local
-boot2docker VM, and a shell with the <code>docker</code> client pointed to that host.</p>
+<a href="http://boot2docker.io/">boot2docker</a> VM, and a shell with the <code>docker</code> client
+pointed to that host.</p>
 <p>We'll also need to have Consul running, which can just be running in a
 container. Let's run a single instance of Consul in server bootstrap mode:</p>
 <pre><code>$ docker run -d --name=consul --net=host gliderlabs/consul-server -bootstrap
