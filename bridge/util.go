@@ -55,6 +55,15 @@ func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 	return metadata
 }
 
+func noServicePort(container *dockerapi.Container) ServicePort {
+	return ServicePort{
+		NoPort:      true,
+		ExposedPort: "noport",
+		HostIP:      "0.0.0.0",
+		container:   container,
+	}
+}
+
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
 	var hp, hip string
 	if len(published) > 0 {
@@ -71,6 +80,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		ExposedPort:       p[0],
 		ExposedIP:         container.NetworkSettings.IPAddress,
 		PortType:          p[1],
+		NoPort:            false,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,
 		container:         container,
