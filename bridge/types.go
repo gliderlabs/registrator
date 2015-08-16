@@ -25,6 +25,7 @@ type Config struct {
 	RefreshTtl      int
 	RefreshInterval int
 	DeregisterCheck string
+	ContainerName	bool
 }
 
 type Service struct {
