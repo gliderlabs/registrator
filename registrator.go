@@ -3,16 +3,18 @@ package main
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
 )
 
 var Version string
+
+var versionChecker = usage.NewChecker("registrator", Version)
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
@@ -37,7 +39,7 @@ func assert(err error) {
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		fmt.Println(Version)
+		versionChecker.PrintVersion()
 		os.Exit(0)
 	}
 	log.Printf("Starting registrator %s ...", Version)
