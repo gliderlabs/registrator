@@ -23,6 +23,8 @@ var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
+var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
+var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -49,10 +51,15 @@ func main() {
 	if *hostIp != "" {
 		log.Println("Forcing host IP to", *hostIp)
 	}
+
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
 		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
 	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
+	}
+
+	if *retryInterval <= 0 {
+		assert(errors.New("-retry-interval must be greater than 0"))
 	}
 
 	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
@@ -69,6 +76,8 @@ func main() {
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
+		RetryAttempts:   *retryAttempts,
+		RetryInterval:   *retryInterval,
 	})
 
 	// Start event listener before listing containers to avoid missing anything

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -32,10 +33,24 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) *Bridge {
 		log.Fatal("Unrecognized adapter:", adapterUri)
 	}
 	adapter := factory.New(uri)
-	err = adapter.Ping()
-	if err != nil {
-		log.Fatalf("%s: %s", uri.Scheme, err)
+
+	attempt := 0
+	for config.RetryAttempts == -1 || attempt <= config.RetryAttempts {
+		log.Printf("Connecting to backend (%v/%v)", attempt, config.RetryAttempts)
+
+		err = adapter.Ping()
+		if err == nil {
+			break
+		}
+
+		if err != nil && attempt == config.RetryAttempts {
+			log.Fatalf("%s: %s", uri.Scheme, err)
+		}
+
+		time.Sleep(time.Duration(config.RetryInterval) * time.Millisecond)
+		attempt++
 	}
+
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
 		docker:         docker,
