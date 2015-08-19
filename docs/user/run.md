@@ -35,6 +35,8 @@ Option                   | Description
 ------                   | -----------
 `-internal`              | Use exposed ports instead of published ports
 `-ip <ip address>`       | Force IP address used for registering services
+`-retry-attempts`        | Max retry attempts to establish a connection with the backend
+`-retry-interval`        | Interval (in millisecond) between retry-attempts
 `-tags <tags>`           | Force comma-separated tags on all registered services
 `-deregister <mode>`     | Deregister existed services "always" or "on-success". Default: always
 `-ttl <seconds>`         | TTL for services. Default: 0, no expiry (supported backends only)
@@ -51,6 +53,8 @@ argument.
 
 For registry backends that support TTL expiry, Registrator can both set and
 refresh service TTLs with `-ttl` and `-ttl-refresh`.
+
+If you want unlimited retry-attempts use `-retry-attempts -1`.
 
 The `-resync` options controls how often Registrator will query Docker for all
 containers and reregister all services.  This allows Registrator and the service
