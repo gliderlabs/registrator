@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 ### Removed
 
 ### Changed
-
+- Upgraded base image to alpine:3.2 and go 1.4
 
 ## [v6] - 2015-08-07
 ### Fixed
