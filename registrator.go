@@ -69,16 +69,33 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
-	b := bridge.New(docker, flag.Arg(0), bridge.Config{
+	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
-		RetryAttempts:   *retryAttempts,
-		RetryInterval:   *retryInterval,
 	})
+
+	assert(err)
+
+	attempt := 0
+	for *retryAttempts == -1 || attempt <= *retryAttempts {
+		log.Printf("Connecting to backend (%v/%v)", attempt, *retryAttempts)
+
+		err = b.Ping()
+		if err == nil {
+			break
+		}
+
+		if err != nil && attempt == *retryAttempts {
+			assert(err)
+		}
+
+		time.Sleep(time.Duration(*retryInterval) * time.Millisecond)
+		attempt++
+	}
 
 	// Start event listener before listing containers to avoid missing anything
 	events := make(chan *dockerapi.APIEvents)
