@@ -25,8 +25,6 @@ type Config struct {
 	RefreshTtl      int
 	RefreshInterval int
 	DeregisterCheck string
-	RetryAttempts   int
-	RetryInterval   int
 }
 
 type Service struct {
