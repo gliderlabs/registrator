@@ -230,6 +230,14 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 <td>Force IP address used for registering services</td>
 </tr>
 <tr>
+<td><code>-retry-attempts</code></td>
+<td>Max retry attempts to establish a connection with the backend</td>
+</tr>
+<tr>
+<td><code>-retry-interval</code></td>
+<td>Interval (in millisecond) between retry-attempts</td>
+</tr>
+<tr>
 <td><code>-tags &lt;tags&gt;</code></td>
 <td>Force comma-separated tags on all registered services</td>
 </tr>
@@ -259,6 +267,7 @@ force the service address to be a specific address, you can specify the <code>-i
 argument.</p>
 <p>For registry backends that support TTL expiry, Registrator can both set and
 refresh service TTLs with <code>-ttl</code> and <code>-ttl-refresh</code>.</p>
+<p>If you want unlimited retry-attempts use <code>-retry-attempts -1</code>.</p>
 <p>The <code>-resync</code> options controls how often Registrator will query Docker for all
 containers and reregister all services.  This allows Registrator and the service
 registry to get back in sync if they fall out of sync.</p>
