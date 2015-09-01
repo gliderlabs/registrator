@@ -13,6 +13,8 @@ supports pluggable service registries, which currently includes
 [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and
 [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
+Full documentation available at http://gliderlabs.com/registrator
+
 ## Getting Registrator
 
 Get the latest release, master, or any version of Registrator via [Docker Hub](https://registry.hub.docker.com/u/gliderlabs/registrator/):
