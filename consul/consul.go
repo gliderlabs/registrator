@@ -11,6 +11,7 @@ import (
 )
 
 const DefaultInterval = "10s"
+const ServiceIdPrefix = "registrator-"
 
 func init() {
 	bridge.Register(new(Factory), "consul")
@@ -54,7 +55,7 @@ func (r *ConsulAdapter) Ping() error {
 
 func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
-	registration.ID = service.ID
+	registration.ID = ServiceIdPrefix + service.ID
 	registration.Name = service.Name
 	registration.Port = service.Port
 	registration.Tags = service.Tags
@@ -90,9 +91,34 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	return r.client.Agent().ServiceDeregister(service.ID)
+	return r.client.Agent().ServiceDeregister(ServiceIdPrefix + service.ID)
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
+	return nil
+}
+
+func (r *ConsulAdapter) Cleanup(validServices map[string]*bridge.Service) error {
+	agentServices, err := r.client.Agent().Services()
+	if err != nil {
+		return err
+	}
+
+	for id, _ := range agentServices {
+		if !strings.HasPrefix(id, ServiceIdPrefix) {
+			continue
+		}
+
+		idWithoutPrefix := strings.TrimPrefix(id, ServiceIdPrefix)
+
+		service, ok := validServices[idWithoutPrefix]
+		if !ok || service == nil {
+			log.Println("cleanup:", idWithoutPrefix)
+			if err := r.client.Agent().ServiceDeregister(id); err != nil {
+				log.Println("consul deregister during cleanup failed:", id, err)
+			}
+		}
+	}
+
 	return nil
 }

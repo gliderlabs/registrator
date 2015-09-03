@@ -65,6 +65,10 @@ func (r *Skydns2Adapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }
 
+func (r *Skydns2Adapter) Cleanup(validServices map[string]*bridge.Service) error {
+	return nil
+}
+
 func (r *Skydns2Adapter) servicePath(service *bridge.Service) string {
 	return r.path + "/" + service.Name + "/" + service.ID
 }

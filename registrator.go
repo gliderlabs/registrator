@@ -102,7 +102,14 @@ func main() {
 	assert(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 
-	b.Sync(false)
+	// sync services and then cleanup old services
+	if err = b.Sync(false); err != nil {
+		log.Println("initial sync failed, skipping cleanup:", err)
+	} else {
+		if err = b.Cleanup(); err != nil {
+			log.Println("cleanup failed:", err)
+		}
+	}
 
 	quit := make(chan struct{})
 

@@ -84,14 +84,14 @@ func (b *Bridge) Refresh() {
 	}
 }
 
-func (b *Bridge) Sync(quiet bool) {
+func (b *Bridge) Sync(quiet bool) error {
 	b.Lock()
 	defer b.Unlock()
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
 		log.Println("error listing containers, skipping sync")
-		return
+		return err
 	} else if err != nil && !quiet {
 		log.Fatal(err)
 	}
@@ -113,6 +113,19 @@ func (b *Bridge) Sync(quiet bool) {
 			}
 		}
 	}
+
+	return nil
+}
+
+func (b *Bridge) Cleanup() error {
+	serviceList := map[string]*Service{}
+	for _, servicesOfContainer := range b.services {
+		for _, service := range servicesOfContainer {
+			serviceList[service.ID] = service
+		}
+	}
+
+	return b.registry.Cleanup(serviceList)
 }
 
 func (b *Bridge) add(containerId string, quiet bool) {
