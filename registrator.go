@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os/user"
-	"strings"
 	"errors"
 	"flag"
 	"log"
@@ -64,7 +62,12 @@ func main() {
 		assert(errors.New("-retry-interval must be greater than 0"))
 	}
 
-	docker, err := getDockerClient()
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost == "" {
+		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+	}
+
+	docker, err := dockerapi.NewClientFromEnv()
 	assert(err)
 
 	if *deregister != "always" && *deregister != "on-success" {
@@ -154,21 +157,4 @@ func main() {
 
 	close(quit)
 	log.Fatal("Docker event loop closed") // todo: reconnect?
-}
-
-func getDockerClient() (*dockerapi.Client, error)  {
-	endpoint := getopt("DOCKER_HOST", "unix:///tmp/docker.sock")
-	if getopt("DOCKER_TLS_VERIFY", "") != "" {
-		usr, err := user.Current()
-		assert(err)
-
-		defaultCertPath := strings.Join([]string{usr.HomeDir, "/.docker"}, "")
-		certPath := getopt("DOCKER_CERT_PATH", defaultCertPath)
-		cert := strings.Join([]string{certPath, "/cert.pem"}, "");
-		key := strings.Join([]string{certPath, "/key.pem"}, "");
-		ca := strings.Join([]string{certPath, "/ca.pem"}, "");
-		return dockerapi.NewTLSClient(endpoint, cert, key, ca)
-	} else {
-		return dockerapi.NewClient(endpoint)
-	}
 }
