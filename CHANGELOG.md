@@ -3,6 +3,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased][unreleased]
 ### Fixed
+
+### Added
+- bridge.Ping - calls adapter.Ping
+
+### Removed
+
+### Changed
+- Upgraded base image to alpine:3.2 and go 1.4
+- bridge.New returns an error instead of calling log.Fatal
+- bridge.New will not attempt to ping an adapter.
+
+## [v6] - 2015-08-07
+### Fixed
 - Support for etcd v0 and v2
 - Panic from invalid skydns2 URI.
 
@@ -12,9 +25,10 @@ All notable changes to this project will be documented in this file.
 - Support for services on containers with `--net=host`
 - Added `extensions.go` file for adding/disabling components
 - Interpolate SERVICE_PORT and SERVICE_IP in SERVICE_X_CHECK_SCRIPT
-- Ability to force IP for a service in consul
-- Implemented ping for every service registry
+- Ability to force IP for a service in Consul
+- Implemented initial ping for every service registry
 - Option to only deregister containers cleanly shutdown #113
+- Added support for label metadata along with environment variables
 
 ### Removed
 
@@ -22,7 +36,6 @@ All notable changes to this project will be documented in this file.
 - Overall refactoring and cleanup
 - Decoupled registries into subpackages using extpoints
 - Replaced check-http script with Consul's native HTTP checks
-  (requires Consul >= 0.5)
 
 
 ## [v5] - 2015-02-18
@@ -44,5 +57,6 @@ All notable changes to this project will be documented in this file.
 - Dropped Godeps for now
 
 
-[unreleased]: https://github.com/gliderlabs/registrator/compare/v5...HEAD
+[unreleased]: https://github.com/gliderlabs/registrator/compare/v6...HEAD
+[v6]: https://github.com/gliderlabs/registrator/compare/v5...v6
 [v5]: https://github.com/gliderlabs/registrator/compare/v0.4.0...v5
