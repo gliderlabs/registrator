@@ -27,7 +27,6 @@ var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establi
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
 
-
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
 		return env
@@ -64,7 +63,12 @@ func main() {
 		assert(errors.New("-retry-interval must be greater than 0"))
 	}
 
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost == "" {
+		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+	}
+
+	docker, err := dockerapi.NewClientFromEnv()
 	assert(err)
 
 	if *deregister != "always" && *deregister != "on-success" {
