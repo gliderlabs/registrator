@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"errors"
 	"log"
 	"net"
 	"net/url"
@@ -22,28 +23,28 @@ type Bridge struct {
 	config         Config
 }
 
-func New(docker *dockerapi.Client, adapterUri string, config Config) *Bridge {
+func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
 	uri, err := url.Parse(adapterUri)
 	if err != nil {
-		log.Fatal("Bad adapter URI:", adapterUri)
+		return nil, errors.New("bad adapter uri: " + adapterUri)
 	}
 	factory, found := AdapterFactories.Lookup(uri.Scheme)
 	if !found {
-		log.Fatal("Unrecognized adapter:", adapterUri)
+		return nil, errors.New("unrecognized adapter: " + adapterUri)
 	}
-	adapter := factory.New(uri)
-	err = adapter.Ping()
-	if err != nil {
-		log.Fatalf("%s: %s", uri.Scheme, err)
-	}
+
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
 		docker:         docker,
 		config:         config,
-		registry:       adapter,
+		registry:       factory.New(uri),
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
-	}
+	}, nil
+}
+
+func (b *Bridge) Ping() error {
+	return b.registry.Ping()
 }
 
 func (b *Bridge) Add(containerId string) {
