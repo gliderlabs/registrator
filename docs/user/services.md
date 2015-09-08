@@ -70,7 +70,9 @@ internal exposed port to differentiate from each other. For example, an image
 `nginx-80` and `nginx-443`.
 
 You can override this default name with label or environment variable
-`SERVICE_NAME` or `SERVICE_x_NAME`, where `x` is the internal exposed port.
+`SERVICE_NAME` or `SERVICE_x_NAME`, where `x` is the internal exposed port. Note
+that if a container has multiple exposed ports then setting `SERVICE_NAME` will
+still result in multiple services named `SERVICE_NAME-<exposed port>`.
 
 ## IP and Port
 
