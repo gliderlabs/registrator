@@ -232,7 +232,9 @@ internal exposed port to differentiate from each other. For example, an image
 <code>nginx</code> with two exposed ports, 80 and 443, will produce two services named
 <code>nginx-80</code> and <code>nginx-443</code>.</p>
 <p>You can override this default name with label or environment variable
-<code>SERVICE_NAME</code> or <code>SERVICE_x_NAME</code>, where <code>x</code> is the internal exposed port.</p>
+<code>SERVICE_NAME</code> or <code>SERVICE_x_NAME</code>, where <code>x</code> is the internal exposed port. Note
+that if a container has multiple exposed ports then setting <code>SERVICE_NAME</code> will
+still result in multiple services named <code>SERVICE_NAME-&lt;exposed port&gt;</code>.</p>
 <h2 id="ip-and-port">IP and Port</h2>
 <p>IP and port make up the address that the service name resolves to. There are a
 number of ways Registrator can determine IP and port depending your setup. By
