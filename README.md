@@ -51,8 +51,7 @@ Releases](https://gliderlabs.com/registrator/latest/dev/releases.).
 
 ## Sponsors and Thanks
 
-Ongoing support of this project is made possible by [Weave](http://weave.works),
-the Docker SDN. Big thanks to Michael Crosby for
+Ongoing support of this project is made possible by [Weave](http://weave.works), the easiest way to connect, observe and control your containers. Big thanks to Michael Crosby for
 [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list
 for inspiration.
 
