@@ -206,7 +206,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
-	if isgroup {
+	if isgroup && metadata["name"] == "" {
 		 service.Name += "-" + port.ExposedPort
 	}
 	var p int
