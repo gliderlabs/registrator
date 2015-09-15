@@ -145,8 +145,6 @@ func main() {
 			go b.Add(msg.ID)
 		case "die":
 			go b.RemoveOnExit(msg.ID)
-		case "stop", "kill":
-			go b.Remove(msg.ID)
 		}
 	}
 

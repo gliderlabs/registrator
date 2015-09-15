@@ -58,7 +58,7 @@ func (b *Bridge) Remove(containerId string) {
 }
 
 func (b *Bridge) RemoveOnExit(containerId string) {
-	b.remove(containerId, b.config.DeregisterCheck == "always" || b.didExitCleanly(containerId))
+	b.remove(containerId, b.shouldRemove(containerId))
 }
 
 func (b *Bridge) Refresh() {
@@ -177,7 +177,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	
+
 	// not sure about this logic. kind of want to remove it.
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -269,7 +269,13 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 	delete(b.services, containerId)
 }
 
-func (b *Bridge) didExitCleanly(containerId string) bool {
+// bit set on ExitCode if it represents an exit via a signal
+var dockerSignaledBit = 128
+
+func (b *Bridge) shouldRemove(containerId string) bool {
+	if b.config.DeregisterCheck == "always" {
+		return true
+	}
 	container, err := b.docker.InspectContainer(containerId)
 	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
 		// the container has already been removed from Docker
@@ -277,9 +283,19 @@ func (b *Bridge) didExitCleanly(containerId string) bool {
 		// so its exit code is not accessible
 		log.Printf("registrator: container %v was removed, could not fetch exit code", containerId[:12])
 		return true
-	} else if err != nil {
+	}
+
+	switch {
+	case err != nil:
 		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", containerId[:12], err)
 		return false
+	case container.State.Running:
+		log.Printf("registrator: not removing container %v, still running", containerId[:12])
+		return false
+	case container.State.ExitCode == 0:
+		return true
+	case container.State.ExitCode&dockerSignaledBit == dockerSignaledBit:
+		return true
 	}
-	return !container.State.Running && container.State.ExitCode == 0
+	return false
 }
