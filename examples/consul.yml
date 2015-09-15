@@ -1,0 +1,17 @@
+consul:
+  image: gliderlabs/consul-server:0.5
+  net: "host"
+  ports:
+    - "8500:8500"
+    - "8600:8600"
+  command: "-bootstrap-expect 1"
+registrator:
+  build: ../
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock
+  net: "host"
+  command: consul://localhost:8500
+redis:
+  extends:
+    file: services/redis.yml
+    service: redis

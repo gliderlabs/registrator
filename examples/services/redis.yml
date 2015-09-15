@@ -1,0 +1,4 @@
+redis:
+  image: andyshinn/redis:latest
+  ports:
+    - "6379"

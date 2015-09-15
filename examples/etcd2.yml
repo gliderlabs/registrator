@@ -1,0 +1,16 @@
+etcd:
+  image: microbox/etcd:2.1.1
+  net: "host"
+  ports:
+    - "4001:4001"
+    - "7001:7001"
+registrator:
+  build: ../
+  volumes:
+    - /var/run/docker.sock:/tmp/docker.sock
+  net: "host"
+  command: etcd://localhost:4001
+redis:
+  extends:
+    file: services/redis.yml
+    service: redis
