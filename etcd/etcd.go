@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"os"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
@@ -15,18 +16,32 @@ import (
 )
 
 func init() {
-	bridge.Register(new(Factory), "etcd")
+  bridge.Register(&Factory{Scheme: "http"}, "etcd")
+  bridge.Register(&Factory{Scheme: "https"}, "etcds")
 }
 
-type Factory struct{}
+type Factory struct{
+  Scheme string
+}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
 	if uri.Host != "" {
-		urls = append(urls, "http://"+uri.Host)
+		urls = append(urls, f.Scheme+"://"+uri.Host)
 	} else {
-		urls = append(urls, "http://127.0.0.1:4001")
+		urls = append(urls, f.Scheme+"://127.0.0.1:4001")
 	}
+
+  if f.Scheme == "https" {
+    cert := os.Getenv("ETCD_CERTFILE")
+    key := os.Getenv("ETCD_KEYFILE")
+    caCert := os.Getenv("ETCD_CAFILE")
+    client, err := etcd2.NewTLSClient(urls, cert, key, caCert)
+    if err != nil {
+      log.Fatal("etcd: error creating tls client", err)
+    }
+    return &EtcdAdapter{client2: client, path: uri.Path}
+  }
 
 	res, err := http.Get(urls[0] + "/version")
 	if err != nil {

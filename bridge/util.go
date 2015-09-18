@@ -56,16 +56,20 @@ func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 }
 
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
-	var hp, hip, ep, ept string
+	var hp, hip, ep, eip, ept string
+  eip = container.NetworkSettings.IPAddress
 	if len(published) > 0 {
 		hp = published[0].HostPort
 		hip = published[0].HostIP
 	}
-	if hip == "" {
-		hip = "0.0.0.0"
-	}
 	exposedPort := strings.Split(string(port), "/")
 	ep = exposedPort[0]
+	if hip == "" {
+		hip = "0.0.0.0"
+	} else {
+    eip = hip
+    ep = hp
+  }
 	if len(exposedPort) == 2 {
 		ept = exposedPort[1]
 	} else {
@@ -75,7 +79,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		HostPort:          hp,
 		HostIP:            hip,
 		ExposedPort:       ep,
-		ExposedIP:         container.NetworkSettings.IPAddress,
+		ExposedIP:         eip,
 		PortType:          ept,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,
