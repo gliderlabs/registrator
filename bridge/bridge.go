@@ -151,7 +151,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 
 	for _, port := range ports {
-		if b.config.Internal != true && port.HostPort == "" {
+		if b.isInternal(container) != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			}
@@ -210,7 +210,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		service.Name += "-" + port.ExposedPort
 	}
 	var p int
-	if b.isInternal(port) == true {
+	if b.isInternal(container) == true {
 		service.IP = port.ExposedIP
 		p, _ = strconv.Atoi(port.ExposedPort)
 	} else {
@@ -284,8 +284,7 @@ func (b *Bridge) didExitCleanly(containerId string) bool {
 	return !container.State.Running && container.State.ExitCode == 0
 }
 
-func (b *Bridge) isInternal(port ServicePort) bool {
-	container := port.container
+func (b *Bridge) isInternal(container *dockerapi.Container) bool {
 
 	for _, e := range container.Config.Env {
 		if ok, key, value := parseEnv(e); ok && key == "internal" {
