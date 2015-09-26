@@ -51,7 +51,8 @@ be selectively enabled or disabled for individual containers by including
 By default, when registering a service, Registrator will assign the service
 address by attempting to resolve the current hostname. If you would like to
 force the service address to be a specific address, you can specify the `-ip`
-argument.
+argument. The IP can be set selectively per container by including
+`registrator:ip=<ip address>` in the container environment.
 
 For registry backends that support TTL expiry, Registrator can both set and
 refresh service TTLs with `-ttl` and `-ttl-refresh`.

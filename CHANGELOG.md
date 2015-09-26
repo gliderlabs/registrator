@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - bridge.Ping - calls adapter.Ping
 - Added per container support for the internal flag with the registrator:internal environment variable.
+- Added per container support for the ip flag with the registrator:ip environment variable.
 
 ### Removed
 

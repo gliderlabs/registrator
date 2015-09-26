@@ -209,15 +209,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	if isgroup {
 		service.Name += "-" + port.ExposedPort
 	}
-	var p int
-	if b.isInternal(container) == true {
-		service.IP = port.ExposedIP
-		p, _ = strconv.Atoi(port.ExposedPort)
-	} else {
-		service.IP = port.HostIP
-		p, _ = strconv.Atoi(port.HostPort)
-	}
-	service.Port = p
+
+	service.IP, service.Port = b.extractPort(port)
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
@@ -293,4 +286,25 @@ func (b *Bridge) isInternal(container *dockerapi.Container) bool {
 	}
 
 	return b.config.Internal
+}
+
+func (b *Bridge) extractPort(port ServicePort) (string, int) {
+	var p int
+	var IP string
+
+	if b.isInternal(container) {
+		p, _ := strconv.Atoi(port.ExposedPort)
+		IP = port.ExposedIP
+	} else {
+		p, _ = strconv.Atoi(port.HostPort)
+		IP = port.HostIP
+	}
+
+	for _, e := range container.Config.Env {
+		if ok, key, value := parseEnv(e); ok && key == "ip" {
+			IP = value
+		}
+	}
+
+	return IP, p
 }
