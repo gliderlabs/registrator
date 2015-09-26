@@ -295,7 +295,7 @@ func (b *Bridge) extractPort(port ServicePort) (string, int) {
 	container := port.container
 
 	if b.isInternal(container) {
-		p, _ := strconv.Atoi(port.ExposedPort)
+		p, _ = strconv.Atoi(port.ExposedPort)
 		IP = port.ExposedIP
 	} else {
 		p, _ = strconv.Atoi(port.HostPort)
