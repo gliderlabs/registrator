@@ -44,7 +44,9 @@ Option                   | Description
 `-resync <seconds>`      | Frequency all services are resynchronized. Default: 0, never
 
 If the `-internal` option is used, Registrator will register the docker0
-internal IP and port instead of the host mapped ones.
+internal IP and port instead of the host mapped ones. This behavior can
+be selectively enabled or disabled for individual containers by including
+`registrator:internal=<true/false>` in the container environment.
 
 By default, when registering a service, Registrator will assign the service
 address by attempting to resolve the current hostname. If you would like to
