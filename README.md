@@ -47,7 +47,7 @@ discussing in [Slack](http://glider-slackin.herokuapp.com/).
 
 Also check out our Developer Guide on [Contributing
 Backends](https://gliderlabs.com/registrator/latest/dev/backends) and [Staging
-Releases](https://gliderlabs.com/registrator/latest/dev/releases.).
+Releases](https://gliderlabs.com/registrator/latest/dev/releases).
 
 ## Sponsors and Thanks
 
