@@ -170,14 +170,14 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			continue
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
+		log.Println("added:", container.ID[:12], service.ID, service.IP)
 	}
 }
 
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	
+
 	// not sure about this logic. kind of want to remove it.
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -207,7 +207,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup {
-		 service.Name += "-" + port.ExposedPort
+		service.Name += "-" + port.ExposedPort
 	}
 	var p int
 	if b.config.Internal == true {
@@ -218,6 +218,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		p, _ = strconv.Atoi(port.HostPort)
 	}
 	service.Port = p
+
+	// We want to skip a registration of a service with an empty IP
+	if len(service.IP) == 0 {
+		log.Println("ignored:", service.ID, "due to an empty IP record")
+		return nil
+	}
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
