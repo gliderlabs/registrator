@@ -71,15 +71,7 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	if r.servicePrefix != "" {
 		kv := r.client.KV()
 		for k, v := range service.Attrs {
-			pair := &consulapi.KVPair{Key: r.servicePrefix + "/attributes/" + service.ID + "/" + k, Value: []byte(v)}
-			_, err := kv.Put(pair, nil)
-			if err != nil {
-				panic(err)
-			}
-		}
-		if(service.Origin.ContainerID!="") {
-			pair := &consulapi.KVPair{Key: r.servicePrefix + "/container/" + service.Origin.ContainerID, Value: []byte(service.ID)}
-//			pair := &consulapi.KVPair{Key: r.servicePrefix + "/container/" + service.ID + "/" + service.Origin.ContainerID, Value: []byte(service.Origin.ContainerID)}
+                        pair := &consulapi.KVPair{Key: r.servicePrefix + "/" + service.ID + "/" + k, Value: []byte(v)}
 			_, err := kv.Put(pair, nil)
 			if err != nil {
 				panic(err)
