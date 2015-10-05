@@ -35,7 +35,12 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if err != nil {
 		log.Fatal("consul: ", uri.Scheme)
 	}
-	return &ConsulAdapter{client: client, servicePrefix: servicePrefix[0]}
+	if(len(servicePrefix)>0) {
+		return &ConsulAdapter{client: client, servicePrefix: servicePrefix[0]}
+	} else {
+		return &ConsulAdapter{client: client}
+
+	}
 }
 
 type ConsulAdapter struct {
@@ -66,7 +71,15 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	if r.servicePrefix != "" {
 		kv := r.client.KV()
 		for k, v := range service.Attrs {
-			pair := &consulapi.KVPair{Key: r.servicePrefix + "/" + service.ID + "/" + k, Value: []byte(v)}
+			pair := &consulapi.KVPair{Key: r.servicePrefix + "/attributes/" + service.ID + "/" + k, Value: []byte(v)}
+			_, err := kv.Put(pair, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+		if(service.Origin.ContainerID!="") {
+			pair := &consulapi.KVPair{Key: r.servicePrefix + "/container/" + service.Origin.ContainerID, Value: []byte(service.ID)}
+//			pair := &consulapi.KVPair{Key: r.servicePrefix + "/container/" + service.ID + "/" + service.Origin.ContainerID, Value: []byte(service.Origin.ContainerID)}
 			_, err := kv.Put(pair, nil)
 			if err != nil {
 				panic(err)
@@ -105,7 +118,7 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 	//	pair := &consulapi.KVPair{Key: "service_attribute" + "/" + service.Name + "/" + k, Value: []byte(v)}
 	success := r.client.Agent().ServiceDeregister(service.ID)
-	r.client.KV().DeleteTree("service_attribute"+"/"+service.ID, nil)
+	r.client.KV().DeleteTree("service_attribute"+"/attributes/"+service.ID, nil)
 	return success
 }
 
