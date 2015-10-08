@@ -33,7 +33,7 @@ func combineTags(tagParts ...string) []string {
 func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 	meta := config.Env
 	for k, v := range config.Labels {
-		meta = append(meta, k + "=" + v)
+		meta = append(meta, k+"="+v)
 	}
 	metadata := make(map[string]string)
 	for _, kv := range meta {
@@ -55,6 +55,20 @@ func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 	return metadata
 }
 
+func parseEnv(e string) (bool, string, string) {
+	parts := strings.SplitN(e, ":", 2)
+	if len(parts) != 2 || parts[0] != "registrator" {
+		return false, "", ""
+	}
+
+	parts = strings.SplitN(parts[1], "=", 2)
+	if len(parts) != 2 {
+		return false, "", ""
+	}
+
+	return true, parts[0], parts[1]
+}
+
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
 	var hp, hip, ep, ept string
 	if len(published) > 0 {
@@ -69,7 +83,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	if len(exposedPort) == 2 {
 		ept = exposedPort[1]
 	} else {
-		ept = "tcp"  // default
+		ept = "tcp" // default
 	}
 	return ServicePort{
 		HostPort:          hp,

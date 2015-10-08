@@ -44,12 +44,15 @@ Option                   | Description
 `-resync <seconds>`      | Frequency all services are resynchronized. Default: 0, never
 
 If the `-internal` option is used, Registrator will register the docker0
-internal IP and port instead of the host mapped ones.
+internal IP and port instead of the host mapped ones. This behavior can
+be selectively enabled or disabled for individual containers by including
+`registrator:internal=<true/false>` in the container environment.
 
 By default, when registering a service, Registrator will assign the service
 address by attempting to resolve the current hostname. If you would like to
 force the service address to be a specific address, you can specify the `-ip`
-argument.
+argument. The IP can be set selectively per container by including
+`registrator:ip=<ip address>` in the container environment.
 
 For registry backends that support TTL expiry, Registrator can both set and
 refresh service TTLs with `-ttl` and `-ttl-refresh`.

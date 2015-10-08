@@ -151,7 +151,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 
 	for _, port := range ports {
-		if b.config.Internal != true && port.HostPort == "" {
+		if b.isInternal(container) != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			}
@@ -177,7 +177,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	
+
 	// not sure about this logic. kind of want to remove it.
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -207,17 +207,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup {
-		 service.Name += "-" + port.ExposedPort
+		service.Name += "-" + port.ExposedPort
 	}
-	var p int
-	if b.config.Internal == true {
-		service.IP = port.ExposedIP
-		p, _ = strconv.Atoi(port.ExposedPort)
-	} else {
-		service.IP = port.HostIP
-		p, _ = strconv.Atoi(port.HostPort)
-	}
-	service.Port = p
+
+	service.IP, service.Port = b.extractPort(port)
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
@@ -282,4 +275,38 @@ func (b *Bridge) didExitCleanly(containerId string) bool {
 		return false
 	}
 	return !container.State.Running && container.State.ExitCode == 0
+}
+
+func (b *Bridge) isInternal(container *dockerapi.Container) bool {
+
+	for _, e := range container.Config.Env {
+		if ok, key, value := parseEnv(e); ok && key == "internal" {
+			return value == "true"
+		}
+	}
+
+	return b.config.Internal
+}
+
+func (b *Bridge) extractPort(port ServicePort) (string, int) {
+	var p int
+	var IP string
+
+	container := port.container
+
+	if b.isInternal(container) {
+		p, _ = strconv.Atoi(port.ExposedPort)
+		IP = port.ExposedIP
+	} else {
+		p, _ = strconv.Atoi(port.HostPort)
+		IP = port.HostIP
+	}
+
+	for _, e := range container.Config.Env {
+		if ok, key, value := parseEnv(e); ok && key == "ip" {
+			IP = value
+		}
+	}
+
+	return IP, p
 }
