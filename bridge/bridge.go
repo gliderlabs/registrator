@@ -136,8 +136,9 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	ports := make(map[string]ServicePort)
 
 	// Extract configured host port mappings, relevant when using --net=host
-	for port, published := range container.HostConfig.PortBindings {
-		ports[string(port)] = servicePort(container, port, published)
+	for exposedPort, _ := range container.Config.ExposedPorts {
+		published := []dockerapi.PortBinding{ {"0.0.0.0", string(exposedPort)}, }
+		ports[string(exposedPort)] = servicePort(container, exposedPort, published)
 	}
 
 	// Extract runtime port mappings, relevant when using --net=bridge
