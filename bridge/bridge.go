@@ -177,16 +177,21 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	
-	// not sure about this logic. kind of want to remove it.
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = port.HostIP
+
+	var hostname string
+	if b.config.Hostname != "" {
+		hostname = b.config.Hostname
 	} else {
-		if port.HostIP == "0.0.0.0" {
-			ip, err := net.ResolveIPAddr("ip", hostname)
-			if err == nil {
-				port.HostIP = ip.String()
+		// not sure about this logic. kind of want to remove it.
+		hostname, err := os.Hostname()
+		if err != nil {
+			hostname = port.HostIP
+		} else {
+			if port.HostIP == "0.0.0.0" {
+				ip, err := net.ResolveIPAddr("ip", hostname)
+				if err == nil {
+					port.HostIP = ip.String()
+				}
 			}
 		}
 	}
@@ -207,7 +212,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup {
-		 service.Name += "-" + port.ExposedPort
+		service.Name += "-" + port.ExposedPort
 	}
 	var p int
 	if b.config.Internal == true {
