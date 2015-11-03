@@ -25,6 +25,7 @@ var resyncInterval = flag.Int("resync", 0, "Frequency with which services are re
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
+var includeRegex = flag.String("include", ".*", "Regex of container names to register.")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -102,7 +103,7 @@ func main() {
 	assert(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 
-	b.Sync(false)
+	b.Sync(*includeRegex, false)
 
 	quit := make(chan struct{})
 
@@ -129,7 +130,7 @@ func main() {
 			for {
 				select {
 				case <-resyncTicker.C:
-					b.Sync(true)
+					b.Sync(*includeRegex, true)
 				case <-quit:
 					resyncTicker.Stop()
 					return
@@ -142,7 +143,7 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go b.Add(msg.ID)
+			go b.Add(msg.ID, *includeRegex)
 		case "die":
 			go b.RemoveOnExit(msg.ID)
 		case "stop", "kill":

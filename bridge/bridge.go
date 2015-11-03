@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,10 +48,10 @@ func (b *Bridge) Ping() error {
 	return b.registry.Ping()
 }
 
-func (b *Bridge) Add(containerId string) {
+func (b *Bridge) Add(containerId string, includeRegex string) {
 	b.Lock()
 	defer b.Unlock()
-	b.add(containerId, false)
+        b.add(containerId, includeRegex, false)
 }
 
 func (b *Bridge) Remove(containerId string) {
@@ -84,7 +85,7 @@ func (b *Bridge) Refresh() {
 	}
 }
 
-func (b *Bridge) Sync(quiet bool) {
+func (b *Bridge) Sync(includeRegex string, quiet bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -103,7 +104,7 @@ func (b *Bridge) Sync(quiet bool) {
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
-			b.add(listing.ID, quiet)
+                        b.add(listing.ID, includeRegex, quiet)
 		} else {
 			for _, service := range services {
 				err := b.registry.Register(service)
@@ -115,7 +116,7 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 }
 
-func (b *Bridge) add(containerId string, quiet bool) {
+func (b *Bridge) add(containerId string, includeRegex string, quiet bool) {
 	if d := b.deadContainers[containerId]; d != nil {
 		b.services[containerId] = d.Services
 		delete(b.deadContainers, containerId)
@@ -130,6 +131,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	container, err := b.docker.InspectContainer(containerId)
 	if err != nil {
 		log.Println("unable to inspect container:", containerId[:12], err)
+		return
+	}
+
+	match, _ := regexp.MatchString(includeRegex, container.Name)
+	if !match {
+		log.Println("Container ", container.Name, " does not match ", includeRegex)
 		return
 	}
 
