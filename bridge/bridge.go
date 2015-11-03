@@ -7,12 +7,14 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
+
 
 type Bridge struct {
 	sync.Mutex
@@ -47,10 +49,10 @@ func (b *Bridge) Ping() error {
 	return b.registry.Ping()
 }
 
-func (b *Bridge) Add(containerId string) {
+func (b *Bridge) Add(containerId string, nameFilter NameFilter) {
 	b.Lock()
 	defer b.Unlock()
-	b.add(containerId, false)
+        b.add(containerId, nameFilter, false)
 }
 
 func (b *Bridge) Remove(containerId string) {
@@ -84,7 +86,7 @@ func (b *Bridge) Refresh() {
 	}
 }
 
-func (b *Bridge) Sync(quiet bool) {
+func (b *Bridge) Sync(nameFilter NameFilter, quiet bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -103,7 +105,7 @@ func (b *Bridge) Sync(quiet bool) {
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
-			b.add(listing.ID, quiet)
+                        b.add(listing.ID, nameFilter, quiet)
 		} else {
 			for _, service := range services {
 				err := b.registry.Register(service)
@@ -115,7 +117,7 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 }
 
-func (b *Bridge) add(containerId string, quiet bool) {
+func (b *Bridge) add(containerId string, nameFilter NameFilter, quiet bool) {
 	if d := b.deadContainers[containerId]; d != nil {
 		b.services[containerId] = d.Services
 		delete(b.deadContainers, containerId)
@@ -132,6 +134,18 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		log.Println("unable to inspect container:", containerId[:12], err)
 		return
 	}
+
+	match, _ := regexp.MatchString(nameFilter.ExcludeRegex, container.Name)
+	if match {
+		log.Println("Container '", container.Name, "' matches exclude filter '", nameFilter.ExcludeRegex, "', therefore it's not registered.")
+		return
+    }
+	
+	match, _ = regexp.MatchString(nameFilter.IncludeRegex, container.Name)
+	if !match {
+		log.Println("Container '", container.Name, "' doesn't matches include filter '", nameFilter.IncludeRegex, "', therefore it's not registered.")
+		return
+    }
 
 	ports := make(map[string]ServicePort)
 

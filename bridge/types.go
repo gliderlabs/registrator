@@ -54,3 +54,8 @@ type ServicePort struct {
 	ContainerID       string
 	container         *dockerapi.Container
 }
+
+type NameFilter struct {
+	IncludeRegex string
+	ExcludeRegex string
+}
