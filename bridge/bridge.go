@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -130,6 +131,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	container, err := b.docker.InspectContainer(containerId)
 	if err != nil {
 		log.Println("unable to inspect container:", containerId[:12], err)
+		return
+	}
+
+	match, _ := regexp.MatchString(includeRexEx, container.Name)
+	if !match {
+		log.Println("Container ", container.Name, " does not match ", includeRexEx)
 		return
 	}
 
