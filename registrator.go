@@ -103,7 +103,7 @@ func main() {
 	assert(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 
-	b.Sync(false)
+	b.Sync(*includeRegex, false)
 
 	quit := make(chan struct{})
 
@@ -130,7 +130,7 @@ func main() {
 			for {
 				select {
 				case <-resyncTicker.C:
-					b.Sync(true)
+					b.Sync(*includeRegex, true)
 				case <-quit:
 					resyncTicker.Stop()
 					return
@@ -143,7 +143,7 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go b.Add(msg.ID)
+			go b.Add(msg.ID, *includeRegex)
 		case "die":
 			go b.RemoveOnExit(msg.ID)
 		case "stop", "kill":
