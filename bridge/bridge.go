@@ -134,9 +134,9 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	match, _ := regexp.MatchString(includeRexEx, container.Name)
+	match, _ := regexp.MatchString(includeRegex, container.Name)
 	if !match {
-		log.Println("Container ", container.Name, " does not match ", includeRexEx)
+		log.Println("Container ", container.Name, " does not match ", includeRegex)
 		return
 	}
 
