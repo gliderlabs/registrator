@@ -28,10 +28,6 @@ var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) 
 var includeRegex = flag.String("include", ".+", "Regex of container names to register (evaluated after excludeRegex)")
 var excludeRegex = flag.String("exclude", "$.+", "Regex of container names to not register (evaluated before includeRegex).")
 
-//type NameFilter struct {
-//	IncludeRegex string
-//	ExcludeRegex string
-//}
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
