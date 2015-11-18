@@ -56,29 +56,37 @@ func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 }
 
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
-	var hp, hip, ep, ept string
-	if len(published) > 0 {
-		hp = published[0].HostPort
-		hip = published[0].HostIP
-	}
-	if hip == "" {
-		hip = "0.0.0.0"
-	}
-	exposedPort := strings.Split(string(port), "/")
-	ep = exposedPort[0]
-	if len(exposedPort) == 2 {
-		ept = exposedPort[1]
-	} else {
-		ept = "tcp"  // default
-	}
-	return ServicePort{
-		HostPort:          hp,
-		HostIP:            hip,
-		ExposedPort:       ep,
-		ExposedIP:         container.NetworkSettings.IPAddress,
-		PortType:          ept,
-		ContainerID:       container.ID,
-		ContainerHostname: container.Config.Hostname,
-		container:         container,
-	}
+        var hp, hip, ep, ept string
+        if len(published) > 0 {
+                hp = published[0].HostPort
+                hip = published[0].HostIP
+        }
+        if hip == "" {
+                hip = "0.0.0.0"
+        }
+        exposedPort := strings.Split(string(port), "/")
+        netmode := container.HostConfig.NetworkMode
+        if netmode == "default" {
+                netmode = "bridge"
+        }
+        exposedIP := container.NetworkSettings.Networks[netmode].IPAddress
+        if exposedIP == "" {
+                exposedIP = container.NetworkSettings.IPAddress
+        }
+        ep = exposedPort[0]
+        if len(exposedPort) == 2 {
+                ept = exposedPort[1]
+        } else {
+                ept = "tcp"  // default
+        }
+        return ServicePort{
+                HostPort:          hp,
+                HostIP:            hip,
+                ExposedPort:       ep,
+                ExposedIP:         exposedIP,
+                PortType:          ept,
+                ContainerID:       container.ID,
+                ContainerHostname: container.Config.Hostname,
+                container:         container,
+        }
 }

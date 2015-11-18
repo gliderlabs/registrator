@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### Removed
 
 ### Changed
+- Populate internal IP using NetworkSettings.Networks in docker 1.9+
 - Upgraded base image to alpine:3.2 and go 1.4
 - bridge.New returns an error instead of calling log.Fatal
 - bridge.New will not attempt to ping an adapter.
