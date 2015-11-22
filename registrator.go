@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -46,7 +48,25 @@ func main() {
 	}
 	log.Printf("Starting registrator %s ...", Version)
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s [options] <registry URI>\n\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
+
+	if flag.NArg() != 1 {
+		if flag.NArg() == 0 {
+			fmt.Fprint(os.Stderr, "Missing required argument for registry URI.\n\n")
+		} else {
+			fmt.Fprintln(os.Stderr, "Extra unparsed arguments:")
+			fmt.Fprintln(os.Stderr, " ", strings.Join(flag.Args()[1:], " "))
+			fmt.Fprint(os.Stderr, "Options should come before the registry URI argument.\n\n")
+		}
+		flag.Usage()
+		os.Exit(2)
+	}
 
 	if *hostIp != "" {
 		log.Println("Forcing host IP to", *hostIp)
