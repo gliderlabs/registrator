@@ -66,13 +66,13 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	}
 
 	netmode := container.HostConfig.NetworkMode
-        if netmode == "default" {
-                netmode = "bridge"
-        }
-        exposedIP := container.NetworkSettings.Networks[netmode].IPAddress
-        if exposedIP == "" {
-                exposedIP = container.NetworkSettings.IPAddress
-        }
+	if netmode == "default" {
+		netmode = "bridge"
+	}
+	exposedIP := container.NetworkSettings.Networks[netmode].IPAddress
+	if exposedIP == "" {
+		exposedIP = container.NetworkSettings.IPAddress
+	}
 
 	exposedPort := strings.Split(string(port), "/")
 	ep = exposedPort[0]
