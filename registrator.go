@@ -24,7 +24,10 @@ var forceTags = flag.String("tags", "", "Append tags for all registered services
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
-var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
+var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts")
+var includeRegex = flag.String("include", ".+", "Regex of container names to register (evaluated after excludeRegex)")
+var excludeRegex = flag.String("exclude", "$.+", "Regex of container names to not register (evaluated before includeRegex).")
+
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -47,6 +50,12 @@ func main() {
 	log.Printf("Starting registrator %s ...", Version)
 
 	flag.Parse()
+	
+	nameFilter := bridge.NameFilter{
+		IncludeRegex: *includeRegex,
+		ExcludeRegex: *excludeRegex,
+	}
+	
 
 	if *hostIp != "" {
 		log.Println("Forcing host IP to", *hostIp)
@@ -102,7 +111,7 @@ func main() {
 	assert(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 
-	b.Sync(false)
+	b.Sync(nameFilter, false)
 
 	quit := make(chan struct{})
 
@@ -129,7 +138,7 @@ func main() {
 			for {
 				select {
 				case <-resyncTicker.C:
-					b.Sync(true)
+					b.Sync(nameFilter, true)
 				case <-quit:
 					resyncTicker.Stop()
 					return
@@ -142,7 +151,7 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go b.Add(msg.ID)
+			go b.Add(msg.ID, nameFilter)
 		case "die":
 			go b.RemoveOnExit(msg.ID)
 		case "stop", "kill":
