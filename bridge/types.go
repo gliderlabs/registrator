@@ -19,6 +19,7 @@ type RegistryAdapter interface {
 }
 
 type Config struct {
+	Hostname        string
 	HostIp          string
 	Internal        bool
 	ForceTags       string

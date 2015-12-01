@@ -17,6 +17,7 @@ var Version string
 var versionChecker = usage.NewChecker("registrator", Version)
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+var hostname = flag.String("hostname", "", "Override default system hostname")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
@@ -71,6 +72,7 @@ func main() {
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
+		Hostname:        *hostname,
 		Internal:        *internal,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
