@@ -39,6 +39,21 @@ func assert(err error) {
 	}
 }
 
+func createDockerClient() *dockerapi.Client {
+	var dh = getopt("DOCKER_HOST", "")
+	// If no DOCKER_HOST has been supplied, assume locally mounted unix sock
+	if dh == "" {
+		docker, err := dockerapi.NewClient("unix:///tmp/docker.sock")
+		assert(err)
+		return docker
+	} else {
+		// Use ENV vars to resolve docker client
+		docker, err := dockerapi.NewClientFromEnv()
+		assert(err)
+		return docker
+	}
+
+}
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		versionChecker.PrintVersion()
@@ -61,10 +76,7 @@ func main() {
 	if *retryInterval <= 0 {
 		assert(errors.New("-retry-interval must be greater than 0"))
 	}
-
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
-	assert(err)
-
+	var docker = createDockerClient()
 	if *deregister != "always" && *deregister != "on-success" {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
