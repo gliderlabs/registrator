@@ -71,11 +71,20 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	} else {
 		ept = "tcp"  // default
 	}
+	
+	// Nir: support docker NetworkSettings
+	eip = container.NetworkSettings.IPAddress
+	if eip == "" {
+		for _, network := range container.NetworkSettings.Networks {
+			eip = network.IPAddress
+		}
+	}
+	
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
 		ExposedPort:       ep,
-		ExposedIP:         container.NetworkSettings.IPAddress,
+		ExposedIP:         eip,
 		PortType:          ept,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,
