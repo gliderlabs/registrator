@@ -75,7 +75,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		HostPort:          hp,
 		HostIP:            hip,
 		ExposedPort:       ep,
-		ExposedIP:         container.NetworkSettings.IPAddress,
+		ExposedIP:         container.NetworkSettings.GlobalIPv6Address,
 		PortType:          ept,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,
