@@ -76,8 +76,8 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.Script = r.interpolateService(script, service)
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
-	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
-		check.TCP = tcp
+	} else if tcp := service.Attrs["check_tcp"]; tcp == "true" {
+		check.TCP = fmt.Sprintf("%s:%s", service.IP, service.Port)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
