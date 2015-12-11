@@ -87,6 +87,19 @@ to use the `-ip` option to explicitly tell Registrator what IP to use.
 If you use the `-internal` option, Registrator will use the *exposed* port **and
 Docker-assigned internal IP of the container**.
 
+If you want to use containers' internal IPv6 address instead of IPv4, then set
+Config.Env or Config.Label variable `EXPOSE_IPV6` to any non empty value:
+
+        LABEL EXPOSE_IPV6="true"
+        LABEL EXPOSE_IPV6="yes"
+        ENV EXPOSE_IPV6="x"
+
+All of the above will expose IPv6 address instead of IPv4. Where any of following
+will still expose IPv4:
+
+        LABEL EXPOSE_IPV6=""
+        ENV EXPOSE_IPV6""
+
 ## Tags and Attributes
 
 Tags and attributes are extra metadata fields for services. Not all backends
