@@ -55,7 +55,7 @@ func serviceMetaData(config *dockerapi.Config, port string) map[string]string {
 	return metadata
 }
 
-func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
+func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding, network string) ServicePort {
 	var hp, hip, ep, ept string
 	if len(published) > 0 {
 		hp = published[0].HostPort
@@ -71,11 +71,12 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	} else {
 		ept = "tcp"  // default
 	}
+    
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
 		ExposedPort:       ep,
-		ExposedIP:         container.NetworkSettings.IPAddress,
+		ExposedIP:         container.NetworkSettings.Networks[network].IPAddress,
 		PortType:          ept,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,

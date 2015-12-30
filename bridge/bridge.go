@@ -180,12 +180,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, published := range container.HostConfig.PortBindings {
-		ports[string(port)] = servicePort(container, port, published)
+		ports[string(port)] = servicePort(container, port, published, b.config.Network)
 	}
 
 	// Extract runtime port mappings, relevant when using --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = servicePort(container, port, published)
+		ports[string(port)] = servicePort(container, port, published, b.config.Network)
 	}
 
 	if len(ports) == 0 && !quiet {
