@@ -194,6 +194,14 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 
 	for _, port := range ports {
+        // If internal and can't evaluate the exposed IP (will happen on wrong network), ignore
+        if b.config.Internal == true && port.ExposedIP == "" {
+            if !quiet {
+				log.Println("ignored:", container.ID[:12], "internal IP not found on network", b.config.Network)
+			}
+			continue
+        }
+        
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
