@@ -220,7 +220,10 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	
+	if isgroup {
+		defaultName = defaultName + "-" + port.ExposedPort
+	}
+
 	// not sure about this logic. kind of want to remove it.
 	hostname := Hostname
 	if hostname == "" {
@@ -248,9 +251,6 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
-	if isgroup {
-		 service.Name += "-" + port.ExposedPort
-	}
 	var p int
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
