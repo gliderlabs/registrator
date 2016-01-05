@@ -68,3 +68,7 @@ func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 func (r *ConsulKVAdapter) Refresh(service *bridge.Service) error {
 	return nil
 }
+
+func (r *ConsulKVAdapter) Services() ([]*bridge.Service, error) {
+	return []*bridge.Service{}, nil
+}

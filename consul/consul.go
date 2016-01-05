@@ -96,3 +96,24 @@ func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
 	return nil
 }
+
+func (r *ConsulAdapter) Services() ([]*bridge.Service, error) {
+	services, err := r.client.Agent().Services()
+	if err != nil {
+		return []*bridge.Service{}, err
+	}
+	out := make([]*bridge.Service, len(services))
+	i := 0
+	for _, v := range services {
+		s := &bridge.Service{
+			ID:   v.ID,
+			Name: v.Service,
+			Port: v.Port,
+			Tags: v.Tags,
+			IP:   v.Address,
+		}
+		out[i] = s
+		i++
+	}
+	return out, nil
+}

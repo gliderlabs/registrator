@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -25,6 +27,7 @@ var resyncInterval = flag.Int("resync", 0, "Frequency with which services are re
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
+var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -46,7 +49,25 @@ func main() {
 	}
 	log.Printf("Starting registrator %s ...", Version)
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s [options] <registry URI>\n\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
+
+	if flag.NArg() != 1 {
+		if flag.NArg() == 0 {
+			fmt.Fprint(os.Stderr, "Missing required argument for registry URI.\n\n")
+		} else {
+			fmt.Fprintln(os.Stderr, "Extra unparsed arguments:")
+			fmt.Fprintln(os.Stderr, " ", strings.Join(flag.Args()[1:], " "))
+			fmt.Fprint(os.Stderr, "Options should come before the registry URI argument.\n\n")
+		}
+		flag.Usage()
+		os.Exit(2)
+	}
 
 	if *hostIp != "" {
 		log.Println("Forcing host IP to", *hostIp)
@@ -62,7 +83,12 @@ func main() {
 		assert(errors.New("-retry-interval must be greater than 0"))
 	}
 
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost == "" {
+		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+	}
+
+	docker, err := dockerapi.NewClientFromEnv()
 	assert(err)
 
 	if *deregister != "always" && *deregister != "on-success" {
@@ -76,6 +102,7 @@ func main() {
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
+		Cleanup:         *cleanup,
 	})
 
 	assert(err)
