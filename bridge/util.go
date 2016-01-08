@@ -83,6 +83,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
     if exposedIp == "" && network == "bridge" {
         exposedIp = container.NetworkSettings.IPAddress
     }
+    
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
