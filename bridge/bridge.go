@@ -200,24 +200,46 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			}
 			continue
 		}
-		service := b.newService(port, len(ports) > 1)
-		if service == nil {
+		services := b.newServices(port, len(ports) > 1, quiet)
+		if len(services) == 0 {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
 			}
 			continue
 		}
-		err := b.registry.Register(service)
-		if err != nil {
-			log.Println("register failed:", service, err)
-			continue
+		for _, service := range services {
+			err := b.registry.Register(&service)
+			if err != nil {
+				log.Println("register failed:", service, err)
+				continue
+			}
+			b.services[container.ID] = append(b.services[container.ID], &service)
+			log.Println("added:", container.ID[:12], service.ID)
 		}
-		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
 	}
 }
 
-func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
+func (b *Bridge) newServices(port ServicePort, isgroup, quiet bool) []Service {
+	services := make([]Service, 0)
+
+	svc := b.newService(port, isgroup, quiet, false)
+
+	if svc != nil {
+		services = append(services, *svc)
+	}
+
+	if b.config.IPv6 && port.container.NetworkSettings.GlobalIPv6Address != "" {
+		svc = b.newService(port, isgroup, quiet, true)
+
+		if svc != nil {
+			services = append(services, *svc)
+		}
+	}
+
+	return services
+}
+
+func (b *Bridge) newService(port ServicePort, isgroup, quiet, ipv6 bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 
@@ -237,7 +259,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		port.HostIP = b.config.HostIp
 	}
 
-	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
+	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort, ipv6)
 
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {
@@ -247,12 +269,20 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service := new(Service)
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	if ipv6 {
+		service.ID += ":ipv6"
+	}
 	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
 	}
 	var p int
-	if b.config.Internal == true {
+	// We *always* expose the container's address and port for IPv6.  It's
+	// pointless having an address that supports end-to-end if we ignore it.
+	if ipv6 {
+		service.IP = port.container.NetworkSettings.GlobalIPv6Address
+		p, _ = strconv.Atoi(port.ExposedPort)
+	} else if b.config.Internal == true {
 		service.IP = port.ExposedIP
 		p, _ = strconv.Atoi(port.ExposedPort)
 	} else {
@@ -260,6 +290,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		p, _ = strconv.Atoi(port.HostPort)
 	}
 	service.Port = p
+	if !quiet {
+		log.Println("service:", service.ID, "is named", service.Name, "and is on", service.IP, "port", service.Port)
+	}
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(

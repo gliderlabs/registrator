@@ -22,6 +22,7 @@ type RegistryAdapter interface {
 type Config struct {
 	HostIp          string
 	Internal        bool
+	IPv6            bool
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int

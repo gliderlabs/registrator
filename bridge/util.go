@@ -30,18 +30,32 @@ func combineTags(tagParts ...string) []string {
 	return tags
 }
 
-func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
+func serviceMetaData(config *dockerapi.Config, port string, ipv6 bool) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
 		meta = append(meta, k+"="+v)
 	}
-	metadata := make(map[string]string)
-	metadataFromPort := make(map[string]bool)
+	metadata           := make(map[string]string)
+	metadataFromPort   := make(map[string]bool)
+	metadataFromAF     := make(map[string]bool)
+	metadataFromPortAF := make(map[string]bool)
 	for _, kv := range meta {
 		kvp := strings.SplitN(kv, "=", 2)
+		if (strings.HasSuffix(kvp[0], "_IPV4") && ipv6) || (strings.HasSuffix(kvp[0], "_IPV6") && !ipv6) {
+			// We can definitely ignore any key with the wrong address family suffix
+			continue
+		}
 		if strings.HasPrefix(kvp[0], "SERVICE_") && len(kvp) > 1 {
+			af := false
+			if strings.HasSuffix(kvp[0], "_IPV4") {
+				af = true
+				kvp[0] = strings.TrimSuffix(kvp[0], "_IPV4")
+			} else if strings.HasSuffix(kvp[0], "_IPV6") {
+				af = true
+				kvp[0] = strings.TrimSuffix(kvp[0], "_IPV6")
+			}
 			key := strings.ToLower(strings.TrimPrefix(kvp[0], "SERVICE_"))
-			if metadataFromPort[key] {
+			if metadataFromPortAF[key] || (!af && metadataFromPort[key]) {
 				continue
 			}
 			portkey := strings.SplitN(key, "_", 2)
@@ -51,9 +65,16 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 					continue
 				}
 				metadata[portkey[1]] = kvp[1]
-				metadataFromPort[portkey[1]] = true
+				if af {
+					metadataFromPortAF[portkey[1]] = true
+				} else {
+					metadataFromPort[portkey[1]] = true
+				}
 			} else {
 				metadata[key] = kvp[1]
+				if af {
+					metadataFromAF[key] = true
+				}
 			}
 		}
 	}
