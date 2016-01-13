@@ -104,3 +104,22 @@ SkyDNS requires the service ID to be a valid DNS hostname, so this backend requi
 override service ID to a valid DNS name. Example:
 
 	$ docker run -d --name redis-1 -e SERVICE_ID=redis-1 -p 6379:6379 redis
+
+## Zookeeper Store
+
+The Zookeeper backend lets you publish ephemeral znodes into zookeeper. This mode is enabled by specifying a zookeeper path.  The zookeeper backend supports publishing a json znode body complete with defined service attributes/tags as well as the service name and container id. Example URIs:
+
+	$ registrator zookeeper://zookeeper.host/basepath
+	$ registrator zookeeper://192.168.1.100:9999/basepath
+
+Within the base path specified in the zookeeper URI, registrator will create the following path tree containing a JSON entry for the service:
+
+	<service-name>/<service-port> = <JSON>
+
+The JSON will contain all infromation about the published container service. As an example, the following container start:
+
+     docker run -i -p 80 -e 'SERVICE_80_NAME=www' -t ubuntu:14.04 /bin/bash
+
+Will result in the zookeeper path and JSON znode body:
+
+    /basepath/www/80 = {"Name":"www","IP":"192.168.1.123","PublicPort":49153,"PrivatePort":80,"ContainerID":"9124853ff0d1","Tags":[],"Attrs":{}}
