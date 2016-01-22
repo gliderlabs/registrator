@@ -35,11 +35,11 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
         log.Fatal("skydns2s: at least path to ca-certificate (ETCD_CACRT) is needed")
     }
 
-    if newClient, err := etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
+    if client, err := etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
         log.Fatal("skydns2s: failure to connect: %s", err)
     }
 
-	return &Skydns2Adapter{client: newClient, path: domainPath(uri.Path[1:])}
+	return &Skydns2Adapter{client: client, path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
