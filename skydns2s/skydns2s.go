@@ -36,7 +36,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
     }
     var client *etcd.Client
     var err error
-    if client, err := etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
+    if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
         log.Fatalf("skydns2s: failure to connect: %s", err)
     }
 
