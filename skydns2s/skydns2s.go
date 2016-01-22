@@ -1,7 +1,8 @@
-package skydns2
+package skydns2s
 
 import (
 	"log"
+    "os"
 	"net/url"
 	"strconv"
 	"strings"
@@ -11,7 +12,7 @@ import (
 )
 
 func init() {
-	bridge.Register(new(Factory), "skydns2")
+	bridge.Register(new(Factory), "skydns2s")
 }
 
 type Factory struct{}
@@ -19,14 +20,22 @@ type Factory struct{}
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
 	if uri.Host != "" {
-		urls = append(urls, "http://"+uri.Host)
+		urls = append(urls, "https://"+uri.Host)
 	}
 
 	if len(uri.Path) < 2 {
-		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
+		log.Fatal("skydns2s: dns domain required e.g.: skydns2s://<host>/<domain>")
 	}
 
-	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+    tlskey := os.Getenv("ETCD_TLSKEY", "")
+    tlspem := os.Getenv("ETCD_TLSPEM", "")
+    cacert := os.Getenv("ETCD_CACERT", "")
+
+    if cacert == "" {
+        log.Fatal("skydns2s: at least path to ca-certificate (ETCD_CACRT) is needed")
+    }
+
+	return &Skydns2Adapter{client: etcd.NewClient(urls, tlspem, tlskey, cacert), path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
@@ -48,7 +57,7 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
-		log.Println("skydns2: failed to register service:", err)
+		log.Println("skydns2s: failed to register service:", err)
 	}
 	return err
 }
@@ -56,7 +65,7 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
 	if err != nil {
-		log.Println("skydns2: failed to register service:", err)
+		log.Println("skydns2s: failed to register service:", err)
 	}
 	return err
 }

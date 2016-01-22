@@ -1,9 +1,10 @@
 package main
 
 import (
-	_ "github.com/gliderlabs/registrator/consul"
-	_ "github.com/gliderlabs/registrator/consulkv"
-	_ "github.com/gliderlabs/registrator/etcd"
-	_ "github.com/gliderlabs/registrator/skydns2"
-	_ "github.com/gliderlabs/registrator/zookeeper"
+	_ "github.com/RudolfRandal/registrator/consul"
+	_ "github.com/RudolfRandal/registrator/consulkv"
+	_ "github.com/RudolfRandal/registrator/etcd"
+	_ "github.com/RudolfRandal/registrator/skydns2"
+	_ "github.com/RudolfRandal/registrator/skydns2s"
+	_ "github.com/RudolfRandal/registrator/zookeeper"
 )
