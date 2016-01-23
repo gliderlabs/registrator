@@ -32,7 +32,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	cacert := os.Getenv("ETCD_CACERT")
 
 	if cacert == "" {
-		 log.Fatalf("skydns2s: at least path to ca-certificate (ETCD_CACRT) is needed")
+		 log.Fatalf("skydns2s: at least path to ca-certificate (ETCD_CACERT) is needed")
 	}
 
 	var client *etcd.Client
