@@ -31,7 +31,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	var client *etcd.Client
 
     if cacert != "" {
-        urls = append(urls, "https://"+uri.host)
+        urls = append(urls, "https://"+uri.Host)
 
 	    var err error
 	    if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
