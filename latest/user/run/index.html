@@ -217,44 +217,54 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 <thead>
 <tr>
 <th>Option</th>
+<th>Since</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>-internal</code></td>
+<td></td>
 <td>Use exposed ports instead of published ports</td>
 </tr>
 <tr>
 <td><code>-ip &lt;ip address&gt;</code></td>
+<td></td>
 <td>Force IP address used for registering services</td>
 </tr>
 <tr>
-<td><code>-retry-attempts</code></td>
+<td><code>-retry-attempts &lt;number&gt;</code></td>
+<td>v7</td>
 <td>Max retry attempts to establish a connection with the backend</td>
 </tr>
 <tr>
-<td><code>-retry-interval</code></td>
+<td><code>-retry-interval &lt;milliseconds&gt;</code></td>
+<td>v7</td>
 <td>Interval (in millisecond) between retry-attempts</td>
 </tr>
 <tr>
 <td><code>-tags &lt;tags&gt;</code></td>
+<td>v5</td>
 <td>Force comma-separated tags on all registered services</td>
 </tr>
 <tr>
 <td><code>-deregister &lt;mode&gt;</code></td>
+<td>v6</td>
 <td>Deregister existed services "always" or "on-success". Default: always</td>
 </tr>
 <tr>
 <td><code>-ttl &lt;seconds&gt;</code></td>
+<td></td>
 <td>TTL for services. Default: 0, no expiry (supported backends only)</td>
 </tr>
 <tr>
 <td><code>-ttl-refresh &lt;seconds&gt;</code></td>
+<td></td>
 <td>Frequency service TTLs are refreshed (supported backends only)</td>
 </tr>
 <tr>
 <td><code>-resync &lt;seconds&gt;</code></td>
+<td>v6</td>
 <td>Frequency all services are resynchronized. Default: 0, never</td>
 </tr>
 </tbody>
