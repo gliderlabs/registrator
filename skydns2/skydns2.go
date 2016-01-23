@@ -2,6 +2,7 @@ package skydns2
 
 import (
 	"log"
+    "os"
 	"net/url"
 	"strconv"
 	"strings"
@@ -18,15 +19,30 @@ type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
-	if uri.Host != "" {
-		urls = append(urls, "http://"+uri.Host)
-	}
 
 	if len(uri.Path) < 2 {
 		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
-	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+	tlskey := os.Getenv("ETCD_TLSKEY")
+	tlspem := os.Getenv("ETCD_TLSPEM")
+	cacert := os.Getenv("ETCD_CACERT")
+
+	var client *etcd.Client
+
+    if cacert != "" {
+        urls = append(urls, "https://"+uri.host)
+
+	    var err error
+	    if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
+		    log.Fatalf("skydns2s: failure to connect: %s", err)
+	    }
+    } else {
+		urls = append(urls, "http://"+uri.Host)
+        client = etcd.NewClient(urls)
+    }
+
+	return &Skydns2Adapter{client: client, path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
