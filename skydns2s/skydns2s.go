@@ -2,7 +2,7 @@ package skydns2s
 
 import (
 	"log"
-    "os"
+	"os"
 	"net/url"
 	"strconv"
 	"strings"
@@ -27,18 +27,19 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		log.Fatal("skydns2s: dns domain required e.g.: skydns2s://<host>/<domain>")
 	}
 
-    tlskey := os.Getenv("ETCD_TLSKEY")
-    tlspem := os.Getenv("ETCD_TLSPEM")
-    cacert := os.Getenv("ETCD_CACERT")
+	tlskey := os.Getenv("ETCD_TLSKEY")
+	tlspem := os.Getenv("ETCD_TLSPEM")
+	cacert := os.Getenv("ETCD_CACERT")
 
-    if cacert == "" {
-        log.Fatalf("skydns2s: at least path to ca-certificate (ETCD_CACRT) is needed")
-    }
-    var client *etcd.Client
-    var err error
-    if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
-        log.Fatalf("skydns2s: failure to connect: %s", err)
-    }
+	if cacert == "" {
+		 log.Fatalf("skydns2s: at least path to ca-certificate (ETCD_CACRT) is needed")
+	}
+
+	var client *etcd.Client
+	var err error
+	if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
+		 log.Fatalf("skydns2s: failure to connect: %s", err)
+	}
 
 	return &Skydns2Adapter{client: client, path: domainPath(uri.Path[1:])}
 }
