@@ -3,6 +3,7 @@ package skydns2
 import (
 	"log"
     "os"
+    "net/http"
 	"net/url"
 	"strconv"
 	"strings"
