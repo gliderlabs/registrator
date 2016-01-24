@@ -42,7 +42,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
             }
         } else {
             client = etcd.NewClient(urls)
-            var tr := &http.Transport{
+            tr := &http.Transport {
                 TLSClientConfig:    &tls.Config{RootCAs: cacert},
                 DisableCompression: true,
             }
