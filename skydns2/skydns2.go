@@ -40,9 +40,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
             if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
                 log.Fatalf("skydns2: failure to connect: %s", err)
             }
-        }
-        // No client authentication
-        else {
+        } else {
             client = etcd.NewClient(urls)
             var tr := &http.Transport{
                 TLSClientConfig:    &tls.Config{RootCAs: cacert},
@@ -50,9 +48,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
             }
             client.SetTransport(tr)
         }
-    }
-    // Plain http
-    else {
+    } else {
         urls = append(urls, "http://"+uri.Host)
         client = etcd.NewClient(urls)
     }
