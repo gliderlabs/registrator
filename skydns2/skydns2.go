@@ -4,6 +4,8 @@ import (
 	"log"
     "os"
 	"crypto/tls"
+	"crypto/x509"
+    "io/ioutil"
 	"net/http"
     "net/url"
 	"strconv"
@@ -44,7 +46,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
             }
         } else {
             client = etcd.NewClient(urls)
-            ca, err := ioutil.ReadFile(*cacert)
+            ca, err := ioutil.ReadFile(cacert)
             if err != nil {
                 log.Fatal(err)
             }
