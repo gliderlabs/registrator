@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coreos/etcd/tree/master/client"
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
 )
 
@@ -30,6 +30,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 
 	var client *etcd.Client
 
+    // Assuming https
     if cacert != "" {
         urls = append(urls, "https://"+uri.Host)
 
@@ -40,16 +41,18 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
                 log.Fatalf("skydns2: failure to connect: %s", err)
             }
         }
+        // No client authentication
         else {
             client = etcd.NewClient(urls)
             var tr := &http.Transport{
                 TLSClientConfig:    &tls.Config{RootCAs: cacert},
                 DisableCompression: true,
-
             }
             client.SetTransport(tr)
         }
-    } else {
+    }
+    // Plain http
+    else {
         urls = append(urls, "http://"+uri.Host)
         client = etcd.NewClient(urls)
     }
