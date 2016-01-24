@@ -44,8 +44,14 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
             }
         } else {
             client = etcd.NewClient(urls)
+            ca, err := ioutil.ReadFile(*cacert)
+            if err != nil {
+                log.Fatal(err)
+            }
+            caCertPool := x509.NewCertPool()
+            caCertPool.AppendCertsFromPEM(ca)
             tr := &http.Transport {
-                TLSClientConfig:    &tls.Config{RootCAs: cacert},
+                TLSClientConfig:    &tls.Config{RootCAs: caCertPool},
                 DisableCompression: true,
             }
             client.SetTransport(tr)
