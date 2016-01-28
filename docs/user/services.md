@@ -53,6 +53,9 @@ These can be implicitly set from the Dockerfile or explicitly set with `docker r
 You can also tell Registrator to ignore a container by setting a
 label or environment variable for `SERVICE_IGNORE`.
 
+If you need to ignore individual service on some container, you can use 
+`SERVICE_<port>_IGNORE=true`.
+
 ## Service Name
 
 Service names are what you use in service discovery lookups. By default, the
