@@ -137,10 +137,18 @@ func main() {
 	if *refreshInterval > 0 {
 		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
 		go func() {
+			i_act := time.Now().Unix()
 			for {
 				select {
 				case <-ticker.C:
-					b.Refresh()
+					i_now := time.Now().Unix()
+					i_interval := int64(*refreshInterval)
+					if ((i_now - i_act) < i_interval){
+						log.Printf("refresh interval pass. now:%d prev:%d interval:%d", i_now, i_act, i_interval)
+					}else{
+						b.Refresh()
+						i_act = time.Now().Unix()
+					}
 				case <-quit:
 					ticker.Stop()
 					return
@@ -153,10 +161,18 @@ func main() {
 	if *resyncInterval > 0 {
 		resyncTicker := time.NewTicker(time.Duration(*resyncInterval) * time.Second)
 		go func() {
+			i_act := time.Now().Unix()
 			for {
 				select {
 				case <-resyncTicker.C:
-					b.Sync(true)
+					i_now := time.Now().Unix()
+					i_interval := int64(*resyncInterval)
+					if ((i_now - i_act) < i_interval){
+						log.Printf("resync interval pass. now:%d prev:%d interval:%d", i_now, i_act, i_interval)
+					}else{
+						b.Sync(true)
+						i_act = time.Now().Unix()
+					}
 				case <-quit:
 					resyncTicker.Stop()
 					return
