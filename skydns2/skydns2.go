@@ -50,6 +50,10 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 		//default to the host IP when port is not mapped to an interface
 		host = service.Origin.HostIP
 	}
+	if host == "0.0.0.0" {
+		//otherwise, default to the hostname when host IP not found
+		host = service.Origin.ContainerHostname
+	}
 	record := `{"host":"` + host + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
