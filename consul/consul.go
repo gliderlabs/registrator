@@ -76,6 +76,12 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.Script = r.interpolateService(script, service)
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
+	} else if doc := service.Attrs["check_docker"]; doc != "" {
+		check.Script = doc
+		check.DockerContainerID = service.Origin.ContainerID[:12]
+		if shell := service.Attrs["check_shell"]; shell != "" {
+			check.Shell = shell
+		}
 	} else {
 		return nil
 	}
