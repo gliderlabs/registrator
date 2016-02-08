@@ -9,6 +9,7 @@ See also [Contributing Backends](../dev/backends.md).
 ## Consul
 
 	consul://<address>:<port>
+	consul-unix://<filepath>
 
 Consul is the recommended registry since it specifically models services for
 service discovery with health checks.
@@ -63,6 +64,7 @@ SERVICE_CHECK_TTL=30s
 ## Consul KV
 
 	consulkv://<address>:<port>/<prefix>
+	consulkv-unix://<filepath>:/<prefix>
 
 This is a separate backend to use Consul's key-value store instead of its native
 service catalog. This behaves more like etcd since it has similar semantics, but

@@ -13,7 +13,9 @@ import (
 const DefaultInterval = "10s"
 
 func init() {
-	bridge.Register(new(Factory), "consul")
+	f := new(Factory)
+	bridge.Register(f, "consul")
+	bridge.Register(f, "consul-unix")
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
@@ -26,7 +28,9 @@ type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	config := consulapi.DefaultConfig()
-	if uri.Host != "" {
+	if uri.Scheme == "consul-unix" {
+		config.Address = strings.TrimPrefix(uri.String(), "consul-")
+	} else if uri.Host != "" {
 		config.Address = uri.Host
 	}
 	client, err := consulapi.NewClient(config)
