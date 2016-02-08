@@ -119,8 +119,32 @@ func (b *Bridge) Sync(quiet bool) {
 	// Clean up services that were registered previously, but aren't
 	// acknowledged within registrator
 	if b.config.Cleanup {
-		log.Println("Cleaning up dangling services")
+		// Remove services if its corresponding container is not running
+		log.Println("Listing non-exited containers")
+		filters := map[string][]string{"status": {"created", "restarting", "running", "paused"}}
+		nonExitedContainers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{Filters: filters})
+		if err != nil && quiet {
+			log.Println("error listing nonExitedContainers, skipping sync")
+			return
+		} else if err != nil && !quiet {
+			log.Fatal(err)
+		}
+		for listingId, _ := range b.services {
+			found := false
+			for _, container := range nonExitedContainers {
+				if listingId == container.ID {
+					found = true
+					break
+				}
+			}
+			// This is a container that does not exist
+			if !found {
+				log.Printf("stale: Removing service %s because it does not exist", listingId)
+				go b.Remove(listingId)
+			}
+		}
 
+		log.Println("Cleaning up dangling services")
 		extServices, err := b.registry.Services()
 		if err != nil {
 			log.Println("cleanup failed:", err)
@@ -220,7 +244,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	
+
 	// not sure about this logic. kind of want to remove it.
 	hostname := Hostname
 	if hostname == "" {
@@ -249,7 +273,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup && !metadataFromPort["name"] {
-		 service.Name += "-" + port.ExposedPort
+		service.Name += "-" + port.ExposedPort
 	}
 	var p int
 	if b.config.Internal == true {
