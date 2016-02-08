@@ -119,8 +119,32 @@ func (b *Bridge) Sync(quiet bool) {
 	// Clean up services that were registered previously, but aren't
 	// acknowledged within registrator
 	if b.config.Cleanup {
-		log.Println("Cleaning up dangling services")
+		// Remove services if its corresponding container is not running
+		log.Println("Listing non-exited containers")
+		filters := map[string][]string{"status": {"created", "restarting", "running", "paused"}}
+		nonExitedContainers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{Filters: filters})
+		if err != nil && quiet {
+			log.Println("error listing nonExitedContainers, skipping sync")
+			return
+		} else if err != nil && !quiet {
+			log.Fatal(err)
+		}
+		for listingId, _ := range b.services {
+			found := false
+			for _, container := range nonExitedContainers {
+				if listingId == container.ID {
+					found = true
+					break
+				}
+			}
+			// This is a container that does not exist
+			if !found {
+				log.Printf("stale: Removing service %s because it does not exist", listingId)
+				go b.Remove(listingId)
+			}
+		}
 
+		log.Println("Cleaning up dangling services")
 		extServices, err := b.registry.Services()
 		if err != nil {
 			log.Println("cleanup failed:", err)
