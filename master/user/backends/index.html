@@ -180,6 +180,7 @@ use for supported backends and documentation specific to their features.</p>
 <p>See also <a href="../../dev/backends/">Contributing Backends</a>.</p>
 <h2 id="consul">Consul</h2>
 <pre><code>consul://&lt;address&gt;:&lt;port&gt;
+consul-unix://&lt;filepath&gt;
 </code></pre>
 <p>Consul is the recommended registry since it specifically models services for
 service discovery with health checks.</p>
@@ -218,6 +219,7 @@ healthy.</p>
 
 <h2 id="consul-kv">Consul KV</h2>
 <pre><code>consulkv://&lt;address&gt;:&lt;port&gt;/&lt;prefix&gt;
+consulkv-unix://&lt;filepath&gt;:/&lt;prefix&gt;
 </code></pre>
 <p>This is a separate backend to use Consul's key-value store instead of its native
 service catalog. This behaves more like etcd since it has similar semantics, but
