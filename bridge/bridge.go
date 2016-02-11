@@ -123,11 +123,9 @@ func (b *Bridge) Sync(quiet bool) {
 		log.Println("Listing non-exited containers")
 		filters := map[string][]string{"status": {"created", "restarting", "running", "paused"}}
 		nonExitedContainers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{Filters: filters})
-		if err != nil && quiet {
-			log.Println("error listing nonExitedContainers, skipping sync")
+		if err != nil {
+			log.Println("error listing nonExitedContainers, skipping sync", err)
 			return
-		} else if err != nil && !quiet {
-			log.Fatal(err)
 		}
 		for listingId, _ := range b.services {
 			found := false
