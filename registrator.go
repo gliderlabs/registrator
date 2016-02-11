@@ -21,6 +21,7 @@ var versionChecker = usage.NewChecker("registrator", Version)
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
 var ipv6 = flag.Bool("ipv6", false, "Register services with container IPv6 addresses, if available")
+var ipv4 = flag.Bool("ipv4", true, "Register services with IPv4 addresses")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
@@ -99,6 +100,7 @@ func main() {
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
+		IPv4:            *ipv4,
 		IPv6:            *ipv6,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,

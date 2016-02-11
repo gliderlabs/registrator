@@ -222,14 +222,16 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newServices(port ServicePort, isgroup, quiet bool) []Service {
 	services := make([]Service, 0)
 
-	svc := b.newService(port, isgroup, quiet, false)
+	if b.config.IPv4 {
+		svc := b.newService(port, isgroup, quiet, false)
 
-	if svc != nil {
-		services = append(services, *svc)
+		if svc != nil {
+			services = append(services, *svc)
+		}
 	}
 
 	if b.config.IPv6 && port.container.NetworkSettings.GlobalIPv6Address != "" {
-		svc = b.newService(port, isgroup, quiet, true)
+		svc := b.newService(port, isgroup, quiet, true)
 
 		if svc != nil {
 			services = append(services, *svc)
