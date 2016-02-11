@@ -138,7 +138,7 @@ func (b *Bridge) Sync(quiet bool) {
 			// This is a container that does not exist
 			if !found {
 				log.Printf("stale: Removing service %s because it does not exist", listingId)
-				go b.Remove(listingId)
+				go b.RemoveOnExit(listingId)
 			}
 		}
 
