@@ -60,8 +60,8 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 	return metadata, metadataFromPort
 }
 
-func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
-	var hp, hip, ep, ept, eip string
+func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding, network string) ServicePort {
+	var hp, hip, ep, ept string
 	if len(published) > 0 {
 		hp = published[0].HostPort
 		hip = published[0].HostIP
@@ -76,20 +76,19 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	} else {
 		ept = "tcp"  // default
 	}
-	
-	// Nir: support docker NetworkSettings
-	eip = container.NetworkSettings.IPAddress
-	if eip == "" {
-		for _, network := range container.NetworkSettings.Networks {
-			eip = network.IPAddress
-		}
-	}
-	
+    
+    // Try to get the exposed IP using the new method. If this fails and the network is bridge, try the old method.
+    var exposedIp string
+    exposedIp = container.NetworkSettings.Networks[network].IPAddress
+    if exposedIp == "" && network == "bridge" {
+        exposedIp = container.NetworkSettings.IPAddress
+    }
+    
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
 		ExposedPort:       ep,
-		ExposedIP:         eip,
+		ExposedIP:         exposedIp,
 		PortType:          ept,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,
