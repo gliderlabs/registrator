@@ -74,6 +74,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
+		if status := service.Attrs["check_status"]; status != "" {
+			check.Status = status
+		}
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
 		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
