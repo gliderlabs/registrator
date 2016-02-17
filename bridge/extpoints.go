@@ -139,4 +139,3 @@ func (ep *adapterFactoryExt) All() map[string]AdapterFactory {
 	}
 	return all
 }
-

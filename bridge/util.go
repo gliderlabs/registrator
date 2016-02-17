@@ -33,7 +33,7 @@ func combineTags(tagParts ...string) []string {
 func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
-		meta = append(meta, k + "=" + v)
+		meta = append(meta, k+"="+v)
 	}
 	metadata := make(map[string]string)
 	metadataFromPort := make(map[string]bool)
@@ -74,9 +74,9 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	if len(exposedPort) == 2 {
 		ept = exposedPort[1]
 	} else {
-		ept = "tcp"  // default
+		ept = "tcp" // default
 	}
-	
+
 	// Nir: support docker NetworkSettings
 	eip = container.NetworkSettings.IPAddress
 	if eip == "" {
@@ -84,7 +84,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 			eip = network.IPAddress
 		}
 	}
-	
+
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
