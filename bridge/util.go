@@ -87,17 +87,16 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	}
 
     // Try to get the exposed IP using the new method. If this fails and the network is bridge, try the old method.
-    var exposedIp string
-    exposedIp = container.NetworkSettings.Networks[network].IPAddress
-    if exposedIp == "" && network == "bridge" {
-        exposedIp = container.NetworkSettings.IPAddress
+    eip = container.NetworkSettings.Networks[network].IPAddress
+    if eip == "" && network == "bridge" {
+        eip = container.NetworkSettings.IPAddress
     }
 
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
 		ExposedPort:       ep,
-		ExposedIP:         exposedIp,
+		ExposedIP:         eip,
 		PortType:          ept,
 		ContainerID:       container.ID,
 		ContainerHostname: container.Config.Hostname,
