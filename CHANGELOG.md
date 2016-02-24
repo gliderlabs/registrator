@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - bridge.New returns an error instead of calling log.Fatal
 - bridge.New will not attempt to ping an adapter.
 - Specifying a SERVICE_NAME for containers exposing multiple ports will now result in a named service per port. #194
+- Etcd uses port 2379 instead of 4001 #340
 
 ## [v6] - 2015-08-07
 ### Fixed
