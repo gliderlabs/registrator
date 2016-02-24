@@ -64,33 +64,78 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Tags = service.Tags
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
-	return r.client.Agent().ServiceRegister(registration)
+
+	if registration.Check == nil && service.TTL > 0 {
+		registration.Check = r.buildDefaultCheck(service)
+	}
+
+	response := r.client.Agent().ServiceRegister(registration)
+
+	return response
+}
+
+func (r *ConsulAdapter) buildHttpCheck(check_attr string, service *bridge.Service) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, check_attr)
+	check.Interval = DefaultInterval
+
+	if timeout := service.Attrs["check_timeout"]; timeout != "" {
+		check.Timeout = timeout
+	}
+	if interval := service.Attrs["check_interval"]; interval != "" {
+		check.Interval = interval
+	}
+
+	return check
+}
+
+func (r *ConsulAdapter) buildCmdCheck(check_attr string, service *bridge.Service) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, check_attr)
+	return check
+}
+
+func (r *ConsulAdapter) buildScriptCheck(check_attr string, service *bridge.Service) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	check.Script = r.interpolateService(check_attr, service)
+	check.Interval = DefaultInterval
+
+	if interval := service.Attrs["check_interval"]; interval != "" {
+		check.Interval = interval
+	}
+
+	return check
+}
+
+func (r *ConsulAdapter) buildTtlCheck(check_attr string, service *bridge.Service) *consulapi.AgentServiceCheck {
+	check := new(consulapi.AgentServiceCheck)
+	check.TTL = check_attr
+	return check
+}
+
+func (r *ConsulAdapter) buildDefaultCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
+	return r.buildTtlCheck(fmt.Sprintf("%ds", service.TTL), service)
 }
 
 func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
-	check := new(consulapi.AgentServiceCheck)
-	if path := service.Attrs["check_http"]; path != "" {
-		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
-		}
-	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
-	} else if script := service.Attrs["check_script"]; script != "" {
-		check.Script = r.interpolateService(script, service)
-	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
-		check.TTL = ttl
-	} else {
-		return nil
-	}
-	if check.Script != "" || check.HTTP != "" {
-		if interval := service.Attrs["check_interval"]; interval != "" {
-			check.Interval = interval
-		} else {
-			check.Interval = DefaultInterval
+	for key, value := range service.Attrs {
+		switch key {
+		case "check_http":
+			return r.buildHttpCheck(value, service)
+		case "check_cmd":
+			return r.buildCmdCheck(value, service)
+		case "check_script":
+			return r.buildScriptCheck(value, service)
+		case "check_ttl":
+			return r.buildTtlCheck(value, service)
 		}
 	}
-	return check
+
+	return nil
+}
+
+func (r *ConsulAdapter) usesDefaultCheck(service *bridge.Service) bool {
+	return r.buildCheck(service) == nil && service.TTL > 0
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
@@ -98,6 +143,13 @@ func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
+	if r.usesDefaultCheck(service) {
+		return r.client.Agent().PassTTL(
+			fmt.Sprintf("service:%s", service.ID),
+			fmt.Sprintf("refreshed: %s %s", service.Origin.ContainerID[:12], service.ID),
+		)
+	}
+
 	return nil
 }
 
