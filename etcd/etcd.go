@@ -25,7 +25,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	} else {
-		urls = append(urls, "http://127.0.0.1:4001")
+		urls = append(urls, "http://127.0.0.1:2379")
 	}
 
 	res, err := http.Get(urls[0] + "/version")

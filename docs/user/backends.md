@@ -83,7 +83,7 @@ Using the prefix from the Registry URI, service definitions are stored as:
 Etcd works similar to Consul KV, except supports service TTLs. It also currently
 doesn't support service attributes/tags.
 
-If no address and port is specified, it will default to `127.0.0.1:4001`.
+If no address and port is specified, it will default to `127.0.0.1:2379`.
 
 Using the prefix from the Registry URI, service definitions are stored as:
 
@@ -96,7 +96,7 @@ Using the prefix from the Registry URI, service definitions are stored as:
 SkyDNS 2 uses etcd, so this backend writes service definitions in a format compatible with SkyDNS 2.
 The path may not be omitted and must be a valid DNS domain for SkyDNS.
 
-If no address and port is specified, it will default to `127.0.0.1:4001`.
+If no address and port is specified, it will default to `127.0.0.1:2379`.
 
 Using a Registry URI with the domain `cluster.local`, service definitions are stored as:
 
