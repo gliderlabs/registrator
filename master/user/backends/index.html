@@ -233,7 +233,7 @@ currently doesn't support TTLs.</p>
 </code></pre>
 <p>Etcd works similar to Consul KV, except supports service TTLs. It also currently
 doesn't support service attributes/tags.</p>
-<p>If no address and port is specified, it will default to <code>127.0.0.1:4001</code>.</p>
+<p>If no address and port is specified, it will default to <code>127.0.0.1:2379</code>.</p>
 <p>Using the prefix from the Registry URI, service definitions are stored as:</p>
 <pre><code>&lt;prefix&gt;/&lt;service-name&gt;/&lt;service-id&gt; = &lt;ip&gt;:&lt;port&gt;
 </code></pre>
@@ -242,7 +242,7 @@ doesn't support service attributes/tags.</p>
 </code></pre>
 <p>SkyDNS 2 uses etcd, so this backend writes service definitions in a format compatible with SkyDNS 2.
 The path may not be omitted and must be a valid DNS domain for SkyDNS.</p>
-<p>If no address and port is specified, it will default to <code>127.0.0.1:4001</code>.</p>
+<p>If no address and port is specified, it will default to <code>127.0.0.1:2379</code>.</p>
 <p>Using a Registry URI with the domain <code>cluster.local</code>, service definitions are stored as:</p>
 <pre><code>/skydns/local/cluster/&lt;service-name&gt;/&lt;service-id&gt; = {"host":"&lt;ip&gt;","port":&lt;port&gt;}
 </code></pre>
