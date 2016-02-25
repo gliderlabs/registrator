@@ -87,23 +87,7 @@ func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 }
 
 func (r *EurekaAdapter) Services() ([]*bridge.Service, error) {
-	services, err := r.client.GetApps()
-	if err != nil {
-		return []*bridge.Service{}, err
-	}
-	out := make([]*bridge.Service, len(services))
-	i := 0
-	for _, v := range services {
-		s := &bridge.Service{
-			ID:   v.Instances[0].Id(),
-			Name: v.Instances[0].App,
-			Port: v.Instances[0].Port,
-			IP:   v.Instances[0].IPAddr,
-		}
-		out[i] = s
-		i++
-	}
-	return out, nil
+	return []*bridge.Service{}, nil
 }
 
 func ReturnIfSet(string1 string, string2 string) string {
