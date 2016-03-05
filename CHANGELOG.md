@@ -3,9 +3,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased][unreleased]
 ### Fixed
+- Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other
+- dd3ab2e Fix specific port names not overriding port suffix
 
 ### Added
 - bridge.Ping - calls adapter.Ping
+- Consul TCP Health Check
+- Support for Consul unix sockets
+- Basic Zookeper backend
+- Support for Docker multi host networking
+- Default to tcp for PortType if not provided
+- Sync etcd cluster on service registration
+- Support hostip for overlay network
+- Cleanup dangling services
+- Startup backend service connection retry
 
 ### Removed
 
@@ -15,6 +26,8 @@ All notable changes to this project will be documented in this file.
 - bridge.New will not attempt to ping an adapter.
 - Specifying a SERVICE_NAME for containers exposing multiple ports will now result in a named service per port. #194
 - Etcd uses port 2379 instead of 4001 #340
+- Setup Docker client from environment
+- Use exit status to determine if container was killed
 
 ## [v6] - 2015-08-07
 ### Fixed
