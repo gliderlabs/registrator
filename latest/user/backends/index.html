@@ -197,6 +197,15 @@ SERVICE_80_CHECK_TIMEOUT=1s     # optional, Consul default used otherwise
 
 <p>It works for services on any port, not just 80. If its the only service,
 you can also use <code>SERVICE_CHECK_HTTP</code>.</p>
+<h3 id="consul-tcp-check">Consul TCP Check</h3>
+<p>This feature is only available when using Consul 0.6 or newer. Containers
+specifying these extra metadata in labels or environment will be used to
+register an TCP health check with the service.</p>
+<pre><code class="bash">SERVICE_443_CHECK_TCP=true
+SERVICE_443_CHECK_INTERVAL=15s
+SERVICE_443_CHECK_TIMEOUT=3s        # optional, Consul default used otherwise
+</code></pre>
+
 <h3 id="consul-script-check">Consul Script Check</h3>
 <p>This feature is tricky because it lets you specify a script check to run from
 Consul. If running Consul in a container, you're limited to what you can run
