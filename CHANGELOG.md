@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased][unreleased]
 ### Fixed
+
+### Added
+
+### Removed
+
+### Changed
+
+## [v7] - 2016-03-05
+### Fixed
 - Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other
 - dd3ab2e Fix specific port names not overriding port suffix
 
@@ -73,6 +82,7 @@ All notable changes to this project will be documented in this file.
 - Dropped Godeps for now
 
 
-[unreleased]: https://github.com/gliderlabs/registrator/compare/v6...HEAD
+[unreleased]: https://github.com/gliderlabs/registrator/compare/v7...HEAD
+[v7]: https://github.com/gliderlabs/registrator/compare/v6...v7
 [v6]: https://github.com/gliderlabs/registrator/compare/v5...v6
 [v5]: https://github.com/gliderlabs/registrator/compare/v0.4.0...v5
