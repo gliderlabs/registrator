@@ -193,6 +193,15 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
+	// Count the number of actually published ports for isgroup behaviour
+	var ports_published int = 0
+	for _, port := range ports {
+		if b.config.Internal != true && port.HostPort == "" {
+			continue
+		}
+		ports_published += 1
+	}
+
 	for _, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
@@ -200,7 +209,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			}
 			continue
 		}
-		service := b.newService(port, len(ports) > 1)
+		service := b.newService(port, ports_published > 1)
 		if service == nil {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
