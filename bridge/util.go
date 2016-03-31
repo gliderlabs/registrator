@@ -45,6 +45,23 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 				continue
 			}
 			portkey := strings.SplitN(key, "_", 2)
+			
+			//Check if it is a port range (SERVICE_100-200_SOMEKEY)
+			if strings.Contains(portkey[0], "-") {
+				portRange := strings.SplitN(portkey[0], "-", 2)
+				rangeStart, errStart := strconv.Atoi(portRange[0])
+				rangeEnd, errEnd := strconv.Atoi(portRange[1])
+				if (errStart == nil && errEnd == nil) {
+					//It is indeed a range, since both values are integers
+					currentPort, errCurrentPort := strconv.Atoi(port);
+					if errCurrentPort == nil && currentPort <= rangeEnd && currentPort >= rangeStart {
+						metadata[portkey[1]] = kvp[1]
+						metadataFromPort[portkey[1]] = true
+					}
+					continue
+				}
+			}
+			
 			_, err := strconv.Atoi(portkey[0])
 			if err == nil && len(portkey) > 1 {
 				if portkey[0] != port {
