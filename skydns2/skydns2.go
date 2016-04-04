@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"bytes"
 
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
@@ -45,7 +46,14 @@ func (r *Skydns2Adapter) Ping() error {
 
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
-	record := `{"host":"` + service.IP + `","port":` + port + `}`
+	record := `{"host":"` + service.IP + `","port":` + port
+	if len(service.Tags) > 0 {
+		record = record + `","tags":` + tagsToQuotedStringArray(service)
+	}
+	if len(service.Attrs) > 0 {
+		record = record + `,"attrs":` + attrsToJson(service)
+	}
+	record = record + `"}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
@@ -79,4 +87,35 @@ func domainPath(domain string) string {
 		components[i], components[j] = components[j], components[i]
 	}
 	return "/skydns/" + strings.Join(components, "/")
+}
+
+func Map(vs []string, f func(string) string) []string {
+	vsm := make([]string, len(vs))
+	for i, v := range vs {
+		vsm[i] = f(v)
+	}
+	return vsm
+}
+
+func attrsToJson(service *bridge.Service) string {
+	// Using buffer for concatenation is probably overkill
+	// ..but just to be on the sure side
+	var buffer bytes.Buffer
+	buffer.WriteString(`{`)
+	for key, value := range service.Attrs {
+		buffer.WriteString(quoteString(key))
+		buffer.WriteString(`:`)
+		buffer.WriteString(quoteString(value))
+		buffer.WriteString(`,`)
+	}
+	json := buffer.String()
+	return strings.TrimSuffix(json, `,`) + `}`
+}
+
+func tagsToQuotedStringArray(service *bridge.Service) string {
+	return `[`+ strings.Join(Map(service.Tags, quoteString), `,`) + `]`
+}
+
+func quoteString(input string) string {
+	return `"` + input + `"`
 }
