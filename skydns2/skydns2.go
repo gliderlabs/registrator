@@ -46,9 +46,9 @@ func (r *Skydns2Adapter) Ping() error {
 
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
-	record := `{"host":"` + service.IP + `","port":"` + port + `"`
+	record := `{"host":` + quoteString(service.IP) + `,"port":` + port
 	if len(service.Tags) > 0 {
-		record = record + `","tags":` + tagsToQuotedStringArray(service)
+		record = record + `,"tags":` + tagsToQuotedStringArray(service)
 	}
 	if len(service.Attrs) > 0 {
 		record = record + `,"attrs":` + attrsToJson(service)
