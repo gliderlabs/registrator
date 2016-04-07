@@ -33,6 +33,18 @@ SERVICE_80_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
 It works for services on any port, not just 80. If its the only service,
 you can also use `SERVICE_CHECK_HTTP`.
 
+### Consul HTTPS Check
+
+This feature is only available when using Consul 0.5 or newer. Containers
+specifying these extra metedata in labels or environment will be used to
+register an HTTPS health check with the service.
+
+```bash
+SERVICE_443_CHECK_HTTPS=/health/endpoint/path
+SERVICE_443_CHECK_INTERVAL=15s
+SERVICE_443_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
+```
+
 ### Consul TCP Check
 
 This feature is only available when using Consul 0.6 or newer. Containers
