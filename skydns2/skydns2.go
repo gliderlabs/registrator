@@ -101,15 +101,16 @@ func attrsToJson(service *bridge.Service) string {
 	// Using buffer for concatenation is probably overkill
 	// ..but just to be on the sure side
 	var buffer bytes.Buffer
-	buffer.WriteString(`{`)
+	buffer.WriteString(`[`)
 	for key, value := range service.Attrs {
+		buffer.WriteString(`{"key":`)
 		buffer.WriteString(quoteString(key))
-		buffer.WriteString(`:`)
+		buffer.WriteString(`,"value":`)
 		buffer.WriteString(quoteString(value))
-		buffer.WriteString(`,`)
+		buffer.WriteString(`},`)
 	}
 	json := buffer.String()
-	return strings.TrimSuffix(json, `,`) + `}`
+	return strings.TrimSuffix(json, `,`) + `]`
 }
 
 func tagsToQuotedStringArray(service *bridge.Service) string {
