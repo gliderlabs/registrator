@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - Support hostip for overlay network
 - Cleanup dangling services
 - Startup backend service connection retry
+- Support for adding container hostname to service tag
 
 ### Removed
 
