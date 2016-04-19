@@ -3,6 +3,7 @@ site_url: https://gliderlabs.com/registrator
 repo_url: https://github.com/gliderlabs/registrator
 dev_addr: 0.0.0.0:8000
 theme_dir: /pagebuilder/theme
+google_analytics: ['UA-58928488-1', 'auto']
 pages:
   - 'Readme': index.md
   - 'User Guide':

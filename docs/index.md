@@ -4,6 +4,7 @@ Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 
 [![Circle CI](https://circleci.com/gh/gliderlabs/registrator.png?style=shield)](https://circleci.com/gh/gliderlabs/registrator)
 [![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
+[![ImageLayers Size](https://img.shields.io/imagelayers/image-size/gliderlabs/registrator/latest.svg)](https://imagelayers.io/?images=gliderlabs%2Fregistrator:latest)
 [![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
 <br /><br />
 
@@ -18,6 +19,9 @@ supports pluggable service registries, which currently includes
 Get the latest release, master, or any version of Registrator via [Docker Hub](https://registry.hub.docker.com/u/gliderlabs/registrator/):
 
 	$ docker pull gliderlabs/registrator:latest
+
+Latest tag always points to the latest release. There is also a `:master` tag
+and version tags to pin to specific releases.
 
 ## Using Registrator
 
@@ -44,8 +48,7 @@ and [Staging Releases](dev/releases.md).
 
 ## Sponsors and Thanks
 
-Ongoing support of this project is made possible by [Weave](http://weave.works),
-the Docker SDN. Big thanks to Michael Crosby for
+Ongoing support of this project is made possible by [Weave](http://weave.works), the easiest way to connect, observe and control your containers. Big thanks to Michael Crosby for
 [skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list
 for inspiration.
 

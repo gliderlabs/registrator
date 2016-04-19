@@ -13,7 +13,9 @@ import (
 const DefaultInterval = "10s"
 
 func init() {
-	bridge.Register(new(Factory), "consul")
+	f := new(Factory)
+	bridge.Register(f, "consul")
+	bridge.Register(f, "consul-unix")
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
@@ -26,7 +28,9 @@ type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	config := consulapi.DefaultConfig()
-	if uri.Host != "" {
+	if uri.Scheme == "consul-unix" {
+		config.Address = strings.TrimPrefix(uri.String(), "consul-")
+	} else if uri.Host != "" {
 		config.Address = uri.Host
 	}
 	client, err := consulapi.NewClient(config)
@@ -76,10 +80,15 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.Script = r.interpolateService(script, service)
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
+	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
+		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		if timeout := service.Attrs["check_timeout"]; timeout != "" {
+			check.Timeout = timeout
+		}
 	} else {
 		return nil
 	}
-	if check.Script != "" || check.HTTP != "" {
+	if check.Script != "" || check.HTTP != "" || check.TCP != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
 			check.Interval = interval
 		} else {
@@ -95,4 +104,25 @@ func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
 	return nil
+}
+
+func (r *ConsulAdapter) Services() ([]*bridge.Service, error) {
+	services, err := r.client.Agent().Services()
+	if err != nil {
+		return []*bridge.Service{}, err
+	}
+	out := make([]*bridge.Service, len(services))
+	i := 0
+	for _, v := range services {
+		s := &bridge.Service{
+			ID:   v.ID,
+			Name: v.Service,
+			Port: v.Port,
+			Tags: v.Tags,
+			IP:   v.Address,
+		}
+		out[i] = s
+		i++
+	}
+	return out, nil
 }

@@ -10,6 +10,33 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+## [v7] - 2016-03-05
+### Fixed
+- Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other
+- dd3ab2e Fix specific port names not overriding port suffix
+
+### Added
+- bridge.Ping - calls adapter.Ping
+- Consul TCP Health Check
+- Support for Consul unix sockets
+- Basic Zookeper backend
+- Support for Docker multi host networking
+- Default to tcp for PortType if not provided
+- Sync etcd cluster on service registration
+- Support hostip for overlay network
+- Cleanup dangling services
+- Startup backend service connection retry
+
+### Removed
+
+### Changed
+- Upgraded base image to alpine:3.2 and go 1.4
+- bridge.New returns an error instead of calling log.Fatal
+- bridge.New will not attempt to ping an adapter.
+- Specifying a SERVICE_NAME for containers exposing multiple ports will now result in a named service per port. #194
+- Etcd uses port 2379 instead of 4001 #340
+- Setup Docker client from environment
+- Use exit status to determine if container was killed
 
 ## [v6] - 2015-08-07
 ### Fixed
@@ -17,6 +44,7 @@ All notable changes to this project will be documented in this file.
 - Panic from invalid skydns2 URI.
 
 ### Added
+- Basic zookeeper adapter
 - Optional periodic resyncing of services from containers
 - More error logging for registries
 - Support for services on containers with `--net=host`
@@ -54,6 +82,7 @@ All notable changes to this project will be documented in this file.
 - Dropped Godeps for now
 
 
-[unreleased]: https://github.com/gliderlabs/registrator/compare/v6...HEAD
+[unreleased]: https://github.com/gliderlabs/registrator/compare/v7...HEAD
+[v7]: https://github.com/gliderlabs/registrator/compare/v6...v7
 [v6]: https://github.com/gliderlabs/registrator/compare/v5...v6
 [v5]: https://github.com/gliderlabs/registrator/compare/v0.4.0...v5

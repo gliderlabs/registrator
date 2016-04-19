@@ -31,15 +31,17 @@ hostname (`-h $HOSTNAME`) and using the `-ip` Registrator option below.
 
 ## Registrator Options
 
-Option                   | Description
-------                   | -----------
-`-internal`              | Use exposed ports instead of published ports
-`-ip <ip address>`       | Force IP address used for registering services
-`-tags <tags>`           | Force comma-separated tags on all registered services
-`-deregister <mode>`     | Deregister existed services "always" or "on-success". Default: always
-`-ttl <seconds>`         | TTL for services. Default: 0, no expiry (supported backends only)
-`-ttl-refresh <seconds>` | Frequency service TTLs are refreshed (supported backends only)
-`-resync <seconds>`      | Frequency all services are resynchronized. Default: 0, never
+Option                           | Since | Description
+------                           | ----- | -----------
+`-internal`                      |       | Use exposed ports instead of published ports
+`-ip <ip address>`               |       | Force IP address used for registering services
+`-retry-attempts <number>`       | v7    | Max retry attempts to establish a connection with the backend
+`-retry-interval <milliseconds>` | v7    | Interval (in millisecond) between retry-attempts
+`-tags <tags>`                   | v5    | Force comma-separated tags on all registered services
+`-deregister <mode>`             | v6    | Deregister existed services "always" or "on-success". Default: always
+`-ttl <seconds>`                 |       | TTL for services. Default: 0, no expiry (supported backends only)
+`-ttl-refresh <seconds>`         |       | Frequency service TTLs are refreshed (supported backends only)
+`-resync <seconds>`              | v6    | Frequency all services are resynchronized. Default: 0, never
 
 If the `-internal` option is used, Registrator will register the docker0
 internal IP and port instead of the host mapped ones.
@@ -51,6 +53,8 @@ argument.
 
 For registry backends that support TTL expiry, Registrator can both set and
 refresh service TTLs with `-ttl` and `-ttl-refresh`.
+
+If you want unlimited retry-attempts use `-retry-attempts -1`.
 
 The `-resync` options controls how often Registrator will query Docker for all
 containers and reregister all services.  This allows Registrator and the service
