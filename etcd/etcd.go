@@ -3,11 +3,10 @@ package etcd
 import (
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
+	"encoding/json"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
@@ -86,14 +85,17 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	r.syncEtcdCluster()
 
 	path := r.path + "/" + service.Name + "/" + service.ID
-	port := strconv.Itoa(service.Port)
-	addr := net.JoinHostPort(service.IP, port)
 
 	var err error
+	js, err := json.Marshal(service)
+	if err != nil {
+		log.Println("etcd: failed to marshal service as json:", err)
+	}
+
 	if r.client != nil {
-		_, err = r.client.Set(path, addr, uint64(service.TTL))
+		_, err = r.client.Set(path, string(js), uint64(service.TTL))
 	} else {
-		_, err = r.client2.Set(path, addr, uint64(service.TTL))
+		_, err = r.client2.Set(path, string(js), uint64(service.TTL))
 	}
 
 	if err != nil {

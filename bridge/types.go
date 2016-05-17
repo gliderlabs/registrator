@@ -30,15 +30,15 @@ type Config struct {
 }
 
 type Service struct {
-	ID    string
-	Name  string
-	Port  int
-	IP    string
-	Tags  []string
-	Attrs map[string]string
-	TTL   int
+	ID    string		`json:"-"`
+	Name  string		`json:"-"`
+	Port  int		`json:"port"`
+	IP    string		`json:"ip"`
+	Tags  []string		`json:"tags"`
+	Attrs map[string]string	`json:"attrs"`
+	TTL   int		`json:"-"`
 
-	Origin ServicePort
+	Origin ServicePort 	`json:"-"`
 }
 
 type DeadContainer struct {
