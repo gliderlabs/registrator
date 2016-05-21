@@ -13,9 +13,9 @@ type AdapterFactory interface {
 
 type RegistryAdapter interface {
 	Ping() error
-	Register(service *Service) error
+	Register(service *Service, services []*Service) error
 	Deregister(service *Service) error
-	Refresh(service *Service) error
+	Refresh(service *Service, services []*Service) error
 	Services() ([]*Service, error)
 }
 

@@ -43,7 +43,7 @@ func (r *Skydns2Adapter) Ping() error {
 	return nil
 }
 
-func (r *Skydns2Adapter) Register(service *bridge.Service) error {
+func (r *Skydns2Adapter) Register(service *bridge.Service, services []*bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
@@ -61,8 +61,8 @@ func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *Skydns2Adapter) Refresh(service *bridge.Service) error {
-	return r.Register(service)
+func (r *Skydns2Adapter) Refresh(service *bridge.Service, services []*bridge.Service) error {
+	return r.Register(service, services)
 }
 
 func (r *Skydns2Adapter) Services() ([]*bridge.Service, error) {

@@ -77,7 +77,7 @@ func (b *Bridge) Refresh() {
 
 	for containerId, services := range b.services {
 		for _, service := range services {
-			err := b.registry.Refresh(service)
+			err := b.registry.Refresh(service, services)
 			if err != nil {
 				log.Println("refresh failed:", service.ID, err)
 				continue
@@ -108,7 +108,7 @@ func (b *Bridge) Sync(quiet bool) {
 			b.add(listing.ID, quiet)
 		} else {
 			for _, service := range services {
-				err := b.registry.Register(service)
+				err := b.registry.Register(service, services)
 				if err != nil {
 					log.Println("sync register failed:", service, err)
 				}
@@ -176,22 +176,24 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	ports := make(map[string]ServicePort)
+	ports := make([]ServicePort, 0)
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, published := range container.HostConfig.PortBindings {
-		ports[string(port)] = servicePort(container, port, published)
+		ports = append(ports, servicePort(container, port, published))
 	}
 
 	// Extract runtime port mappings, relevant when using --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = servicePort(container, port, published)
+		ports = append(ports, servicePort(container, port, published))
 	}
 
 	if len(ports) == 0 && !quiet {
 		log.Println("ignored:", container.ID[:12], "no published ports")
 		return
 	}
+
+	services := make([]*Service, 0)
 
 	for _, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
@@ -207,7 +209,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			}
 			continue
 		}
-		err := b.registry.Register(service)
+
+		services = append(services, service)
+	}
+
+	for _, service := range services {
+		err := b.registry.Register(service, services)
 		if err != nil {
 			log.Println("register failed:", service, err)
 			continue

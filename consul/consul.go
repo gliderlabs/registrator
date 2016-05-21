@@ -18,10 +18,19 @@ func init() {
 	bridge.Register(f, "consul-unix")
 }
 
-func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
-	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
-	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
-	return withPort
+func (r *ConsulAdapter) interpolateService(check string, service *bridge.Service, services []*bridge.Service) string {
+	result := check
+
+	result = strings.Replace(result, "$SERVICE_IP", service.Origin.HostIP, -1)
+	result = strings.Replace(result, "$SERVICE_PORT", service.Origin.HostPort, -1)
+
+	for _, s := range services {
+		ip := fmt.Sprintf("$SERVICE_%s_IP", s.Origin.ExposedPort)
+		result = strings.Replace(result, ip, s.Origin.HostIP, -1)
+		port := fmt.Sprintf("$SERVICE_%s_PORT", s.Origin.ExposedPort)
+		result = strings.Replace(result, port, s.Origin.HostPort, -1)
+	}
+	return result
 }
 
 type Factory struct{}
@@ -56,28 +65,32 @@ func (r *ConsulAdapter) Ping() error {
 	return nil
 }
 
-func (r *ConsulAdapter) Register(service *bridge.Service) error {
+func (r *ConsulAdapter) Register(service *bridge.Service, services []*bridge.Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
 	registration.Port = service.Port
 	registration.Tags = service.Tags
 	registration.Address = service.IP
-	registration.Check = r.buildCheck(service)
+	registration.Check = r.buildCheck(service, services)
 	return r.client.Agent().ServiceRegister(registration)
 }
 
-func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
+func (r *ConsulAdapter) buildCheck(service *bridge.Service, services []*bridge.Service) *consulapi.AgentServiceCheck {
 	check := new(consulapi.AgentServiceCheck)
-	if path := service.Attrs["check_http"]; path != "" {
-		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
+	if url := service.Attrs["check_http"]; url != "" {
+		if strings.HasPrefix(url, "/") {
+			check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, url)
+		} else {
+			check.HTTP = r.interpolateService(url, service, services)
+		}
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
 		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
-		check.Script = r.interpolateService(script, service)
+		check.Script = r.interpolateService(script, service, services)
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
@@ -102,7 +115,7 @@ func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 
-func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
+func (r *ConsulAdapter) Refresh(service *bridge.Service, services []*bridge.Service) error {
 	return nil
 }
 
