@@ -81,10 +81,18 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
-		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		check.TCP = fmt.Sprintf("%s:%s", service.Origin.ExposedIP, service.Origin.ExposedPort)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
+	} else if dockerCheckScript := service.Attrs["docker_check_script"]; dockerCheckScript != "" {
+		check.Script = r.interpolateService(dockerCheckScript, service)
+		if shell := service.Attrs["check_shell"]; shell != "" {
+			check.Shell = shell
+		} else {
+			check.Shell = "/bin/sh"
+		}
+		check.DockerContainerID = service.Origin.ContainerID[:12]
 	} else {
 		return nil
 	}
