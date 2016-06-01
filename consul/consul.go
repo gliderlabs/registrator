@@ -19,9 +19,11 @@ func init() {
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
-	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
-	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
-	return withPort
+	str := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
+	str = strings.Replace(str, "$SERVICE_PORT", service.Origin.HostPort, -1)
+	str = strings.Replace(str, "$SERVICE_EXPOSED_IP", service.Origin.ExposedIP, -1)
+	str = strings.Replace(str, "$SERVICE_EXPOSED_PORT", service.Origin.ExposedPort, -1)
+	return str
 }
 
 type Factory struct{}
@@ -81,7 +83,7 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
-		check.TCP = fmt.Sprintf("%s:%s", service.Origin.ExposedIP, service.Origin.ExposedPort)
+		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
