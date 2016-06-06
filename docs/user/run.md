@@ -34,6 +34,7 @@ hostname (`-h $HOSTNAME`) and using the `-ip` Registrator option below.
 Option                           | Since | Description
 ------                           | ----- | -----------
 `-internal`                      |       | Use exposed ports instead of published ports
+`appendInternalPort`             |       | Append internal service port in services with only one port exposed
 `-ip <ip address>`               |       | Force IP address used for registering services
 `-retry-attempts <number>`       | v7    | Max retry attempts to establish a connection with the backend
 `-retry-interval <milliseconds>` | v7    | Interval (in millisecond) between retry-attempts
