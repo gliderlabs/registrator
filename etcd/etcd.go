@@ -25,7 +25,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	} else {
-		urls = append(urls, "http://127.0.0.1:4001")
+		urls = append(urls, "http://127.0.0.1:2379")
 	}
 
 	res, err := http.Get(urls[0] + "/version")
@@ -52,15 +52,39 @@ type EtcdAdapter struct {
 }
 
 func (r *EtcdAdapter) Ping() error {
-	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := r.client.SendRequest(rr)
+	r.syncEtcdCluster()
+
+	var err error
+	if r.client != nil {
+		rr := etcd.NewRawRequest("GET", "version", nil, nil)
+		_, err = r.client.SendRequest(rr)
+	} else {
+		rr := etcd2.NewRawRequest("GET", "version", nil, nil)
+		_, err = r.client2.SendRequest(rr)
+	}
+
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func (r *EtcdAdapter) syncEtcdCluster() {
+	var result bool
+	if r.client != nil {
+		result = r.client.SyncCluster()
+	} else {
+		result = r.client2.SyncCluster()
+	}
+
+	if !result {
+		log.Println("etcd: sync cluster was unsuccessful")
+	}
+}
+
 func (r *EtcdAdapter) Register(service *bridge.Service) error {
+	r.syncEtcdCluster()
+
 	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
@@ -79,6 +103,8 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 }
 
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
+	r.syncEtcdCluster()
+
 	path := r.path + "/" + service.Name + "/" + service.ID
 
 	var err error
@@ -96,4 +122,8 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 
 func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
+}
+
+func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
+	return []*bridge.Service{}, nil
 }

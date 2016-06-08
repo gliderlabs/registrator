@@ -1,17 +1,21 @@
 package bridge
 
 import (
+	"errors"
 	"log"
 	"net"
 	"net/url"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
+
+var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
 
 type Bridge struct {
 	sync.Mutex
@@ -22,28 +26,28 @@ type Bridge struct {
 	config         Config
 }
 
-func New(docker *dockerapi.Client, adapterUri string, config Config) *Bridge {
+func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
 	uri, err := url.Parse(adapterUri)
 	if err != nil {
-		log.Fatal("Bad adapter URI:", adapterUri)
+		return nil, errors.New("bad adapter uri: " + adapterUri)
 	}
 	factory, found := AdapterFactories.Lookup(uri.Scheme)
 	if !found {
-		log.Fatal("Unrecognized adapter:", adapterUri)
+		return nil, errors.New("unrecognized adapter: " + adapterUri)
 	}
-	adapter := factory.New(uri)
-	err = adapter.Ping()
-	if err != nil {
-		log.Fatalf("%s: %s", uri.Scheme, err)
-	}
+
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
 		docker:         docker,
 		config:         config,
-		registry:       adapter,
+		registry:       factory.New(uri),
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
-	}
+	}, nil
+}
+
+func (b *Bridge) Ping() error {
+	return b.registry.Ping()
 }
 
 func (b *Bridge) Add(containerId string) {
@@ -57,7 +61,7 @@ func (b *Bridge) Remove(containerId string) {
 }
 
 func (b *Bridge) RemoveOnExit(containerId string) {
-	b.remove(containerId, b.config.DeregisterCheck == "always" || b.didExitCleanly(containerId))
+	b.remove(containerId, b.shouldRemove(containerId))
 }
 
 func (b *Bridge) Refresh() {
@@ -97,8 +101,7 @@ func (b *Bridge) Sync(quiet bool) {
 
 	log.Printf("Syncing services on %d containers", len(containers))
 
-	// NOTE: This assumes reregistering will do the right thing, i.e. nothing.
-	// NOTE: This will NOT remove services.
+	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
@@ -110,6 +113,47 @@ func (b *Bridge) Sync(quiet bool) {
 					log.Println("sync register failed:", service, err)
 				}
 			}
+		}
+	}
+
+	// Clean up services that were registered previously, but aren't
+	// acknowledged within registrator
+	if b.config.Cleanup {
+		log.Println("Cleaning up dangling services")
+
+		extServices, err := b.registry.Services()
+		if err != nil {
+			log.Println("cleanup failed:", err)
+			return
+		}
+
+	Outer:
+		for _, extService := range extServices {
+			matches := serviceIDPattern.FindStringSubmatch(extService.ID)
+			if len(matches) != 3 {
+				// There's no way this was registered by us, so leave it
+				continue
+			}
+			serviceHostname := matches[1]
+			if serviceHostname != Hostname {
+				// ignore because registered on a different host
+				continue
+			}
+			serviceContainerName := matches[2]
+			for _, listing := range b.services {
+				for _, service := range listing {
+					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
+						continue Outer
+					}
+				}
+			}
+			log.Println("dangling:", extService.ID)
+			err := b.registry.Deregister(extService)
+			if err != nil {
+				log.Println("deregister failed:", extService.ID, err)
+				continue
+			}
+			log.Println(extService.ID, "removed")
 		}
 	}
 }
@@ -176,20 +220,16 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	if isgroup {
-		defaultName = defaultName + "-" + port.ExposedPort
-	}
 
 	// not sure about this logic. kind of want to remove it.
-	hostname, err := os.Hostname()
-	if err != nil {
+	hostname := Hostname
+	if hostname == "" {
 		hostname = port.HostIP
-	} else {
-		if port.HostIP == "0.0.0.0" {
-			ip, err := net.ResolveIPAddr("ip", hostname)
-			if err == nil {
-				port.HostIP = ip.String()
-			}
+	}
+	if port.HostIP == "0.0.0.0" {
+		ip, err := net.ResolveIPAddr("ip", hostname)
+		if err == nil {
+			port.HostIP = ip.String()
 		}
 	}
 
@@ -197,7 +237,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		port.HostIP = b.config.HostIp
 	}
 
-	metadata := serviceMetaData(container.Config.Env, port.ExposedPort)
+	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
 
 	if b.config.IgnoreSilent == true && len(metadata) == 0 {
 		return nil
@@ -212,6 +252,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
+	if isgroup && !metadataFromPort["name"] {
+		service.Name += "-" + port.ExposedPort
+	}
 	var p int
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
@@ -272,7 +315,13 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 	delete(b.services, containerId)
 }
 
-func (b *Bridge) didExitCleanly(containerId string) bool {
+// bit set on ExitCode if it represents an exit via a signal
+var dockerSignaledBit = 128
+
+func (b *Bridge) shouldRemove(containerId string) bool {
+	if b.config.DeregisterCheck == "always" {
+		return true
+	}
 	container, err := b.docker.InspectContainer(containerId)
 	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
 		// the container has already been removed from Docker
@@ -280,9 +329,27 @@ func (b *Bridge) didExitCleanly(containerId string) bool {
 		// so its exit code is not accessible
 		log.Printf("registrator: container %v was removed, could not fetch exit code", containerId[:12])
 		return true
-	} else if err != nil {
+	}
+
+	switch {
+	case err != nil:
 		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", containerId[:12], err)
 		return false
+	case container.State.Running:
+		log.Printf("registrator: not removing container %v, still running", containerId[:12])
+		return false
+	case container.State.ExitCode == 0:
+		return true
+	case container.State.ExitCode&dockerSignaledBit == dockerSignaledBit:
+		return true
 	}
-	return !container.State.Running && container.State.ExitCode == 0
+	return false
+}
+
+var Hostname string
+
+func init() {
+	// It's ok for Hostname to ultimately be an empty string
+	// An empty string will fall back to trying to make a best guess
+	Hostname, _ = os.Hostname()
 }
