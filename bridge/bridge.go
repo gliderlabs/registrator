@@ -263,11 +263,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp", hostname)
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp", hostname + "-" + container.Config.Hostname)
 		service.ID = service.ID + ":udp"
 	} else {
 		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, hostname)
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, hostname + "-" + container.Config.Hostname)
 	}
 
 	id := mapDefault(metadata, "id", "")
