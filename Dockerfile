@@ -1,9 +1,9 @@
 FROM gliderlabs/alpine:3.2
 ENTRYPOINT ["/bin/registrator"]
 
-COPY . /go/src/github.com/vadzappa/registrator
+COPY . /go/src/github.com/pipedrive/registrator
 RUN apk-install -t build-deps go git mercurial \
-	&& cd /go/src/github.com/vadzappa/registrator \
+	&& cd /go/src/github.com/pipedrive/registrator \
 	&& export GOPATH=/go \
 	&& go get \
 	&& go build -ldflags "-X main.Version $(cat VERSION)" -o /bin/registrator \
