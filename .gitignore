@@ -1,2 +1,4 @@
 release
 build
+.idea
+run_registrator.sh
