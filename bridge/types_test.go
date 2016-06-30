@@ -23,3 +23,6 @@ func (f *fakeAdapter) Deregister(service *Service) error {
 func (f *fakeAdapter) Refresh(service *Service) error {
 	return nil
 }
+func (f *fakeAdapter) Services() ([]*Service, error) {
+	return nil, nil
+}
