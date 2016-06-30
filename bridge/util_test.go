@@ -1,51 +1,51 @@
 package bridge
 
 import (
-	"testing"
 	"sort"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEscapedComma(t *testing.T) {
 	cases := []struct {
-		Tag	 string
+		Tag      string
 		Expected []string
 	}{
 		{
-			Tag: "",
+			Tag:      "",
 			Expected: []string{},
 		},
 		{
-			Tag: "foobar",
+			Tag:      "foobar",
 			Expected: []string{"foobar"},
 		},
 		{
-			Tag: "foo,bar",
+			Tag:      "foo,bar",
 			Expected: []string{"foo", "bar"},
 		},
 		{
-			Tag: "foo\\,bar",
+			Tag:      "foo\\,bar",
 			Expected: []string{"foo,bar"},
 		},
 		{
-			Tag: "foo,bar\\,baz",
+			Tag:      "foo,bar\\,baz",
 			Expected: []string{"foo", "bar,baz"},
 		},
 		{
-			Tag: "\\,foobar\\,",
+			Tag:      "\\,foobar\\,",
 			Expected: []string{",foobar,"},
 		},
 		{
-			Tag: ",,,,foo,,,bar,,,",
+			Tag:      ",,,,foo,,,bar,,,",
 			Expected: []string{"foo", "bar"},
 		},
 		{
-			Tag: ",,,,",
+			Tag:      ",,,,",
 			Expected: []string{},
 		},
 		{
-			Tag: ",,\\,,",
+			Tag:      ",,\\,,",
 			Expected: []string{","},
 		},
 	}
