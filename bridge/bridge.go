@@ -193,17 +193,17 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	exposedPorts := 0
+	publishedPorts := 0
 	for _, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			} else {
-				exposedPorts += 1
+				publishedPorts += 1
 			}
 			continue
 		}
-		service := b.newService(port, exposedPorts > 1)
+		service := b.newService(port, publishedPorts > 1)
 		if service == nil {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
