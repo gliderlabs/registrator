@@ -96,13 +96,13 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
-  // Buffer for not ready containers
-  containersStarted := make(chan string, 1000)
+	// Buffer for not ready containers
+	containersStarted := make(chan string, 1000)
 
 	b, err := bridge.New(docker, flag.Arg(0), containersStarted, bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
-    TopLevelIP       *topLevelIP,
+		TopLevelIP:      *topLevelIP,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
@@ -174,15 +174,15 @@ func main() {
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-      containersStarted <- msg.ID
+			containersStarted <- msg.ID
 		case "die":
 			go b.RemoveOnExit(msg.ID)
 		}
 	}
 
-  for container := range containersStarted {
-    go b.Add(container)
-  }
+	for container := range containersStarted {
+		go b.Add(container)
+	}
 
 
 

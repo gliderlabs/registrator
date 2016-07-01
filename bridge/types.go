@@ -23,6 +23,7 @@ type Config struct {
 	HostIp          string
 	Internal        bool
 	ForceTags       string
+	TopLevelIP      bool
 	RefreshTtl      int
 	RefreshInterval int
 	DeregisterCheck string

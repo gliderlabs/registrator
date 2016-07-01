@@ -24,6 +24,7 @@ type Bridge struct {
 	services       map[string][]*Service
 	deadContainers map[string]*DeadContainer
 	config         Config
+	containers     chan string
 }
 
 func New(docker *dockerapi.Client, adapterUri string, containers chan string, config Config) (*Bridge, error) {
@@ -43,7 +44,7 @@ func New(docker *dockerapi.Client, adapterUri string, containers chan string, co
 		registry:       factory.New(uri),
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
-    containers:     containers,
+		containers:     containers,
 	}, nil
 }
 
@@ -51,7 +52,7 @@ func (b *Bridge) Ping() error {
 	return b.registry.Ping()
 }
 
-func (b *Bridge) Add(containerId string, list chan string) {
+func (b *Bridge) Add(containerId string) {
 	b.Lock()
 	defer b.Unlock()
 	b.add(containerId, false)
@@ -179,11 +180,11 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	ports := make(map[string]ServicePort)
 
-  if ports["ExposedIP"] == "" {
-    b.containers <- containerId
-    log.Println("not ready container:", containerId[:12], ". will retry")
-    return
-  }
+	if b.config.TopLevelIP == true && container.NetworkSettings.IPAddress == "" {
+		b.containers <- containerId
+		log.Println("not ready container:", containerId[:12], ". will retry")
+		return
+	}
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, published := range container.HostConfig.PortBindings {

@@ -89,11 +89,9 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	// Nir: support docker NetworkSettings
 	eip = container.NetworkSettings.IPAddress
 	if eip == "" {
-    if b.config.TopLevelIP != true {
-			for _, network := range container.NetworkSettings.Networks {
-				eip = network.IPAddress
-			}
-    }
+		for _, network := range container.NetworkSettings.Networks {
+			eip = network.IPAddress
+		}
 	}
 
 	return ServicePort{
