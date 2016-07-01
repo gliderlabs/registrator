@@ -184,8 +184,6 @@ func main() {
 		go b.Add(container)
 	}
 
-
-
 	close(quit)
 	log.Fatal("Docker event loop closed") // todo: reconnect?
 }
