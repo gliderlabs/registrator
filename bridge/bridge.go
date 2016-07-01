@@ -56,7 +56,7 @@ func (b *Bridge) Ping() error {
 }
 
 func (b *Bridge) Add(containerId string) {
-	if b.checkFullyStarted(containerId) == true {
+	if b.checkFullyStarted(containerId) {
 		b.Lock()
 		defer b.Unlock()
 		b.add(containerId, false)
@@ -112,7 +112,9 @@ func (b *Bridge) Sync(quiet bool) {
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
-			b.add(listing.ID, quiet)
+			if b.checkFullyStarted(listing.ID) {
+				b.add(listing.ID, quiet)
+			}
 		} else {
 			for _, service := range services {
 				err := b.registry.Register(service)
@@ -360,20 +362,18 @@ func (b *Bridge) checkFullyStarted(containerId string) bool {
 
 	if err != nil {
 		log.Println("unable to inspect container:", containerId[:12], err)
-		time.Sleep(100)
+		time.Sleep(100 * time.Millisecond)
 		return false
 	}
 
 	if b.config.TopLevelIP == true && container.NetworkSettings.IPAddress == "" && hasOverlayNetwork(container) == true {
+		time.Sleep(100 * time.Millisecond)
 		b.containers <- containerId
-		log.Println("not ready container:", containerId[:12], ". will retry")
-		time.Sleep(100)
+		log.Println("not ready container:", containerId[:12], "will retry")
 		return false
 	}
+	log.Println("detected container:", containerId[:12], "with ip:", container.NetworkSettings.IPAddress)
 	b.containersParams[container.ID] = container
-	// TBD:
-	log.Println("ID from chan:", containerId)
-	log.Println("ID from docker:", container.ID)
 	return true
 }
 

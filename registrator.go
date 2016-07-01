@@ -174,6 +174,12 @@ func main() {
 		}()
 	}
 
+  go func() {
+    for container := range containersStarted {
+      go b.Add(container)
+    }
+  }()
+
 	// Process Docker events
 	for msg := range events {
 		switch msg.Status {
@@ -182,10 +188,6 @@ func main() {
 		case "die":
 			go b.RemoveOnExit(msg.ID)
 		}
-	}
-
-	for container := range containersStarted {
-		go b.Add(container)
 	}
 
 	close(quit)
