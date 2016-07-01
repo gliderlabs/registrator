@@ -97,7 +97,7 @@ func main() {
 	}
 
 	// Buffer for not ready containers
-	containersStarted := make(chan string, 1000)
+	containersStarted := make(chan string, 10)
 
 	b, err := bridge.New(docker, flag.Arg(0), containersStarted, bridge.Config{
 		HostIp:          *hostIp,

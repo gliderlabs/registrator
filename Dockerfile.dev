@@ -4,6 +4,6 @@ CMD ["/bin/registrator"]
 ENV GOPATH /go
 RUN apk-install go git mercurial
 COPY . /go/src/github.com/gliderlabs/registrator
-RUN cd /go/src/github.com/gliderlabs/registrator \
-	&& go get \
-	&& go build -ldflags "-X main.Version dev" -o /bin/registrator
+WORKDIR /go/src/github.com/gliderlabs/registrator
+RUN go get
+RUN go build -ldflags "-X main.Version dev" -o /bin/registrator
