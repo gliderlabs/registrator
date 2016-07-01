@@ -108,5 +108,5 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 func hasOverlayNetwork(container *dockerapi.Container) bool {
 	// Check that network is really 'overlay'
 	nm := container.HostConfig.NetworkMode
-	return (nm != "bridge" && nm != "default" && nm != "host")
+	return (nm != "bridge" && nm != "default" && nm != "host") && container.NetworkSettings.Networks != nil
 }
