@@ -290,6 +290,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		service.ID = id
 	}
 
+  log.Println("detected container:", container.Name[1:], container.ID[:12], "with ip:", service.IP)
+
 	delete(metadata, "id")
 	delete(metadata, "tags")
 	delete(metadata, "name")
@@ -359,6 +361,7 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 
 func (b *Bridge) checkFullyStarted(containerId string) bool {
 	container, err := b.docker.InspectContainer(containerId)
+  status := true
 
 	if err != nil {
 		log.Println("unable to inspect container:", containerId[:12], err)
@@ -372,9 +375,25 @@ func (b *Bridge) checkFullyStarted(containerId string) bool {
 		log.Println("not ready container:", containerId[:12], "will retry")
 		return false
 	}
-	log.Println("detected container:", containerId[:12], "with ip:", container.NetworkSettings.IPAddress)
+
+  var networkType string
+  if b.config.NetworkType == "" && hasOverlayNetwork(container) {
+    networkType = container.HostConfig.NetworkMode
+  } else if b.config.NetworkType != "" {
+    networkType = b.config.NetworkType
+  }
+
+  if networkType != "" {
+    for name, _ := range container.NetworkSettings.Networks {
+      if b.config.NetworkType == name {
+        status = true
+        break
+      }
+    }
+  }
+
 	b.containersParams[container.ID] = container
-	return true
+	return status
 }
 
 var Hostname string

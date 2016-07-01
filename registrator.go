@@ -20,6 +20,7 @@ var versionChecker = usage.NewChecker("registrator", Version)
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
+var networkType = flag.String("net", "", "Check that container started with the network type provided")
 var topLevelIP = flag.Bool("top-level-ip", false, "Use IP address on the top level of container json insted of looking for any inside. Suitable for backend does not support refresh. Slow start")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
