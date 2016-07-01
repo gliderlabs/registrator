@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-  "time"
+	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -23,7 +23,7 @@ type Bridge struct {
 	registry         RegistryAdapter
 	docker           *dockerapi.Client
 	services         map[string][]*Service
-  containersParams map[string]*dockerapi.Container
+	containersParams map[string]*dockerapi.Container
 	deadContainers   map[string]*DeadContainer
 	config           Config
 	containers       chan string
@@ -45,7 +45,7 @@ func New(docker *dockerapi.Client, adapterUri string, containers chan string, co
 		config:           config,
 		registry:         factory.New(uri),
 		services:         make(map[string][]*Service),
-    containersParams: make(map[string]*dockerapi.Container),
+		containersParams: make(map[string]*dockerapi.Container),
 		deadContainers:   make(map[string]*DeadContainer),
 		containers:       containers,
 	}, nil
@@ -56,11 +56,11 @@ func (b *Bridge) Ping() error {
 }
 
 func (b *Bridge) Add(containerId string) {
-  if b.checkFullyStarted(containerId) == true {
-    b.Lock()
-	  defer b.Unlock()
-	  b.add(containerId, false)
-  }
+	if b.checkFullyStarted(containerId) == true {
+		b.Lock()
+		defer b.Unlock()
+		b.add(containerId, false)
+	}
 }
 
 func (b *Bridge) Remove(containerId string) {
@@ -177,16 +177,16 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-  // Try to fill from map
-  container := b.containersParams[containerId]
-  if container == nil {
-    item, err := b.docker.InspectContainer(containerId)
-    if err != nil {
-      log.Println("unable to inspect container:", containerId[:12], err)
-      return
-    }
-    container = item
-  }
+	// Try to fill from map
+	container := b.containersParams[containerId]
+	if container == nil {
+		item, err := b.docker.InspectContainer(containerId)
+		if err != nil {
+			log.Println("unable to inspect container:", containerId[:12], err)
+			return
+		}
+		container = item
+	}
 
 	ports := make(map[string]ServicePort)
 
@@ -225,7 +225,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			continue
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
-    delete(b.containersParams, containerId)
+		delete(b.containersParams, containerId)
 		log.Println("added:", container.ID[:12], service.ID)
 	}
 }
@@ -356,25 +356,25 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 }
 
 func (b *Bridge) checkFullyStarted(containerId string) bool {
-  container, err := b.docker.InspectContainer(containerId)
+	container, err := b.docker.InspectContainer(containerId)
 
-  if err != nil {
-    log.Println("unable to inspect container:", containerId[:12], err)
-    time.Sleep(100)
-    return false
-  }
+	if err != nil {
+		log.Println("unable to inspect container:", containerId[:12], err)
+		time.Sleep(100)
+		return false
+	}
 
-  if b.config.TopLevelIP == true && container.NetworkSettings.IPAddress == "" {
-    b.containers <- containerId
-    log.Println("not ready container:", containerId[:12], ". will retry")
-    time.Sleep(100)
-    return false
-  }
-  b.containersParams[container.ID] = container
-  // TBD:
-  log.Println("ID from chan:", containerId)
-  log.Println("ID from docker:", container.ID)
-  return true
+	if b.config.TopLevelIP == true && container.NetworkSettings.IPAddress == "" && hasOverlayNetwork(container) == true {
+		b.containers <- containerId
+		log.Println("not ready container:", containerId[:12], ". will retry")
+		time.Sleep(100)
+		return false
+	}
+	b.containersParams[container.ID] = container
+	// TBD:
+	log.Println("ID from chan:", containerId)
+	log.Println("ID from docker:", container.ID)
+	return true
 }
 
 var Hostname string

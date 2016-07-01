@@ -84,6 +84,10 @@ func main() {
 		assert(errors.New("-retry-interval must be greater than 0"))
 	}
 
+	if *topLevelIP == true && *internal != true{
+		assert(errors.New("-top-level-ip should be used with -internal flag"))
+	}
+
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
 		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
