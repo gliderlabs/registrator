@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/url"
 	"strings"
-
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 )
@@ -57,14 +56,15 @@ func (r *ConsulAdapter) Ping() error {
 }
 
 func (r *ConsulAdapter) Register(service *bridge.Service) error {
-	registration := new(consulapi.AgentServiceRegistration)
+        registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
 	registration.Port = service.Port
 	registration.Tags = service.Tags
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
-	return r.client.Agent().ServiceRegister(registration)
+        r.postAttributes(service)
+        return r.client.Agent().ServiceRegister(registration)
 }
 
 func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
@@ -98,8 +98,34 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	return check
 }
 
+func (r *ConsulAdapter) postAttributes(service *bridge.Service) error {
+    for k,v := range service.Attrs {
+        data := new(consulapi.KVPair)
+        data.Key = buildServiceKey(service, k)
+        data.Value = []byte(v)
+        log.Println("Updating Consul KV: ", data.Key, v)
+        _, err := r.client.KV().Put(data, nil)
+        if err != nil{
+            log.Println("Error Updating Attribute: ", err)
+        }
+    }
+    return nil
+}
+
+func buildServiceKey(service *bridge.Service, key string) string {
+    return fmt.Sprintf("service/%s/meta/%s", service.Name, key)
+}
+
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	return r.client.Agent().ServiceDeregister(service.ID)
+        r.removeAttributes(service)
+        return r.client.Agent().ServiceDeregister(service.ID)
+}
+
+func (r *ConsulAdapter) removeAttributes(service *bridge.Service) error {
+    for k,_ := range service.Attrs {
+        r.client.KV().Delete(buildServiceKey(service, k), nil)
+    }
+    return nil
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
