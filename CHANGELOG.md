@@ -10,10 +10,6 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-## [v8] - 2016-07-09
-### Added
-- Attribute support in Consul via KV
-
 ## [v7] - 2016-03-05
 ### Fixed
 - Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other
@@ -87,7 +83,6 @@ All notable changes to this project will be documented in this file.
 
 
 [unreleased]: https://github.com/gliderlabs/registrator/compare/v7...HEAD
-[v8]: https://github.com/gliderlabs/registrator/compare/v7...v8
 [v7]: https://github.com/gliderlabs/registrator/compare/v6...v7
 [v6]: https://github.com/gliderlabs/registrator/compare/v5...v6
 [v5]: https://github.com/gliderlabs/registrator/compare/v0.4.0...v5
