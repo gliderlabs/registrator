@@ -15,8 +15,8 @@ const DefaultInterval = "10s"
 
 func init() {
 	f := new(Factory)
-	bridge.Register(f, "consul-tls")
 	bridge.Register(f, "consul")
+	bridge.Register(f, "consul-tls")
 	bridge.Register(f, "consul-unix")
 }
 
