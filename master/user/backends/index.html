@@ -181,11 +181,16 @@ use for supported backends and documentation specific to their features.</p>
 <h2 id="consul">Consul</h2>
 <pre><code>consul://&lt;address&gt;:&lt;port&gt;
 consul-unix://&lt;filepath&gt;
+consul-tls://&lt;address&gt;:&lt;port&gt;
 </code></pre>
 <p>Consul is the recommended registry since it specifically models services for
 service discovery with health checks.</p>
 <p>If no address and port is specified, it will default to <code>127.0.0.1:8500</code>.</p>
 <p>Consul supports tags but no arbitrary service attributes.</p>
+<p>When using the <code>consul-tls</code> scheme, registrator communicates with Consul through TLS. You must set the following environment variables:
+ * <code>CONSUL_CACERT</code> : CA file location
+ * <code>CONSUL_TLSCERT</code> : Certificate file location
+ * <code>CONSUL_TLSKEY</code> : Key location</p>
 <h3 id="consul-http-check">Consul HTTP Check</h3>
 <p>This feature is only available when using Consul 0.5 or newer. Containers
 specifying these extra metadata in labels or environment will be used to
