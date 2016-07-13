@@ -10,6 +10,7 @@ See also [Contributing Backends](../dev/backends.md).
 
 	consul://<address>:<port>
 	consul-unix://<filepath>
+	consul-tls://<address>:<port>
 
 Consul is the recommended registry since it specifically models services for
 service discovery with health checks.
@@ -17,6 +18,11 @@ service discovery with health checks.
 If no address and port is specified, it will default to `127.0.0.1:8500`.
 
 Consul supports tags but no arbitrary service attributes.
+
+When using the `consul-tls` scheme, registrator communicates with Consul through TLS. You must set the following environment variables:
+ * `CONSUL_CACERT` : CA file location
+ * `CONSUL_TLSCERT` : Certificate file location
+ * `CONSUL_TLSKEY` : Key location
 
 ### Consul HTTP Check
 
