@@ -52,7 +52,7 @@ func (r *ConsulKVAdapter) Ping() error {
 	return nil
 }
 
-func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
+func (r *ConsulKVAdapter) Register(service *bridge.Service, services []*bridge.Service) error {
 	log.Println("Register")
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
@@ -74,7 +74,7 @@ func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *ConsulKVAdapter) Refresh(service *bridge.Service) error {
+func (r *ConsulKVAdapter) Refresh(service *bridge.Service, services []*bridge.Service) error {
 	return nil
 }
 

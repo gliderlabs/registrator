@@ -39,6 +39,13 @@ SERVICE_80_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
 It works for services on any port, not just 80. If its the only service,
 you can also use `SERVICE_CHECK_HTTP`.
 
+Variables such as `$SERVICE_x_PORT` will be interpolated, where `x` is the
+internal exposed port. This is useful for cases where the health endpoint for a
+service is on a separate port.
+
+If just a path is provided it is assumed to be available on the same port as the
+service being monitored.
+
 ### Consul TCP Check
 
 This feature is only available when using Consul 0.6 or newer. Containers

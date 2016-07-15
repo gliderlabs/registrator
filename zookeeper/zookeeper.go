@@ -47,7 +47,7 @@ type ZnodeBody struct {
 	Attrs       map[string]string
 }
 
-func (r *ZkAdapter) Register(service *bridge.Service) error {
+func (r *ZkAdapter) Register(service *bridge.Service, services []*bridge.Service) error {
 	privatePort, _ := strconv.Atoi(service.Origin.ExposedPort)
 	publicPortString := strconv.Itoa(service.Port)
 	acl := zk.WorldACL(zk.PermAll)
@@ -94,7 +94,7 @@ func (r *ZkAdapter) Deregister(service *bridge.Service) error {
 	if (r.path == "/") {
 		basePath = r.path + service.Name
 	}
-	publicPortString := strconv.Itoa(service.Port)	
+	publicPortString := strconv.Itoa(service.Port)
 	servicePortPath := basePath + "/" + service.IP + ":" + publicPortString
 	// Delete the service-port znode
 	err := r.client.Delete(servicePortPath, -1) // -1 means latest version number
@@ -113,8 +113,8 @@ func (r *ZkAdapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *ZkAdapter) Refresh(service *bridge.Service) error {
-	return r.Register(service)
+func (r *ZkAdapter) Refresh(service *bridge.Service, services []*bridge.Service) error {
+	return r.Register(service, services)
 }
 
 func (r *ZkAdapter) Services() ([]*bridge.Service, error) {
