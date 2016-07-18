@@ -1,6 +1,7 @@
 package skydns2
 
 import (
+	"encoding/json"
 	"log"
 	"net/url"
 	"strconv"
@@ -44,16 +45,12 @@ func (r *Skydns2Adapter) Ping() error {
 }
 
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
-	port := strconv.Itoa(service.Port)
-	record := `{"host":"` + service.IP + `","port":` + port
-	if prio, ok := service.Attrs["priority"]; ok {
-		record += `,"priority":` + prio
+	record, err := serviceRecord(service)
+	if err != nil {
+		log.Println("skydns2: failed to marshal service record:", err)
 	}
-	if weight, ok := service.Attrs["weight"]; ok {
-		record += `,"weight":` + weight
-	}
-	record += `}`
-	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+
+	_, err = r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
@@ -86,4 +83,28 @@ func domainPath(domain string) string {
 		components[i], components[j] = components[j], components[i]
 	}
 	return "/skydns/" + strings.Join(components, "/")
+}
+
+func serviceRecord(service *bridge.Service) (string, error) {
+	priority, _ := strconv.Atoi(service.Attrs["priority"])
+	weight, _ := strconv.Atoi(service.Attrs["weight"])
+
+	record := struct {
+		Host     string `json:"host,omitempty"`
+		Port     int    `json:"port,omitempty"`
+		Priority int    `json:"priority,omitempty"`
+		Weight   int    `json:"weight,omitempty"`
+	}{
+		service.IP,
+		service.Port,
+		priority,
+		weight,
+	}
+
+	j, err := json.Marshal(&record)
+	if err != nil {
+		return "", err
+	}
+
+	return string(j), nil
 }
