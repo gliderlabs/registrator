@@ -41,3 +41,31 @@ func TestServiceRecord(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceRecordWithUnparsableInts(t *testing.T) {
+	var tests = []struct {
+		srv      bridge.Service
+		expected string
+	}{
+		{
+			bridge.Service{IP: "127.0.0.1", Port: 80, Attrs: map[string]string{"priority": "xy"}},
+			`{"host":"127.0.0.1","port":80}`,
+		},
+		{
+			bridge.Service{IP: "127.0.0.1", Port: 80, Attrs: map[string]string{"weight": "xy"}},
+			`{"host":"127.0.0.1","port":80}`,
+		},
+	}
+
+	for _, test := range tests {
+		record, err := serviceRecord(&test.srv)
+
+		if err != nil {
+			t.Fatal("Failed to create service record, error:", err)
+		}
+
+		if test.expected != record {
+			t.Fatal("Actual result != expected result")
+		}
+	}
+}
