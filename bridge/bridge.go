@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -19,14 +20,16 @@ var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[
 
 type Bridge struct {
 	sync.Mutex
-	registry       RegistryAdapter
-	docker         *dockerapi.Client
-	services       map[string][]*Service
-	deadContainers map[string]*DeadContainer
-	config         Config
+	registry         RegistryAdapter
+	docker           *dockerapi.Client
+	services         map[string][]*Service
+	containersParams map[string]*dockerapi.Container
+	deadContainers   map[string]*DeadContainer
+	config           Config
+	containers       chan string
 }
 
-func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
+func New(docker *dockerapi.Client, adapterUri string, containers chan string, config Config) (*Bridge, error) {
 	uri, err := url.Parse(adapterUri)
 	if err != nil {
 		return nil, errors.New("bad adapter uri: " + adapterUri)
@@ -38,11 +41,13 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
-		docker:         docker,
-		config:         config,
-		registry:       factory.New(uri),
-		services:       make(map[string][]*Service),
-		deadContainers: make(map[string]*DeadContainer),
+		docker:           docker,
+		config:           config,
+		registry:         factory.New(uri),
+		services:         make(map[string][]*Service),
+		containersParams: make(map[string]*dockerapi.Container),
+		deadContainers:   make(map[string]*DeadContainer),
+		containers:       containers,
 	}, nil
 }
 
@@ -51,9 +56,11 @@ func (b *Bridge) Ping() error {
 }
 
 func (b *Bridge) Add(containerId string) {
-	b.Lock()
-	defer b.Unlock()
-	b.add(containerId, false)
+	if b.checkFullyStarted(containerId) {
+		b.Lock()
+		defer b.Unlock()
+		b.add(containerId, false)
+	}
 }
 
 func (b *Bridge) Remove(containerId string) {
@@ -105,7 +112,9 @@ func (b *Bridge) Sync(quiet bool) {
 	for _, listing := range containers {
 		services := b.services[listing.ID]
 		if services == nil {
-			b.add(listing.ID, quiet)
+			if b.checkFullyStarted(listing.ID) {
+				b.add(listing.ID, quiet)
+			}
 		} else {
 			for _, service := range services {
 				err := b.registry.Register(service)
@@ -170,10 +179,15 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	container, err := b.docker.InspectContainer(containerId)
-	if err != nil {
-		log.Println("unable to inspect container:", containerId[:12], err)
-		return
+	// Try to fill from map
+	container := b.containersParams[containerId]
+	if container == nil {
+		item, err := b.docker.InspectContainer(containerId)
+		if err != nil {
+			log.Println("unable to inspect container:", containerId[:12], err)
+			return
+		}
+		container = item
 	}
 
 	ports := make(map[string]ServicePort)
@@ -213,6 +227,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			continue
 		}
 		b.services[container.ID] = append(b.services[container.ID], service)
+		delete(b.containersParams, containerId)
 		log.Println("added:", container.ID[:12], service.ID)
 	}
 }
@@ -274,6 +289,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	if id != "" {
 		service.ID = id
 	}
+
+  log.Println("detected container:", container.Name[1:], container.ID[:12], "with ip:", service.IP)
 
 	delete(metadata, "id")
 	delete(metadata, "tags")
@@ -340,6 +357,43 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 		return true
 	}
 	return false
+}
+
+func (b *Bridge) checkFullyStarted(containerId string) bool {
+	container, err := b.docker.InspectContainer(containerId)
+  status := true
+
+	if err != nil {
+		log.Println("unable to inspect container:", containerId[:12], err)
+		time.Sleep(100 * time.Millisecond)
+		return false
+	}
+
+	if b.config.TopLevelIP == true && container.NetworkSettings.IPAddress == "" && hasOverlayNetwork(container) == true {
+		time.Sleep(100 * time.Millisecond)
+		b.containers <- containerId
+		log.Println("not ready container:", containerId[:12], "will retry")
+		return false
+	}
+
+  var networkType string
+  if b.config.NetworkType == "" && hasOverlayNetwork(container) {
+    networkType = container.HostConfig.NetworkMode
+  } else if b.config.NetworkType != "" {
+    networkType = b.config.NetworkType
+  }
+
+  if networkType != "" {
+    for name, _ := range container.NetworkSettings.Networks {
+      if b.config.NetworkType == name {
+        status = true
+        break
+      }
+    }
+  }
+
+	b.containersParams[container.ID] = container
+	return status
 }
 
 var Hostname string

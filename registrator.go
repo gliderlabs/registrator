@@ -20,6 +20,8 @@ var versionChecker = usage.NewChecker("registrator", Version)
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
+var networkType = flag.String("net", "", "Check that container started with the network type provided")
+var topLevelIP = flag.Bool("top-level-ip", false, "Use IP address on the top level of container json insted of looking for any inside. Suitable for backend does not support refresh. Slow start")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
@@ -83,6 +85,10 @@ func main() {
 		assert(errors.New("-retry-interval must be greater than 0"))
 	}
 
+	if *topLevelIP == true && *internal != true{
+		assert(errors.New("-top-level-ip should be used with -internal flag"))
+	}
+
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
 		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
@@ -95,9 +101,13 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
-	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
+	// Buffer for not ready containers
+	containersStarted := make(chan string, 10)
+
+	b, err := bridge.New(docker, flag.Arg(0), containersStarted, bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
+		TopLevelIP:      *topLevelIP,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
@@ -165,11 +175,17 @@ func main() {
 		}()
 	}
 
+  go func() {
+    for container := range containersStarted {
+      go b.Add(container)
+    }
+  }()
+
 	// Process Docker events
 	for msg := range events {
 		switch msg.Status {
 		case "start":
-			go b.Add(msg.ID)
+			containersStarted <- msg.ID
 		case "die":
 			go b.RemoveOnExit(msg.ID)
 		}
