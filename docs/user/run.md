@@ -58,7 +58,9 @@ If you want unlimited retry-attempts use `-retry-attempts -1`.
 
 The `-resync` options controls how often Registrator will query Docker for all
 containers and reregister all services.  This allows Registrator and the service
-registry to get back in sync if they fall out of sync.
+registry to get back in sync if they fall out of sync. Use this option with caution
+as it will notify all the watches you may have registered on your services, and 
+may rapidly flood your system (e.g. consul-template makes extensive use of watches). 
 
 ## Registry URI
 
