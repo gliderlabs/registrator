@@ -262,8 +262,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	}
 	service.Port = p
 
-	//TODO: Add config.UseRancherContainerIP to config.... somehow
-	//if b.config.UseRancherContainerIP == true {
+	if b.config.UseRancherContainerIP == true {
 		containerIp := container.Config.Labels["io.rancher.container.ip"]
 		if containerIp != "" {
 			slashIndex := strings.LastIndex(containerIp, "/")
@@ -272,10 +271,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 			} else {
 				service.IP = containerIp
 			}
-			//log.Println("b.config.UseRancherContainerIP=" + b.config.UseRancherContainerIP + ", using Rancher container IP " + service.IP)
 			log.Println("using Rancher container IP " + service.IP);
 		}
-	//}
+	}
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
