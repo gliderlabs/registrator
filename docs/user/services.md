@@ -129,6 +129,26 @@ differentiate from a TCP service that could be listening on the same port.
 Although this can be overridden on containers with `SERVICE_ID` or
 `SERVICE_x_ID`, it is not recommended.
 
+## IPv6 Support
+
+If you have Docker running with IPv6 enabled, and you pass the `-ipv6` flag
+to Registrator, then Registrator will register services with the IPv6
+address of the container.
+
+All the same container override parameters are available to control naming,
+tagging, etc of your services, and they apply by default to both the IPv4
+and IPv6 versions of the service.  If you wish to apply an override to only
+the IPv4 or IPv6 version of the service, you may suffix your environment
+variable or label with `_IPV6` or `_IPV4`, as appropriate, to either the
+port-specific key (`SERVICE_<port>_<key>`) or the global key
+(`SERVICE_<key>`).  The order of precedence, from highest to lowest, is:
+
+1. `SERVICE_<port>_<key>_(IPV4|IPV6)`
+1. `SERVICE_<port>_<key>`
+1. `SERVICE_<key>_(IPV4|IPV6)`
+1. `SERVICE_<key>`
+
+
 ## Examples
 
 ### Single service with defaults
