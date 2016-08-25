@@ -6,6 +6,7 @@ dev:
 	docker build -f Dockerfile.dev -t $(NAME):dev .
 	docker run --rm \
 		-v /var/run/docker.sock:/tmp/docker.sock \
+		--net=host \
 		$(NAME):dev /bin/registrator $(DEV_RUN_OPTS)
 
 build:
