@@ -262,7 +262,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
 
 	ignore := mapDefault(metadata, "ignore", "")
-	if ignore != "" {
+	if ignore != "" || b.config.IgnoredServices[defaultName] {
 		return nil
 	}
 

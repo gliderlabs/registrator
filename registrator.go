@@ -23,6 +23,7 @@ var internal = flag.Bool("internal", false, "Use internal ports instead of publi
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
+var ignored = flag.String("ignore", "", "Comma seperated list of services to ignore")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
@@ -95,10 +96,16 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
+	ignoredServices := make(map[string]bool)
+	for _, service := range strings.Split(*ignored, ",") {
+		ignoredServices[service] = true
+	}
+
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		ForceTags:       *forceTags,
+		IgnoredServices: ignoredServices,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
