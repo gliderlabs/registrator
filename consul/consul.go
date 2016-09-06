@@ -21,9 +21,11 @@ func init() {
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
-	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
-	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
-	return withPort
+	str := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
+	str = strings.Replace(str, "$SERVICE_PORT", service.Origin.HostPort, -1)
+	str = strings.Replace(str, "$SERVICE_EXPOSED_IP", service.Origin.ExposedIP, -1)
+	str = strings.Replace(str, "$SERVICE_EXPOSED_PORT", service.Origin.ExposedPort, -1)
+	return str
 }
 
 type Factory struct{}
@@ -109,6 +111,14 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
+	} else if dockerCheckScript := service.Attrs["docker_check_script"]; dockerCheckScript != "" {
+		check.Script = r.interpolateService(dockerCheckScript, service)
+		if shell := service.Attrs["check_shell"]; shell != "" {
+			check.Shell = shell
+		} else {
+			check.Shell = "/bin/sh"
+		}
+		check.DockerContainerID = service.Origin.ContainerID[:12]
 	} else {
 		return nil
 	}
