@@ -223,6 +223,16 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 </thead>
 <tbody>
 <tr>
+<td><code>-cleanup</code></td>
+<td>v7</td>
+<td>Cleanup dangling services</td>
+</tr>
+<tr>
+<td><code>-deregister &lt;mode&gt;</code></td>
+<td>v6</td>
+<td>Deregister existed services "always" or "on-success". Default: always</td>
+</tr>
+<tr>
 <td><code>-internal</code></td>
 <td></td>
 <td>Use exposed ports instead of published ports</td>
@@ -231,6 +241,11 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 <td><code>-ip &lt;ip address&gt;</code></td>
 <td></td>
 <td>Force IP address used for registering services</td>
+</tr>
+<tr>
+<td><code>-resync &lt;seconds&gt;</code></td>
+<td>v6</td>
+<td>Frequency all services are resynchronized. Default: 0, never</td>
 </tr>
 <tr>
 <td><code>-retry-attempts &lt;number&gt;</code></td>
@@ -248,11 +263,6 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 <td>Force comma-separated tags on all registered services</td>
 </tr>
 <tr>
-<td><code>-deregister &lt;mode&gt;</code></td>
-<td>v6</td>
-<td>Deregister existed services "always" or "on-success". Default: always</td>
-</tr>
-<tr>
 <td><code>-ttl &lt;seconds&gt;</code></td>
 <td></td>
 <td>TTL for services. Default: 0, no expiry (supported backends only)</td>
@@ -261,11 +271,6 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 <td><code>-ttl-refresh &lt;seconds&gt;</code></td>
 <td></td>
 <td>Frequency service TTLs are refreshed (supported backends only)</td>
-</tr>
-<tr>
-<td><code>-resync &lt;seconds&gt;</code></td>
-<td>v6</td>
-<td>Frequency all services are resynchronized. Default: 0, never</td>
 </tr>
 </tbody>
 </table>
