@@ -215,14 +215,20 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	for _, port := range ports {
+	servicePorts := make(map[string]ServicePort)
+	for key, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			}
 			continue
 		}
-		service := b.newService(port, len(ports) > 1)
+		servicePorts[key] = port
+	}
+
+	isGroup := len(servicePorts) > 1
+	for _, port := range servicePorts {
+		service := b.newService(port, isGroup)
 		if service == nil {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
