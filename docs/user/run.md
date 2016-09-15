@@ -63,6 +63,23 @@ registry to get back in sync if they fall out of sync. Use this option with caut
 as it will notify all the watches you may have registered on your services, and 
 may rapidly flood your system (e.g. consul-template makes extensive use of watches). 
 
+## Consul ACL token
+
+If consul is configured to require an ACL token, Registrator needs to know about it,
+or you will see warnings in the consul docker container
+
+    [WARN] consul.catalog: Register of service 'redis' on 'hostname' denied due to ACLs
+
+The ACL token is passed in through docker in an environment variable called `CONSUL_HTTP_TOKEN`.
+
+    $ docker run -d \
+        --name=registrator \
+        --net=host \
+        --volume=/var/run/docker.sock:/tmp/docker.sock \
+        -e CONSUL_HTTP_TOKEN=<your acl token> \
+        gliderlabs/registrator:latest \
+          consul://localhost:8500
+
 ## Registry URI
 
     <backend>://<address>[/<path>]
