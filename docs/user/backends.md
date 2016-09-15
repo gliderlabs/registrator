@@ -91,6 +91,14 @@ healthy.
 SERVICE_CHECK_TTL=30s
 ```
 
+### Consul Initial Health Check Status
+
+By default when a service is registered against Consul, the state is set to "critical". You can specify the initial health check status.
+
+```bash
+SERVICE_CHECK_INITIAL_STATUS=passing
+```
+
 ## Consul KV
 
 	consulkv://<address>:<port>/<prefix>
