@@ -240,6 +240,11 @@ healthy.</p>
 <pre><code class="bash">SERVICE_CHECK_TTL=30s
 </code></pre>
 
+<h3 id="consul-initial-health-check-status">Consul Initial Health Check Status</h3>
+<p>By default when a service is registered against Consul, the state is set to "critical". You can specify the initial health check status.</p>
+<pre><code class="bash">SERVICE_CHECK_INITIAL_STATUS=passing
+</code></pre>
+
 <h2 id="consul-kv">Consul KV</h2>
 <pre><code>consulkv://&lt;address&gt;:&lt;port&gt;/&lt;prefix&gt;
 consulkv-unix://&lt;filepath&gt;:/&lt;prefix&gt;
