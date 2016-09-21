@@ -10,6 +10,7 @@ See also [Contributing Backends](../dev/backends.md).
 
 	consul://<address>:<port>
 	consul-unix://<filepath>
+	consul-tls://<address>:<port>
 
 Consul is the recommended registry since it specifically models services for
 service discovery with health checks.
@@ -17,6 +18,11 @@ service discovery with health checks.
 If no address and port is specified, it will default to `127.0.0.1:8500`.
 
 Consul supports tags but no arbitrary service attributes.
+
+When using the `consul-tls` scheme, registrator communicates with Consul through TLS. You must set the following environment variables:
+ * `CONSUL_CACERT` : CA file location
+ * `CONSUL_TLSCERT` : Certificate file location
+ * `CONSUL_TLSKEY` : Key location
 
 ### Consul HTTP Check
 
@@ -32,6 +38,18 @@ SERVICE_80_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
 
 It works for services on any port, not just 80. If its the only service,
 you can also use `SERVICE_CHECK_HTTP`.
+
+### Consul HTTPS Check
+
+This feature is only available when using Consul 0.5 or newer. Containers
+specifying these extra metedata in labels or environment will be used to
+register an HTTPS health check with the service.
+
+```bash
+SERVICE_443_CHECK_HTTPS=/health/endpoint/path
+SERVICE_443_CHECK_INTERVAL=15s
+SERVICE_443_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
+```
 
 ### Consul TCP Check
 
@@ -71,6 +89,14 @@ healthy.
 
 ```bash
 SERVICE_CHECK_TTL=30s
+```
+
+### Consul Initial Health Check Status
+
+By default when a service is registered against Consul, the state is set to "critical". You can specify the initial health check status.
+
+```bash
+SERVICE_CHECK_INITIAL_STATUS=passing
 ```
 
 ## Consul KV
