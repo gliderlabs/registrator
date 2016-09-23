@@ -2,13 +2,11 @@ package main
 
 import (
 	"errors"
-	"flag"
-	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/codegangsta/cli"
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
@@ -18,115 +16,159 @@ var Version string
 
 var versionChecker = usage.NewChecker("registrator", Version)
 
-var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
-var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
-var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
-var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
-var forceTags = flag.String("tags", "", "Append tags for all registered services")
-var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
-var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
-var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
-var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
-var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
-
-func getopt(name, def string) string {
-	if env := os.Getenv(name); env != "" {
-		return env
-	}
-	return def
-}
-
-func assert(err error) {
+func assertError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func main() {
-	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		versionChecker.PrintVersion()
-		os.Exit(0)
+type appConfig struct {
+	resyncInterval int
+	retryAttempts  int
+	retryInterval  int
+	bridgeConfig   bridge.Config
+}
+
+func globalFlags() []cli.Flag {
+	flags := []cli.Flag{
+		cli.BoolFlag{
+			Name:   "debug",
+			EnvVar: "DEBUG",
+			Usage:  "Mode of debug verbosity",
+		},
+		cli.StringFlag{
+			Name:   "ip",
+			EnvVar: "HOST_IP",
+			Usage:  "IP for ports mapped to the host",
+		},
+		cli.BoolFlag{
+			Name:   "internal",
+			EnvVar: "INTERNAL",
+			Usage:  "Use internal ports instead of published ones",
+		},
+		cli.IntFlag{
+			Name:   "ttl-refresh",
+			EnvVar: "TTL_REFRESH",
+			Usage:  "Frequency with which service TTLs are refreshed",
+		},
+		cli.IntFlag{
+			Name:   "ttl",
+			EnvVar: "TTL",
+			Usage:  "TTL for services (default is no expiry)",
+		},
+		cli.StringFlag{
+			Name:   "tags",
+			EnvVar: "TAGS",
+			Usage:  "Append tags for all registered services",
+		},
+		cli.IntFlag{
+			Name:   "resync",
+			EnvVar: "RESYNC",
+			Usage:  "Frequency with which services are resynchronized",
+		},
+		cli.StringFlag{
+			Name:   "deregister",
+			EnvVar: "DEREGISTER",
+			Value:  "always",
+			Usage:  "Deregister exited services \"always\" or \"on-success\"",
+		},
+		cli.IntFlag{
+			Name:   "retry-attempts",
+			EnvVar: "RETRY_ATTEMPTS",
+			Value:  0,
+			Usage:  "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries",
+		},
+		cli.IntFlag{
+			Name:   "retry-interval",
+			EnvVar: "RETRY_INTERVAL",
+			Value:  2000,
+			Usage:  "Interval (in millisecond) between retry-attempts.",
+		},
+		cli.BoolFlag{
+			Name:   "cleanup",
+			EnvVar: "CLEANUP",
+			Usage:  "Remove dangling services",
+		},
 	}
-	log.Printf("Starting registrator %s ...", Version)
 
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  %s [options] <registry URI>\n\n", os.Args[0])
-		flag.PrintDefaults()
+	return flags
+}
+
+func setupApplication(c *cli.Context, config *appConfig) error {
+	if len(c.Args()) != 1 {
+		return errors.New("Missing required argument for registry URI.")
 	}
 
-	flag.Parse()
-
-	if flag.NArg() != 1 {
-		if flag.NArg() == 0 {
-			fmt.Fprint(os.Stderr, "Missing required argument for registry URI.\n\n")
-		} else {
-			fmt.Fprintln(os.Stderr, "Extra unparsed arguments:")
-			fmt.Fprintln(os.Stderr, " ", strings.Join(flag.Args()[1:], " "))
-			fmt.Fprint(os.Stderr, "Options should come before the registry URI argument.\n\n")
-		}
-		flag.Usage()
-		os.Exit(2)
+	*config = appConfig{
+		resyncInterval: c.Int("resync"),
+		retryAttempts:  c.Int("retry-attempts"),
+		retryInterval:  c.Int("retry-interval"),
+		bridgeConfig: bridge.Config{
+			HostIp:          c.String("ip"),
+			Internal:        c.Bool("internal"),
+			ForceTags:       c.String("tags"),
+			RefreshTtl:      c.Int("ttl"),
+			RefreshInterval: c.Int("ttl-refresh"),
+			DeregisterCheck: c.String("deregister"),
+			Cleanup:         c.Bool("cleanup"),
+		},
 	}
 
-	if *hostIp != "" {
-		log.Println("Forcing host IP to", *hostIp)
+	if (config.bridgeConfig.RefreshTtl == 0 && config.bridgeConfig.RefreshInterval > 0) || (config.bridgeConfig.RefreshTtl > 0 && config.bridgeConfig.RefreshInterval == 0) {
+		return errors.New("--ttl and --ttl-refresh must be specified together or not at all")
+	} else if config.bridgeConfig.RefreshTtl < 0 || config.bridgeConfig.RefreshInterval < 0 {
+		return errors.New("--ttl and --ttl-refresh must be positive")
+	} else if config.bridgeConfig.RefreshTtl > 0 && config.bridgeConfig.RefreshTtl <= config.bridgeConfig.RefreshInterval {
+		return errors.New("--ttl must be greater than --ttl-refresh")
 	}
 
-	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
-		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
-	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
-		assert(errors.New("-ttl must be greater than -ttl-refresh"))
+	if config.retryInterval <= 0 {
+		return errors.New("--retry-interval must be greater than 0")
 	}
 
-	if *retryInterval <= 0 {
-		assert(errors.New("-retry-interval must be greater than 0"))
+	if config.bridgeConfig.DeregisterCheck != "always" && config.bridgeConfig.DeregisterCheck != "on-success" {
+		return errors.New("--deregister must be \"always\" or \"on-success\"")
 	}
 
-	dockerHost := os.Getenv("DOCKER_HOST")
-	if dockerHost == "" {
+	return nil
+}
+
+func defaultCmd(c *cli.Context, config *appConfig) {
+	if config.bridgeConfig.HostIp != "" {
+		log.Println("Forcing host IP to", config.bridgeConfig.HostIp)
+	}
+
+	if os.Getenv("DOCKER_HOST") == "" {
 		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
 	}
 
 	docker, err := dockerapi.NewClientFromEnv()
-	assert(err)
+	assertError(err)
 
-	if *deregister != "always" && *deregister != "on-success" {
-		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
-	}
-
-	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
-		HostIp:          *hostIp,
-		Internal:        *internal,
-		ForceTags:       *forceTags,
-		RefreshTtl:      *refreshTtl,
-		RefreshInterval: *refreshInterval,
-		DeregisterCheck: *deregister,
-		Cleanup:         *cleanup,
-	})
-
-	assert(err)
+	b, err := bridge.New(docker, c.Args()[0], config.bridgeConfig)
+	assertError(err)
 
 	attempt := 0
-	for *retryAttempts == -1 || attempt <= *retryAttempts {
-		log.Printf("Connecting to backend (%v/%v)", attempt, *retryAttempts)
+	for config.retryAttempts == -1 || attempt <= config.retryAttempts {
+		log.Printf("Connecting to backend (%v/%v)", attempt, config.retryAttempts)
 
 		err = b.Ping()
 		if err == nil {
+			log.Printf("Connected to backend")
 			break
 		}
 
-		if err != nil && attempt == *retryAttempts {
-			assert(err)
+		if err != nil && attempt == config.retryAttempts {
+			log.Fatal(err)
 		}
 
-		time.Sleep(time.Duration(*retryInterval) * time.Millisecond)
+		time.Sleep(time.Duration(config.retryInterval) * time.Millisecond)
 		attempt++
 	}
 
 	// Start event listener before listing containers to avoid missing anything
 	events := make(chan *dockerapi.APIEvents)
-	assert(docker.AddEventListener(events))
+	assertError(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 
 	b.Sync(false)
@@ -134,8 +176,8 @@ func main() {
 	quit := make(chan struct{})
 
 	// Start the TTL refresh timer
-	if *refreshInterval > 0 {
-		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
+	if config.bridgeConfig.RefreshInterval > 0 {
+		ticker := time.NewTicker(time.Duration(config.bridgeConfig.RefreshInterval) * time.Second)
 		go func() {
 			for {
 				select {
@@ -150,8 +192,8 @@ func main() {
 	}
 
 	// Start the resync timer if enabled
-	if *resyncInterval > 0 {
-		resyncTicker := time.NewTicker(time.Duration(*resyncInterval) * time.Second)
+	if config.resyncInterval > 0 {
+		resyncTicker := time.NewTicker(time.Duration(config.resyncInterval) * time.Second)
 		go func() {
 			for {
 				select {
@@ -177,4 +219,25 @@ func main() {
 
 	close(quit)
 	log.Fatal("Docker event loop closed") // todo: reconnect?
+}
+
+func main() {
+	app := cli.NewApp()
+	app.Name = "Registrator"
+	app.Usage = "Service registry bridge for Docker with pluggable adapters http://gliderlabs.com/registrator"
+	app.Version = Version
+	app.Flags = globalFlags()
+
+	var config appConfig
+	app.Before = func(c *cli.Context) error {
+		return setupApplication(c, &config)
+	}
+
+	app.Action = func(c *cli.Context) {
+		defaultCmd(c, &config)
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
