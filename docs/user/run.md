@@ -36,6 +36,7 @@ Option                           | Since | Description
 `-cleanup`                       | v7    | Cleanup dangling services
 `-deregister <mode>`             | v6    | Deregister existed services "always" or "on-success". Default: always
 `-internal`                      |       | Use exposed ports instead of published ports
+`appendInternalPort`             |       | Append internal service port in services with only one port exposed
 `-ip <ip address>`               |       | Force IP address used for registering services
 `-resync <seconds>`              | v6    | Frequency all services are resynchronized. Default: 0, never
 `-retry-attempts <number>`       | v7    | Max retry attempts to establish a connection with the backend

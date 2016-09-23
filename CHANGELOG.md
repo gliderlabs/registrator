@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 ### Added
+- New parameter appendInternalPort: Append internal service port in services with only one port exposed.
 
 ### Removed
 

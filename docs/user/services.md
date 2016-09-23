@@ -61,16 +61,20 @@ If you need to ignore individual service on some container, you can use
 Service names are what you use in service discovery lookups. By default, the
 service name is determined by this pattern:
 
-	<base(container-image)>[-<exposed-port> if >1 ports]
+	<base(container-image)>[-<exposed-port> if >1 ports or appendInternalPort true]
 
 Using the base of the container image, if the image is `gliderlabs/foobar`, the
 service name is `foobar`. If the image is `redis` the service name is simply
 `redis`.
 
-Additionally, if a container has multiple exposed ports, it will append the
+Additionally, if a container has multiple exposed ports or appendInternalPort is true, it will append the
 internal exposed port to differentiate from each other. For example, an image
 `nginx` with two exposed ports, 80 and 443, will produce two services named
 `nginx-80` and `nginx-443`.
+
+If `appendInternalPort` is `false` and an image `nginx` with only one exposed port 
+(80) will produce one service named `nginx`, but if `appendInternalPort` is `true` 
+the service will be named `nginx-80`.
 
 You can override this default name with label or environment variable
 `SERVICE_NAME` or `SERVICE_x_NAME`, where `x` is the internal exposed port. Note
