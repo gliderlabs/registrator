@@ -3,9 +3,7 @@ package bridge
 import (
 	"errors"
 	"log"
-//	"net"
 	"net/url"
-//	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -250,18 +248,6 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 
-	// not sure about this logic. kind of want to remove it.
-	//hostname := Hostname
-	//if hostname == "" {
-	//	hostname = port.HostIP
-	//}
-	//if port.HostIP == "0.0.0.0" {
-	//	ip, err := net.ResolveIPAddr("ip", hostname)
-	//	if err == nil {
-	//		port.HostIP = ip.String()
-	//	}
-	//}
-
 	if b.config.HostIp != "" {
 		port.HostIP = b.config.HostIp
 	}
@@ -371,11 +357,3 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 	}
 	return false
 }
-
-//var Hostname string
-//
-//func init() {
-//	// It's ok for Hostname to ultimately be an empty string
-//	// An empty string will fall back to trying to make a best guess
-//	Hostname, _ = os.Hostname()
-//}
