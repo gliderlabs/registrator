@@ -33,7 +33,7 @@ func combineTags(tagParts ...string) []string {
 func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
-		meta = append(meta, k + "=" + v)
+		meta = append(meta, k+"="+v)
 	}
 	metadata := make(map[string]string)
 	metadataFromPort := make(map[string]bool)
@@ -61,7 +61,7 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 }
 
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
-	var hp, hip, ep, ept, eip string
+	var hp, hip, ep, ept, eip, nm string
 	if len(published) > 0 {
 		hp = published[0].HostPort
 		hip = published[0].HostIP
@@ -69,14 +69,23 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 	if hip == "" {
 		hip = "0.0.0.0"
 	}
+
+	//for overlay networks
+	//detect if container use overlay network, than set HostIP into NetworkSettings.Network[string].IPAddress
+	//better to use registrator with -internal flag
+	nm = container.HostConfig.NetworkMode
+	if nm != "bridge" && nm != "default" && nm != "host" {
+		hip = container.NetworkSettings.Networks[nm].IPAddress
+	}
+
 	exposedPort := strings.Split(string(port), "/")
 	ep = exposedPort[0]
 	if len(exposedPort) == 2 {
 		ept = exposedPort[1]
 	} else {
-		ept = "tcp"  // default
+		ept = "tcp" // default
 	}
-	
+
 	// Nir: support docker NetworkSettings
 	eip = container.NetworkSettings.IPAddress
 	if eip == "" {
@@ -84,7 +93,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 			eip = network.IPAddress
 		}
 	}
-	
+
 	return ServicePort{
 		HostPort:          hp,
 		HostIP:            hip,
