@@ -1,13 +1,13 @@
 package skydns2
 
 import (
-	"log"
-    "os"
 	"crypto/tls"
 	"crypto/x509"
-    "io/ioutil"
+	"io/ioutil"
+	"log"
 	"net/http"
-    "net/url"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -34,34 +34,34 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 
 	var client *etcd.Client
 
-    // Assuming https
-    if cacert != "" {
-        urls = append(urls, "https://"+uri.Host)
+	// Assuming https
+	if cacert != "" {
+		urls = append(urls, "https://"+uri.Host)
 
-        // Assuming Client authentication if tlskey and tlspem is set
-        if tlskey != "" && tlspem != "" {
-            var err error
-            if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
-                log.Fatalf("skydns2: failure to connect: %s", err)
-            }
-        } else {
-            client = etcd.NewClient(urls)
-            ca, err := ioutil.ReadFile(cacert)
-            if err != nil {
-                log.Fatal(err)
-            }
-            caCertPool := x509.NewCertPool()
-            caCertPool.AppendCertsFromPEM(ca)
-            tr := &http.Transport {
-                TLSClientConfig:    &tls.Config{RootCAs: caCertPool},
-                DisableCompression: true,
-            }
-            client.SetTransport(tr)
-        }
-    } else {
-        urls = append(urls, "http://"+uri.Host)
-        client = etcd.NewClient(urls)
-    }
+		// Assuming Client authentication if tlskey and tlspem is set
+		if tlskey != "" && tlspem != "" {
+			var err error
+			if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
+				log.Fatalf("skydns2: failure to connect: %s", err)
+			}
+		} else {
+			client = etcd.NewClient(urls)
+			ca, err := ioutil.ReadFile(cacert)
+			if err != nil {
+				log.Fatal(err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(ca)
+			tr := &http.Transport{
+				TLSClientConfig:    &tls.Config{RootCAs: caCertPool},
+				DisableCompression: true,
+			}
+			client.SetTransport(tr)
+		}
+	} else {
+		urls = append(urls, "http://"+uri.Host)
+		client = etcd.NewClient(urls)
+	}
 
 	return &Skydns2Adapter{client: client, path: domainPath(uri.Path[1:])}
 }
