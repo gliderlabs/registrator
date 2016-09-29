@@ -49,30 +49,33 @@ type ZnodeBody struct {
 
 func (r *ZkAdapter) Register(service *bridge.Service) error {
 	privatePort, _ := strconv.Atoi(service.Origin.ExposedPort)
+	publicPortString := strconv.Itoa(service.Port)
 	acl := zk.WorldACL(zk.PermAll)
-
-	exists, _, err := r.client.Exists(r.path + "/" + service.Name)
+	basePath := r.path + "/" + service.Name
+	if (r.path == "/") {
+		basePath = r.path + service.Name
+	}
+	exists, _, err := r.client.Exists(basePath)
 	if err != nil {
 		log.Println("zookeeper: error checking if exists: ", err)
 	} else {
 		if !exists {
-			_, err := r.client.Create(r.path+"/"+service.Name, []byte{}, 0, acl)
+			_, err := r.client.Create(basePath, []byte{}, 0, acl)
 			if err != nil {
-				log.Println("zookeeper: failed to create base service node: ", err)
-			} else {
-				zbody := &ZnodeBody{Name: service.Name, IP: service.IP, PublicPort: service.Port, PrivatePort: privatePort, Tags: service.Tags, Attrs: service.Attrs, ContainerID: service.Origin.ContainerHostname}
-				body, err := json.Marshal(zbody)
-				if err != nil {
-					log.Println("zookeeper: failed to json encode service body: ", err)
-				} else {
-					path := r.path + "/" + service.Name + "/" + service.Origin.ExposedPort
-					_, err = r.client.Create(path, body, 1, acl)
-					if err != nil {
-						log.Println("zookeeper: failed to register service: ", err)
-					}
-				} // json encode error check
+				log.Println("zookeeper: failed to create base service node at path '" + basePath + "': ", err)
+			}
+		} // create base path for the service name if it missing
+		zbody := &ZnodeBody{Name: service.Name, IP: service.IP, PublicPort: service.Port, PrivatePort: privatePort, Tags: service.Tags, Attrs: service.Attrs, ContainerID: service.Origin.ContainerHostname}
+		body, err := json.Marshal(zbody)
+		if err != nil {
+			log.Println("zookeeper: failed to json encode service body: ", err)
+		} else {
+			path := basePath + "/" + service.IP + ":" + publicPortString
+			_, err = r.client.Create(path, body, 1, acl)
+			if err != nil {
+				log.Println("zookeeper: failed to register service at path '" + path + "': ", err)
 			} // create service path error check
-		} // service path exists
+		} // json znode body creation check
 	} // service path exists error check
 	return err
 }
@@ -88,8 +91,12 @@ func (r *ZkAdapter) Ping() error {
 
 func (r *ZkAdapter) Deregister(service *bridge.Service) error {
 	basePath := r.path + "/" + service.Name
+	if (r.path == "/") {
+		basePath = r.path + service.Name
+	}
+	publicPortString := strconv.Itoa(service.Port)	
+	servicePortPath := basePath + "/" + service.IP + ":" + publicPortString
 	// Delete the service-port znode
-	servicePortPath := basePath + "/" + service.Origin.ExposedPort
 	err := r.client.Delete(servicePortPath, -1) // -1 means latest version number
 	if err != nil {
 		log.Println("zookeeper: failed to deregister service port entry: ", err)
