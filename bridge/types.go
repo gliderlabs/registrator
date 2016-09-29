@@ -20,6 +20,7 @@ type RegistryAdapter interface {
 }
 
 type Config struct {
+	NodeId          string
 	HostIp          string
 	Internal        bool
 	ForceTags       string

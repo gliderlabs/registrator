@@ -3,9 +3,9 @@ package bridge
 import (
 	"errors"
 	"log"
-	"net"
+//	"net"
 	"net/url"
-	"os"
+//	"os"
 	"path"
 	"regexp"
 	"strconv"
@@ -157,7 +157,7 @@ func (b *Bridge) Sync(quiet bool) {
 				continue
 			}
 			serviceHostname := matches[1]
-			if serviceHostname != Hostname {
+			if serviceHostname != b.config.NodeId { // use node id as reference instead of hostname
 				// ignore because registered on a different host
 				continue
 			}
@@ -251,16 +251,16 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 
 	// not sure about this logic. kind of want to remove it.
-	hostname := Hostname
-	if hostname == "" {
-		hostname = port.HostIP
-	}
-	if port.HostIP == "0.0.0.0" {
-		ip, err := net.ResolveIPAddr("ip", hostname)
-		if err == nil {
-			port.HostIP = ip.String()
-		}
-	}
+	//hostname := Hostname
+	//if hostname == "" {
+	//	hostname = port.HostIP
+	//}
+	//if port.HostIP == "0.0.0.0" {
+	//	ip, err := net.ResolveIPAddr("ip", hostname)
+	//	if err == nil {
+	//		port.HostIP = ip.String()
+	//	}
+	//}
 
 	if b.config.HostIp != "" {
 		port.HostIP = b.config.HostIp
@@ -275,7 +275,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.Origin = port
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	// use node id, which is more reliable
+	service.ID = b.config.NodeId + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
@@ -371,10 +372,10 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 	return false
 }
 
-var Hostname string
-
-func init() {
-	// It's ok for Hostname to ultimately be an empty string
-	// An empty string will fall back to trying to make a best guess
-	Hostname, _ = os.Hostname()
-}
+//var Hostname string
+//
+//func init() {
+//	// It's ok for Hostname to ultimately be an empty string
+//	// An empty string will fall back to trying to make a best guess
+//	Hostname, _ = os.Hostname()
+//}

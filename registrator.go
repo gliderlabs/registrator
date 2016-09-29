@@ -12,6 +12,7 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/docker/engine-api/types/swarm"
 )
 
 var Version string
@@ -95,7 +96,28 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
+	// use docker info to determine node id that will be used as prefix to service id
+	dockerInfo, err := docker.Info()
+	assert(err)
+
+	nodeId := new(string)
+	if dockerInfo.Swarm.LocalNodeState != swarm.LocalNodeStateInactive {
+		// swarm mode identifies each node uniquely
+		*nodeId = dockerInfo.Swarm.NodeID
+		if *hostIp == "" {
+			// in case of swarm mode, docker host has information about ip
+			// although it won't be always useful, we can use it if not provided by user
+			*hostIp = dockerInfo.Swarm.NodeAddr
+		}
+		log.Printf("Docker host in Swarm Mode: %s (%s)", *nodeId, *hostIp)
+	} else {
+		// docker host name normally is hostname
+		*nodeId = dockerInfo.Name
+		log.Printf("Docker host: %s (%s)", *nodeId, *hostIp)
+	}
+
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
+		NodeId:          *nodeId,
 		HostIp:          *hostIp,
 		Internal:        *internal,
 		ForceTags:       *forceTags,
