@@ -399,7 +399,7 @@ func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip st
 	}
 	// tag it for convenience
 	if protocol != swarm.PortConfigProtocolTCP {
-		svcReg.Tags = combineTags(tag, b.config.ForceTags, protocol)
+		svcReg.Tags = combineTags(tag, b.config.ForceTags, string(protocol))
 	} else {
 		svcReg.Tags = combineTags(tag, b.config.ForceTags)
 	}
