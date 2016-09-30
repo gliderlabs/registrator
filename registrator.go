@@ -101,9 +101,9 @@ func main() {
 	assert(err)
 
 	nodeId := new(string)
+	// docker host name normally is hostname
+	*nodeId = dockerInfo.Name
 	if dockerInfo.Swarm.LocalNodeState != swarm.LocalNodeStateInactive {
-		// swarm mode identifies each node uniquely
-		*nodeId = dockerInfo.Swarm.NodeID
 		if *hostIp == "" {
 			// in case of swarm mode, docker host has information about ip
 			// although it won't be always useful, we can use it if not provided by user
@@ -111,8 +111,6 @@ func main() {
 		}
 		log.Printf("Docker host in Swarm Mode: %s (%s)", *nodeId, *hostIp)
 	} else {
-		// docker host name normally is hostname
-		*nodeId = dockerInfo.Name
 		log.Printf("Docker host: %s (%s)", *nodeId, *hostIp)
 	}
 

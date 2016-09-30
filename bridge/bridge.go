@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/docker/engine-api/types/swarm"
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
@@ -242,6 +243,21 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		b.services[container.ID] = append(b.services[container.ID], service)
 		log.Println("added:", container.ID[:12], service.ID)
 	}
+
+	// if swarm container belongs to swarm mode service, publish VIP services
+	if swarmServiceName, ok := container.Config.Labels["com.docker.swarm.service.name"]; ok {
+		filters := map[string][]string{"name": {swarmServiceName}}
+		services, err := b.docker.ListServices(dockerapi.ListServicesOptions{Filters: filters})
+		if err != nil {
+			log.Println("error listing swarm services, wont register VIP service", err)
+		} else if len(services) == 1 { // container cannot belong to no or more than one service
+			if services[0].Spec.EndpointSpec.Mode == swarm.ResolutionModeVIP { // endpoint should be VIP
+				if (len(services[0].Endpoint.VirtualIPs) > 0) {
+					b.registerSwarmVipServices(services[0])
+				}
+			}
+		}
+	}
 }
 
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
@@ -261,9 +277,17 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.Origin = port
-	// use node id, which is more reliable
+
+	// consider swarm mode
+	if swarmServiceName, ok := port.container.Config.Labels["com.docker.swarm.service.name"]; ok {
+		// swarm mode has concept of services
+		service.Name = mapDefault(metadata, "name", swarmServiceName)
+	} else {
+		// use node id, which is more reliable
+		service.Name = mapDefault(metadata, "name", defaultName)
+	}
+
 	service.ID = b.config.NodeId + ":" + container.Name[1:] + ":" + port.ExposedPort
-	service.Name = mapDefault(metadata, "name", defaultName)
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
 	}
@@ -298,6 +322,96 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.TTL = b.config.RefreshTtl
 
 	return service
+}
+
+// there are two types of endpoints VIP and DNS rr based
+// DNS rr happens implicitly by registering multiple services with the same name
+// so that no extra effort is required
+// in case of VIP based services, user specifies the published ports
+// which are equivalent of docker port binding, but works differently
+// swarm mode provides ingress network, where services are load-balanced
+// behind VIP address. From inside network (if there any) perspective
+// only one service is need, with swarm mode assigned VIP address.
+// From outside perspective, every docker host IP address becomes an entry point
+// for load-balancer, so published ports shall be registered for each docker host
+func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
+	// if internal, register the internal VIP services
+	if b.config.Internal {
+		for _, vip := range service.Endpoint.VirtualIPs {
+			if network, err := b.docker.NetworkInfo(vip.NetworkID); err != nil {
+				log.Println("unable to inspect network while evaluating VIPs for service:", service.Spec.Name, err)
+			} else {
+				// no point to publish docker swarm internal ingress network VIP
+				if network.Name != "ingress" && len(vip.Addr) > 0 && strings.Contains(vip.Addr, "/") {
+					vipAddr := strings.Split(vip.Addr, "/")[0]
+					if len(service.Spec.EndpointSpec.Ports) > 0 {
+						b.registerSwarmVipServicePorts(service.Spec.Name, true, vipAddr, service.Spec.EndpointSpec.Ports)
+					}
+					// publish VIP in with out ports in any case
+					b.registerSwarmVipService(service.Spec.Name, true, vipAddr, false, 0, "ip")
+				}
+			}
+		}
+	} else {
+		// if there is no published ports, no point to register it out side
+		if len(service.Spec.EndpointSpec.Ports) > 0 {
+			b.registerSwarmVipServicePorts(service.Spec.Name, false, b.config.HostIp, service.Spec.EndpointSpec.Ports)
+		}
+	}
+}
+
+// current implementation attempts to register VIP service every container add event
+// better way could be to listen for service create events, however according to
+// docker configuration there is no such events
+// registrations created here are unique, and not based on containers
+// so we will just create them and forget, i don't see proper way to cleanup them at the moment
+func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig) {
+	for _, port := range ports {
+		var portNum uint32
+		if portNum = port.PublishedPort; inside {
+			// inside port is not translated to published port
+			portNum = port.TargetPort
+		}
+
+		b.registerSwarmVipService(serviceName, inside, vip, true, int(portNum), port.Protocol)
+	}
+}
+
+func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol) {
+	var tag string
+	if tag = "vip-outside"; inside {
+		tag = "vip-inside"
+	}
+
+	svcReg := new(Service)
+
+	svcReg.Name = serviceName + "-" + tag
+	if isGroup {
+		svcReg.Name = svcReg.Name + "-" + strconv.Itoa(port)
+	}
+
+	if inside {
+		// VIP is global and singleton, so we can use service name as service id
+		svcReg.ID = svcReg.Name
+	} else {
+		// VIP is actually host ip address or whatever provided by user
+		svcReg.ID = b.config.NodeId + "-" + svcReg.Name
+	}
+	// tag it for convenience
+	if protocol != swarm.PortConfigProtocolTCP {
+		svcReg.Tags = combineTags(tag, b.config.ForceTags, protocol)
+	} else {
+		svcReg.Tags = combineTags(tag, b.config.ForceTags)
+	}
+
+	svcReg.IP = vip
+	svcReg.Port = port
+
+	err := b.registry.Register(svcReg)
+	if err != nil {
+		log.Println("register failed:", svcReg.Name, err)
+	}
+	log.Println("added:", svcReg.Name)
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {
