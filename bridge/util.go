@@ -92,7 +92,7 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		for name, network := range container.NetworkSettings.Networks {
 			// if in swarm mode and network name is ingress,
 			// no point to publish service with ingress network IP address
-			if _, ok := container.Config.Labels["com.docker.swarm.service.name"]; ok && name != "ingress" {
+			if _, ok := container.Config.Labels["com.docker.swarm.service.name"]; !(ok && name == "ingress") {
 				eip = network.IPAddress
 			}
 		}
