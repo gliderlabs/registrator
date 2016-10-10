@@ -22,7 +22,7 @@ type RegistryAdapter interface {
 type Config struct {
 	HostIp          string
 	Internal        bool
-	UseRancherContainerIP bool
+	UseIpFromLabel  string
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int

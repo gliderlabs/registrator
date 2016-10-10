@@ -291,8 +291,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	}
 	service.Port = p
 
-	if b.config.UseRancherContainerIP == true {
-		containerIp := container.Config.Labels["io.rancher.container.ip"]
+	if b.config.UseIpFromLabel != "" {
+		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
 		if containerIp != "" {
 			slashIndex := strings.LastIndex(containerIp, "/")
 			if slashIndex > -1 {
@@ -300,7 +300,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 			} else {
 				service.IP = containerIp
 			}
-			log.Println("using Rancher container IP " + service.IP);
+			log.Println("using container IP " + service.IP + " from label '" +
+				b.config.UseIpFromLabel  + "'")
+		} else {
+			log.Println("Label '" + b.config.UseIpFromLabel +
+				"' not found in container configuration")
 		}
 	}
 
