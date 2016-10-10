@@ -15,7 +15,7 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
+var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):([0-9]+)(?::udp)?$`)
 
 type Bridge struct {
 	sync.Mutex
@@ -152,7 +152,7 @@ func (b *Bridge) Sync(quiet bool) {
 	Outer:
 		for _, extService := range extServices {
 			matches := serviceIDPattern.FindStringSubmatch(extService.ID)
-			if len(matches) != 3 {
+			if len(matches) != 4 {
 				// There's no way this was registered by us, so leave it
 				continue
 			}
@@ -162,9 +162,12 @@ func (b *Bridge) Sync(quiet bool) {
 				continue
 			}
 			serviceContainerName := matches[2]
+			serviceExposedPort := matches[3]
 			for _, listing := range b.services {
 				for _, service := range listing {
-					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
+					if service.Name == extService.Name &&
+						serviceContainerName == service.Origin.container.Name[1:] &&
+						serviceExposedPort == service.Origin.ExposedPort {
 						continue Outer
 					}
 				}
