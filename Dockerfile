@@ -1,4 +1,4 @@
-FROM gliderlabs/alpine:3.3
+FROM gliderlabs/alpine:3.4
 
 COPY . /go/src/github.com/gliderlabs/registrator
 RUN apk-install -t build-deps build-base go git mercurial \
