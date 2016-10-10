@@ -5,10 +5,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 ### Added
+- Ability to use `REGISTRATOR_BIND_INTERFACE` env variable
 
 ### Removed
 
 ### Changed
+- Updated the alpine linux verion to `3.4`
 
 ## [v7] - 2016-03-05
 ### Fixed
