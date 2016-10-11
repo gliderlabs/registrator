@@ -28,7 +28,7 @@ docs:
 
 test:
 	mkdir -p build
-	docker build -f ./Dockerfile.test -t $(NAME):$(VERSION)-TEST ./
+	docker build --build-arg RUN_TESTS=true -t $(NAME):$(VERSION)-TEST ./
 
 circleci:
 	rm -f ~/.gitconfig
