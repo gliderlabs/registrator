@@ -4,7 +4,8 @@ DEV_RUN_OPTS ?= consul:
 
 dev:
 	docker build -f Dockerfile.dev -t $(NAME):dev .
-	docker run --rm \
+	docker run -it --rm \
+		--net=host \
 		-v /var/run/docker.sock:/tmp/docker.sock \
 		$(NAME):dev /bin/registrator $(DEV_RUN_OPTS)
 
@@ -24,6 +25,10 @@ release:
 docs:
 	boot2docker ssh "sync; sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'" || true
 	docker run --rm -it -p 8000:8000 -v $(PWD):/work gliderlabs/pagebuilder mkdocs serve
+
+test:
+	mkdir -p build
+	docker build -f Dockerfile.test -t $(NAME):$(VERSION)-TEST .
 
 circleci:
 	rm -f ~/.gitconfig
