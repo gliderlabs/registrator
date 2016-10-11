@@ -28,7 +28,7 @@ docs:
 
 test:
 	mkdir -p build
-	docker build -f `pwd`/Dockerfile.test -t $(NAME):$(VERSION)-TEST `pwd`/
+	docker build -f Dockerfile.test -t $(NAME):$(VERSION)-TEST ./
 
 circleci:
 	rm -f ~/.gitconfig
