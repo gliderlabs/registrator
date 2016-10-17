@@ -122,6 +122,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			check.Interval = DefaultInterval
 		}
 	}
+	if deregister_after := service.Attrs["check_deregister_after"]; deregister_after != "" {
+		check.DeregisterCriticalServiceAfter = deregister_after
+	}
 	return check
 }
 
