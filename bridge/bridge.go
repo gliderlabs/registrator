@@ -211,14 +211,18 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
-	if len(ports) == 0 && !quiet {
-		log.Println("ignored:", container.ID[:12], "no published ports")
-		return
+	if len(ports) == 0 {
+		if b.config.Portless {
+			ports["0"] = servicePort(container, dockerapi.Port("0"), []dockerapi.PortBinding{})
+		} else if !quiet {
+			log.Println("ignored:", container.ID[:12], "no published ports")
+			return
+		}
 	}
 
 	servicePorts := make(map[string]ServicePort)
 	for key, port := range ports {
-		if b.config.Internal != true && port.HostPort == "" {
+		if b.config.Internal != true && port.HostPort == "" && b.config.Portless != true {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			}
