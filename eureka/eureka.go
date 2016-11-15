@@ -108,7 +108,7 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 	registration := instanceInformation(service)
-	return r.client.ReregisterInstance(registration)
+	return r.client.HeartBeatInstance(registration)
 }
 
 func (r *EurekaAdapter) Services() ([]*bridge.Service, error) {
