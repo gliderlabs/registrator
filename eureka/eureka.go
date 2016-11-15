@@ -46,7 +46,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
 
-	registration.HostName   = service.IP + ":" + service.Port
+	registration.HostName   = service.IP + ":" + strconv.Itoa(service.Port)
 	registration.App        = service.Name
 	registration.Port       = service.Port
 	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.Name)
