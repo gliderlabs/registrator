@@ -51,7 +51,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	registration.App        = service.Name
 	registration.Port       = service.Port
 	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.Name)
-	registration.DataCenterInfo.Metadata.InstanceId = uniqueId
+	registration.DataCenterInfo.Metadata.InstanceID = uniqueId
 
 	if(service.Attrs["eureka_status"] == string(eureka.DOWN)) {
 		registration.Status = eureka.DOWN
