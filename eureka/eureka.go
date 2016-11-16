@@ -51,7 +51,6 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	registration.App        = service.Name
 	registration.Port       = service.Port
 	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.Name)
-	registration.DataCenterInfo.Metadata.InstanceID = uniqueId
 
 	if(service.Attrs["eureka_status"] == string(eureka.DOWN)) {
 		registration.Status = eureka.DOWN
@@ -84,6 +83,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
 		registration.DataCenterInfo.Name = eureka.Amazon
 		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType {
+			InstanceID:	uniqueId,
 			PublicHostname: ShortHandTernary(service.Attrs["eureka_datacenterinfo_publichostname"], service.Origin.HostIP),
 			PublicIpv4:     ShortHandTernary(service.Attrs["eureka_datacenterinfo_publicipv4"], service.Origin.HostIP),
 			LocalHostname:  ShortHandTernary(service.Attrs["eureka_datacenterinfo_localipv4"], service.IP),
@@ -104,13 +104,16 @@ func (r *EurekaAdapter) Register(service *bridge.Service) error {
 
 func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	registration := new(eureka.Instance)
-	registration.HostName = service.ID
+	registration.HostName = service.HostName
 	return r.client.DeregisterInstance(registration)
 }
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
+	log.Println("Heartbeating...")
 	registration := instanceInformation(service)
-	return r.client.HeartBeatInstance(registration)
+	err := r.client.HeartBeatInstance(registration)
+	log.Println("Done heartbeating for: ", registration.HostName)
+	return err
 }
 
 func (r *EurekaAdapter) Services() ([]*bridge.Service, error) {
