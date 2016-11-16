@@ -45,11 +45,13 @@ func (r *EurekaAdapter) Ping() error {
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
+	uniqueId := service.IP + ":" + strconv.Itoa(service.Port)
 
-	registration.HostName   = service.IP + ":" + strconv.Itoa(service.Port)
+	registration.HostName   = uniqueId
 	registration.App        = service.Name
 	registration.Port       = service.Port
 	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.Name)
+	registration.DataCenterInfo.Metadata.InstanceId = uniqueId
 
 	if(service.Attrs["eureka_status"] == string(eureka.DOWN)) {
 		registration.Status = eureka.DOWN
