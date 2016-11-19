@@ -202,7 +202,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -244,6 +244,45 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		b.services[container.ID] = append(b.services[container.ID], service)
 		log.Println("added:", container.ID[:12], service.ID)
 	}
+}
+
+func mapTags(metadata map[string]string, container *dockerapi.Container) []string {
+	// take the tags, parse them and replace those
+	// using $ with the path in the container description
+	var tags = make([]string, 0)
+	tag_re := regexp.MustCompile("([^,]+)")
+	vp_re := regexp.MustCompile("^\\$(.*)")
+	tk_re := regexp.MustCompile("\\$([^\\.]*)\\.?(.*)")
+	tk2_re := regexp.MustCompile("([^\\.]*)\\.?(.*)")
+	// either a tag start with a $ and then we replace it with the path in the config
+	// or it does not a we keep it the same way
+	metadata_tags := tag_re.FindAllString(metadata["tags"], -1)
+	log.Println(metadata_tags)
+	for _, tag := range metadata_tags {
+		value_path := vp_re.FindString(tag)
+		log.Println(value_path)
+		if value_path != "" {
+			tag_key := tk_re.FindStringSubmatch(value_path)
+			log.Println(tag_key)
+			if tag_key[1] == "Config" {
+				// we search for 2nd element of the path since we enter config
+				config := container.Config
+				tag_key_sub := tk2_re.FindStringSubmatch(tag_key[2])
+				if tag_key_sub[1] == "Labels" {
+					log.Println(tag_key_sub)
+					tag_value := config.Labels[tag_key_sub[2]]
+					tags = append(tags, tag_value)
+				}
+			} else if tag_key[1] == "Id" {
+				tag_value := container.ID
+				tags = append(tags, tag_value)
+			}
+		} else {
+			tags = append(tags, tag)
+		}
+		log.Println(tags)
+	}
+	return tags
 }
 
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
@@ -301,7 +340,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
@@ -324,14 +363,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		}
 	}
 
+	var mappedTags []string = mapTags(metadata, container)
 	if port.PortType == "udp" {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
+		mappedTags = append(mappedTags, "udp")
 		service.ID = service.ID + ":udp"
-	} else {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags)
 	}
+	mappedTags = append(mappedTags, b.config.ForceTags)
 
 	id := mapDefault(metadata, "id", "")
 	if id != "" {
