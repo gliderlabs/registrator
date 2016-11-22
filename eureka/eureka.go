@@ -105,6 +105,7 @@ func (r *EurekaAdapter) Register(service *bridge.Service) error {
 func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	registration := new(eureka.Instance)
 	registration.HostName = service.IP + ":" + strconv.Itoa(service.Port)
+	registration.App = service.Name
 	log.Println("Deregistering ", registration.HostName)
 	return r.client.DeregisterInstance(registration)
 }
