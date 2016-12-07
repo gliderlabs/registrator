@@ -189,3 +189,10 @@ If the Amazon Datacenter type is used, the following additional values are suppo
 	SERVICE_EUREKA_DATACENTERINFO_LOCALIPV4 = Host or Container IP (depending on -internal flag)
 	SERVICE_EUREKA_DATACENTERINFO_LOCALHOSTNAME = Host or Container IP (depending on -internal flag)
 ```
+
+To set custom eureka metadata for your own purposes, you can use service attributes prefixed with SERVICE_EUREKA_METADATA_, e.g.:
+```
+	SERVICE_EUREKA_METADATA_MYROUTES=/route1*|/route2*
+	SERVICE_EUREKA_METADATA_BE_AWESOME=true
+```
+These will appear in eureka inside a metadata tag.  See https://github.com/hudl/fargo/blob/master/metadata.go for some ideas on how to use them.
