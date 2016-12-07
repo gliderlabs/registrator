@@ -248,40 +248,41 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 func mapTags(metadata map[string]string, container *dockerapi.Container) []string {
 	// take the tags, parse them and replace those
-	// using $ with the path in the container description
+	// inside {{ }} with the path in the container description
+	// if found, else replace by empty string
 	var tags = make([]string, 0)
 	tag_re := regexp.MustCompile("([^,]+)")
-	vp_re := regexp.MustCompile("^\\$(.*)")
-	tk_re := regexp.MustCompile("\\$([^\\.]*)\\.?(.*)")
+	vp_re := regexp.MustCompile("{{(.*)}}")
+	tk_re := regexp.MustCompile("\\{{([^\\.]*)\\.?(.*)}}")
 	tk2_re := regexp.MustCompile("([^\\.]*)\\.?(.*)")
-	// either a tag start with a $ and then we replace it with the path in the config
-	// or it does not a we keep it the same way
+	// fetch all the tags in an array by using commas
 	metadata_tags := tag_re.FindAllString(metadata["tags"], -1)
 	log.Println(metadata_tags)
+	// then for all tags, check if an expression is enclosed between double
+	// braces and replace each of them
+	config := container.Config
 	for _, tag := range metadata_tags {
-		value_path := vp_re.FindString(tag)
-		log.Println(value_path)
-		if value_path != "" {
+		// for that, we get all braces expression
+		mapped_tag := vp_re.ReplaceAllStringFunc(tag, func(value_path string) string {
 			tag_key := tk_re.FindStringSubmatch(value_path)
-			log.Println(tag_key)
 			if tag_key[1] == "Config" {
 				// we search for 2nd element of the path since we enter config
-				config := container.Config
 				tag_key_sub := tk2_re.FindStringSubmatch(tag_key[2])
 				if tag_key_sub[1] == "Labels" {
 					log.Println(tag_key_sub)
-					tag_value := config.Labels[tag_key_sub[2]]
-					tags = append(tags, tag_value)
+					return config.Labels[tag_key_sub[2]]
+				} else {
+					return ""
 				}
 			} else if tag_key[1] == "Id" {
-				tag_value := container.ID
-				tags = append(tags, tag_value)
+				return container.ID
+			} else {
+				return ""
 			}
-		} else {
-			tags = append(tags, tag)
-		}
-		log.Println(tags)
+		})
+		tags = append(tags, mapped_tag)
 	}
+	log.Println(tags)
 	return tags
 }
 
