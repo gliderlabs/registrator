@@ -1,0 +1,46 @@
+version: "2.0"
+
+services:
+
+    consul:
+        image: consul:latest
+        environment:
+            CONSUL_LOCAL_CONFIG: '{"leave_on_terminate": true}'
+        network_mode: "host"
+        command:
+            - consul
+            - agent
+            - -server
+            - -ui
+            - -dev
+            - -bind
+            - 127.0.0.1
+
+    ubuntutest:
+        image: ubuntu:latest
+        labels:
+            com.delairtech.test.registrator: test_local
+        environment:
+            SERVICE_80_TAGS: "com.delairtech.test.resgistrator={{Config.Labels.com.delairtech.test.registrator}},{{Id}}"
+        ports:
+            - "80:80"
+        command:
+            - sleep
+            - "27400"
+
+    registrator:
+        image: golang
+        network_mode: "host"
+        volumes:
+            - "$GOPATH:/go"
+            - "/var/run/docker.sock:/tmp/docker.sock"
+        environment:
+            - "GOPATH=/go"
+        command:
+            - /go/src/github.com/gliderlabs/registrator/registrator
+            - -retry-attempts=5
+            - -retry-interval=5000
+            - consul://127.0.0.1:8500
+        depends_on:
+            - consul
+            - ubuntutest
