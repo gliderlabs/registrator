@@ -2,6 +2,8 @@ package eureka
 
 import (
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	eureka "github.com/hudl/fargo"
 	"log"
 	"net/url"
@@ -44,15 +46,53 @@ func (r *EurekaAdapter) Ping() error {
 	return nil
 }
 
+type AWSMetadata struct {
+	InstanceID string
+	PrivateIP string
+	PublicIP string
+	PrivateHostname string
+	PublicHostname string
+} 
+
+func getDataOrFail(svc *EC2Metadata, key *string) string {
+	var val, err := svc.GetMetadata(key)
+	if err != nil {
+		log.Printf("Unable to retrieve %s from the EC2 instance: %s\n", key, err)
+		return ""
+	}
+	return val
+}
+
+func getAWSMetadata() *AWSMetadata {
+	log.Println("Attempting to retrieve AWS metadata.")
+	sess, err := session.NewSession()
+	if err != nil {
+		log.Printf("Unable to connect to the EC2 metadata service: %s\n", err)
+	}
+	svc := ec2metadata.New(sess)
+	m := new(AWSMetadata)
+	if svc.Available() {
+		m.InstanceID = getDataOrFail(svc, "instance-id")
+		m.PrivateIP = getDataOrFail(svc, "local-ipv4")
+		m.PublicIP = getDataOrFail(svc, "public-ipv4")
+		m.PrivateHostname = getDataOrFail(svc, "local-hostname")
+		m.PublicHostname = getDataOrFail(svc, "public-hostname")
+	} else {
+		log.Println("AWS metadata not available :(")
+	}
+	return m
+}
+
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
-	uniqueId := service.IP + ":" + strconv.Itoa(service.Port)
+	uniqueId := service.Origin.ContainerName + "_" + service.IP + ":" + strconv.Itoa(service.Port)
 
 	registration.HostName = uniqueId
 	registration.App = service.Name
 	registration.Port = service.Port
-	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.Name)
+	registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], service.IP)
+	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
 
 	if service.Attrs["eureka_status"] == string(eureka.DOWN) {
 		registration.Status = eureka.DOWN
@@ -91,14 +131,16 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	}
 
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+		awsMetadata := getAWSMetaData()
 		registration.DataCenterInfo.Name = eureka.Amazon
 		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
-			InstanceID:     uniqueId,
-			PublicHostname: ShortHandTernary(service.Attrs["eureka_datacenterinfo_publichostname"], service.Origin.HostIP),
-			PublicIpv4:     ShortHandTernary(service.Attrs["eureka_datacenterinfo_publicipv4"], service.Origin.HostIP),
-			LocalHostname:  ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP),
-			HostName:       ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP),
-			LocalIpv4:      ShortHandTernary(service.Attrs["eureka_datacenterinfo_localipv4"], service.IP),
+			InstanceID:       	awsMetadata.InstanceID,
+			AvailabilityZone:	awsMetadata.AvailabilityZone,
+			PublicHostname:		awsMetadata.PublicHostname,
+			PublicIpv4:     	awsMetadata.PublicIP,
+			LocalHostname:  	awsMetadata.PrivateHostname,
+			HostName:       	awsMetadata.PrivateHostname,
+			LocalIpv4:      	awsMetadata.PrivateIP,
 		}
 	} else {
 		registration.DataCenterInfo.Name = eureka.MyOwn
