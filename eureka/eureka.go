@@ -52,10 +52,11 @@ type AWSMetadata struct {
 	PublicIP string
 	PrivateHostname string
 	PublicHostname string
+	AvailabilityZone string
 } 
 
-func getDataOrFail(svc *EC2Metadata, key *string) string {
-	var val, err := svc.GetMetadata(key)
+func getDataOrFail(svc *ec2metadata.EC2Metadata, key string) string {
+	val, err := svc.GetMetadata(key)
 	if err != nil {
 		log.Printf("Unable to retrieve %s from the EC2 instance: %s\n", key, err)
 		return ""
@@ -131,7 +132,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	}
 
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
-		awsMetadata := getAWSMetaData()
+		awsMetadata := getAWSMetadata()
 		registration.DataCenterInfo.Name = eureka.Amazon
 		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
 			InstanceID:       	awsMetadata.InstanceID,
