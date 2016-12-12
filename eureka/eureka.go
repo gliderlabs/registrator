@@ -78,6 +78,7 @@ func getAWSMetadata() *AWSMetadata {
 		m.PublicIP = getDataOrFail(svc, "public-ipv4")
 		m.PrivateHostname = getDataOrFail(svc, "local-hostname")
 		m.PublicHostname = getDataOrFail(svc, "public-hostname")
+		m.AvailabilityZone = getDataOrFail(svc, "placement/availability-zone")
 	} else {
 		log.Println("AWS metadata not available :(")
 	}
@@ -87,18 +88,30 @@ func getAWSMetadata() *AWSMetadata {
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
-	uniqueId := service.Origin.ContainerName + "_" + service.IP + ":" + strconv.Itoa(service.Port)
+	uniqueId := service.Origin.ContainerID + "_" + service.IP + ":" + strconv.Itoa(service.Port)
 
 	registration.HostName = uniqueId
 	registration.App = service.Name
 	registration.Port = service.Port
-	registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], service.IP)
-	registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
 
 	if service.Attrs["eureka_status"] == string(eureka.DOWN) {
 		registration.Status = eureka.DOWN
 	} else {
 		registration.Status = eureka.UP
+	}
+
+	if service.Attrs["eureka_register_aws_public_ip"] != "" {
+		v, err := strconv.ParseBool(service.Attrs["eureka_register_aws_public_ip"])
+		if err != nil {
+			log.Printf("eureka: eureka_register_aws_public_ip must be valid boolean, was %s : %s", v, err)
+		} else {
+			awsMetadata := getAWSMetadata()
+			registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], awsMetadata.PublicIP)
+			registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], awsMetadata.PublicIP)
+		}
+	} else {
+		registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], service.IP)
+		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
 	}
 
 	if service.Attrs["eureka_leaseinfo_renewalintervalinsecs"] != "" {
