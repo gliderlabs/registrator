@@ -88,7 +88,7 @@ func getAWSMetadata() *AWSMetadata {
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
-	uniqueId := service.Origin.ContainerID + "_" + service.IP + ":" + strconv.Itoa(service.Port)
+	uniqueId := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
 
 	registration.HostName = uniqueId
 	registration.App = service.Name
