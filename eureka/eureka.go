@@ -1,14 +1,14 @@
 package eureka
 
 import (
-	"github.com/gliderlabs/registrator/bridge"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	eureka "github.com/hudl/fargo"
 	"log"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/gliderlabs/registrator/aws"
+	"github.com/gliderlabs/registrator/bridge"
+	eureka "github.com/hudl/fargo"
 )
 
 const DefaultInterval = "10s"
@@ -26,7 +26,6 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	} else {
 		client = eureka.NewConn("http://eureka:8761")
 	}
-
 	return &EurekaAdapter{client: client}
 }
 
@@ -46,48 +45,10 @@ func (r *EurekaAdapter) Ping() error {
 	return nil
 }
 
-type AWSMetadata struct {
-	InstanceID string
-	PrivateIP string
-	PublicIP string
-	PrivateHostname string
-	PublicHostname string
-	AvailabilityZone string
-} 
-
-func getDataOrFail(svc *ec2metadata.EC2Metadata, key string) string {
-	val, err := svc.GetMetadata(key)
-	if err != nil {
-		log.Printf("Unable to retrieve %s from the EC2 instance: %s\n", key, err)
-		return ""
-	}
-	return val
-}
-
-func getAWSMetadata() *AWSMetadata {
-	log.Println("Attempting to retrieve AWS metadata.")
-	sess, err := session.NewSession()
-	if err != nil {
-		log.Printf("Unable to connect to the EC2 metadata service: %s\n", err)
-	}
-	svc := ec2metadata.New(sess)
-	m := new(AWSMetadata)
-	if svc.Available() {
-		m.InstanceID = getDataOrFail(svc, "instance-id")
-		m.PrivateIP = getDataOrFail(svc, "local-ipv4")
-		m.PublicIP = getDataOrFail(svc, "public-ipv4")
-		m.PrivateHostname = getDataOrFail(svc, "local-hostname")
-		m.PublicHostname = getDataOrFail(svc, "public-hostname")
-		m.AvailabilityZone = getDataOrFail(svc, "placement/availability-zone")
-	} else {
-		log.Println("AWS metadata not available :(")
-	}
-	return m
-}
-
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
+	var awsMetadata *aws.Metadata
 	uniqueId := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
 
 	registration.HostName = uniqueId
@@ -100,20 +61,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 		registration.Status = eureka.UP
 	}
 
-	if service.Attrs["eureka_register_aws_public_ip"] != "" {
-		v, err := strconv.ParseBool(service.Attrs["eureka_register_aws_public_ip"])
-		if err != nil {
-			log.Printf("eureka: eureka_register_aws_public_ip must be valid boolean, was %s : %s", v, err)
-		} else {
-			awsMetadata := getAWSMetadata()
-			registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], awsMetadata.PublicIP)
-			registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], awsMetadata.PublicIP)
-		}
-	} else {
-		registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], service.IP)
-		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
-	}
-
+	// Set the renewal interval in seconds, or default 30
 	if service.Attrs["eureka_leaseinfo_renewalintervalinsecs"] != "" {
 		v, err := strconv.Atoi(service.Attrs["eureka_leaseinfo_renewalintervalinsecs"])
 		if err != nil {
@@ -125,6 +73,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 		registration.LeaseInfo.RenewalIntervalInSecs = 30
 	}
 
+	// Set the lease expiry timeout, or default 90
 	if service.Attrs["eureka_leaseinfo_durationinsecs"] != "" {
 		v, err := strconv.Atoi(service.Attrs["eureka_leaseinfo_durationinsecs"])
 		if err != nil {
@@ -144,20 +93,47 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 		}
 	}
 
+	// If you are not running locally, check AWS API for metadata
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
-		awsMetadata := getAWSMetadata()
+		awsMetadata = aws.GetMetadata()
 		registration.DataCenterInfo.Name = eureka.Amazon
 		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
-			InstanceID:       	awsMetadata.InstanceID,
-			AvailabilityZone:	awsMetadata.AvailabilityZone,
-			PublicHostname:		awsMetadata.PublicHostname,
-			PublicIpv4:     	awsMetadata.PublicIP,
-			LocalHostname:  	awsMetadata.PrivateHostname,
-			HostName:       	awsMetadata.PrivateHostname,
-			LocalIpv4:      	awsMetadata.PrivateIP,
+			InstanceID:       awsMetadata.InstanceID,
+			AvailabilityZone: awsMetadata.AvailabilityZone,
+			PublicHostname:   awsMetadata.PublicHostname,
+			PublicIpv4:       awsMetadata.PublicIP,
+			LocalHostname:    awsMetadata.PrivateHostname,
+			HostName:         awsMetadata.PrivateHostname,
+			LocalIpv4:        awsMetadata.PrivateIP,
 		}
 	} else {
 		registration.DataCenterInfo.Name = eureka.MyOwn
+	}
+
+	// If flag is set, register the AWS public IP as the endpoint instead of the private one
+	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+		v, err := strconv.ParseBool(service.Attrs["eureka_register_aws_public_ip"])
+		if err != nil {
+			log.Printf("eureka: eureka_register_aws_public_ip must be valid boolean, was %v : %s", v, err)
+		} else {
+			registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], awsMetadata.PublicIP)
+			registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], awsMetadata.PublicIP)
+		}
+	} else {
+		registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], service.IP)
+		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
+	}
+
+	// If specified, lookup the ELBv2 (application load balancer) DNS name and port, use these to register with eureka, instead of the container itself
+	if service.Attrs["eureka_use_elbv2_endpoint"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+		v, err := strconv.ParseBool(service.Attrs["eureka_use_elbv2_endpoint"])
+		if err != nil {
+			log.Printf("eureka: eureka_use_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
+		} else {
+			elbMetadata := aws.GetELBV2ForContainer(awsMetadata.InstanceID, int64(service.Port))
+			registration.HostName = elbMetadata.DNSName
+			registration.Port = int(elbMetadata.Port)
+		}
 	}
 
 	return registration
