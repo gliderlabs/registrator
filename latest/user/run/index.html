@@ -274,6 +274,11 @@ hostname (<code>-h $HOSTNAME</code>) and using the <code>-ip</code> Registrator 
 <td></td>
 <td>Frequency service TTLs are refreshed (supported backends only)</td>
 </tr>
+<tr>
+<td><code>-useIpFromLabel &lt;label&gt;</code></td>
+<td></td>
+<td>Uses the IP address stored in the given label, which is assigned to a container, for registration with Consul</td>
+</tr>
 </tbody>
 </table>
 <p>If the <code>-internal</code> option is used, Registrator will register the docker0
@@ -288,8 +293,8 @@ refresh service TTLs with <code>-ttl</code> and <code>-ttl-refresh</code>.</p>
 <p>The <code>-resync</code> options controls how often Registrator will query Docker for all
 containers and reregister all services.  This allows Registrator and the service
 registry to get back in sync if they fall out of sync. Use this option with caution
-as it will notify all the watches you may have registered on your services, and 
-may rapidly flood your system (e.g. consul-template makes extensive use of watches). </p>
+as it will notify all the watches you may have registered on your services, and
+may rapidly flood your system (e.g. consul-template makes extensive use of watches).</p>
 <h2 id="consul-acl-token">Consul ACL token</h2>
 <p>If consul is configured to require an ACL token, Registrator needs to know about it,
 or you will see warnings in the consul docker container</p>
