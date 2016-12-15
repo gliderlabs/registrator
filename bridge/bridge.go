@@ -308,6 +308,22 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		}
 	}
 
+	// NetworkMode can point to another container (kuberenetes pods)
+	networkMode := container.HostConfig.NetworkMode
+	if networkMode != "" {
+		if strings.HasPrefix(networkMode, "container:") {
+			networkContainerId := strings.Split(networkMode, ":")[1]
+			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
+			networkContainer, err := b.docker.InspectContainer(networkContainerId)
+			if err != nil {
+				log.Println("unable to inspect network container:", networkContainerId[:12], err)
+			} else {
+				service.IP = networkContainer.NetworkSettings.IPAddress
+				log.Println(service.Name + ": using network container IP " + service.IP)
+			}
+		}
+	}
+
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
 			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
