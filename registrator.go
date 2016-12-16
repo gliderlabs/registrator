@@ -29,6 +29,7 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
+var filter = flag.String("filter", "", "Filter for IP:Port pair")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -105,6 +106,7 @@ func main() {
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
 		Cleanup:         *cleanup,
+		Filter:          *filter,
 	})
 
 	assert(err)
