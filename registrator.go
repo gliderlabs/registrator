@@ -29,7 +29,14 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
-var filter = flag.String("filter", "", "Filter for IP:Port pair")
+var filter = flag.String("filter", "", "Comma separated filter for \"IP\":\"Port\" pairs.\n" +
+	"        \"IP\" can be a single ip address or CIDR (ex. 192.168.1.1 192.168.1.0/24)\n" +
+	"        \"Port\" can be a single number or \"-\" separated range of ports\n" +
+	"          0       : Only IP address is registered\n" +
+	"          *       : Any ports\n" +
+	"          80-8080 : Ports range from 80 to 8080\n" +
+	"        Protocol can be appended ends of ports with \"/\" separated. (ex. 80/tcp 53/udp)\n" +
+	"        If container label \"REGISTRATOR_FILTER\" is defined, use it instead of this option")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
