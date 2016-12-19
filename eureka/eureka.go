@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gliderlabs/registrator/aws"
+	aws "github.com/gliderlabs/registrator/aws"
 	"github.com/gliderlabs/registrator/bridge"
 	eureka "github.com/hudl/fargo"
 )
@@ -49,10 +49,16 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
 	var awsMetadata *aws.Metadata
-	uniqueId := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
+	uniqueID := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
 
-	registration.HostName = uniqueId
-	registration.App = service.Name
+	registration.HostName = uniqueID
+
+	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+		registration.App = "CONTAINER_" + service.Name
+	} else {
+		registration.App = service.Name
+	}
+
 	registration.Port = service.Port
 
 	if service.Attrs["eureka_status"] == string(eureka.DOWN) {
@@ -93,6 +99,9 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 		}
 	}
 
+	// Metadata flag for a container
+	registration.SetMetadataString("is_container", string("true"))
+
 	// If you are not running locally, check AWS API for metadata
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
 		awsMetadata = aws.GetMetadata()
@@ -124,38 +133,36 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
 	}
 
-	// If specified, lookup the ELBv2 (application load balancer) DNS name and port, use these to register with eureka, instead of the container itself
-	if service.Attrs["eureka_use_elbv2_endpoint"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
-		v, err := strconv.ParseBool(service.Attrs["eureka_use_elbv2_endpoint"])
-		if err != nil {
-			log.Printf("eureka: eureka_use_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
-		} else {
-			elbMetadata := aws.GetELBV2ForContainer(awsMetadata.InstanceID, int64(service.Port))
-			registration.HostName = elbMetadata.DNSName
-			registration.Port = int(elbMetadata.Port)
-		}
-	}
-
 	return registration
 }
 
 func (r *EurekaAdapter) Register(service *bridge.Service) error {
 	registration := instanceInformation(service)
-	return r.client.RegisterInstance(registration)
+	instance := r.client.RegisterInstance(registration)
+	aws.RegisterELBv2(service, registration, r.client)
+	return instance
 }
 
 func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	registration := new(eureka.Instance)
-	registration.HostName = service.IP + ":" + strconv.Itoa(service.Port)
-	registration.App = service.Name
+	uniqueID := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
+	registration.HostName = uniqueID
+	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+		registration.App = "CONTAINER_" + service.Name
+	} else {
+		registration.App = service.Name
+	}
 	log.Println("Deregistering ", registration.HostName)
-	return r.client.DeregisterInstance(registration)
+	instance := r.client.DeregisterInstance(registration)
+	aws.DeregisterELBv2(service, service.Name, int64(registration.Port), r.client)
+	return instance
 }
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 	log.Println("Heartbeating...")
 	registration := instanceInformation(service)
 	err := r.client.HeartBeatInstance(registration)
+	aws.HeartbeatELBv2(service, registration, r.client)
 	log.Println("Done heartbeating for: ", registration.HostName)
 	return err
 }
