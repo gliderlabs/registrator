@@ -30,27 +30,25 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 
 	sess, err := session.NewSession()
 	if err != nil {
-		fmt.Println("failed to create session,", err)
+		fmt.Printf("Failed to create session connecting to AWS: %s\n", err)
 		return info
 	}
 	svc := elbv2.New(sess)
 
 	// Loop through target group pages and check for port and instanceID
-	//
+	// TODO: This needs to handle lots of target groups efficiently
 	params := &elbv2.DescribeTargetGroupsInput{
-		PageSize: awssdk.Int64(10),
+		PageSize: awssdk.Int64(1000),
 	}
 	tgs, err := svc.DescribeTargetGroups(params)
 
 	if err != nil {
-		// Print the error, cast err to awserr.Error to get the Code and
-		// Message from an error.
-		fmt.Println(err.Error())
+		log.Printf("An error occurred using DescribeTargetGroups: %s \n", err.Error())
 		return info
 	}
 
 	// Check each target group for a matching port and instanceID
-	// We assume that there is only one LB for the target group (though the data structure allows more)
+	// Assumption: that that there is only one LB for the target group (though the data structure allows more)
 	for _, tg := range tgs.TargetGroups {
 		params4 := &elbv2.DescribeTargetHealthInput{
 			TargetGroupArn: awssdk.String(*tg.TargetGroupArn),
@@ -65,7 +63,7 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 
 		}
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Printf("An error occurred using DescribeTargetHealth: %s \n", err.Error())
 			return info
 		}
 		fmt.Printf("LB is: %v\n", *lb[0])
@@ -78,7 +76,7 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 	lbData, err := svc.DescribeLoadBalancers(params2)
 
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Printf("An error occurred using DescribeLoadBalancers: %s \n", err.Error())
 		return info
 	}
 	fmt.Printf("LB DNS: %s\n", *lbData.LoadBalancers[0].DNSName)
@@ -88,8 +86,8 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 	return info
 }
 
-// Helper function to check if the correct config flags are set to use ALBs
-func checkELBFlags(service *bridge.Service) bool {
+// CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
+func CheckELBFlags(service *bridge.Service) bool {
 	if service.Attrs["eureka_use_elbv2_endpoint"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
 		v, err := strconv.ParseBool(service.Attrs["eureka_use_elbv2_endpoint"])
 		if err != nil {
@@ -107,37 +105,51 @@ func checkELBFlags(service *bridge.Service) bool {
 // for container registrations.  This will mean traffic is directed to the ALB rather than directly to containers
 // though they are still registered in eureka for information purposes
 func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
-	if checkELBFlags(service) {
+	if CheckELBFlags(service) {
+		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
 		awsMetadata := GetMetadata()
 		elbMetadata := GetELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port))
+		if elbMetadata.DNSName == "" {
+			log.Printf("Unable to find associated ELBv2 for: %s\n", registration.HostName)
+			return
+		}
 		elbEndpoint := elbMetadata.DNSName + ":" + string(elbMetadata.Port)
 
 		registration.SetMetadataString("has_elbv2", "true")
 		registration.SetMetadataString("elbv2_endpoint", elbEndpoint)
 
 		elbReg := new(eureka.Instance)
+		// Put a little metadata in here as required - setting hostname to the ELB endpoint prevents double registration
+		elbReg.DataCenterInfo.Name = eureka.Amazon
+
+		elbReg.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
+			PublicHostname: elbEndpoint,
+			HostName:       elbEndpoint,
+		}
+
 		elbReg.Port = int(elbMetadata.Port)
 		elbReg.IPAddr = elbMetadata.DNSName
 		elbReg.App = service.Name
 		elbReg.VipAddress = elbReg.IPAddr
-		elbReg.HostName = elbReg.IPAddr
+		elbReg.HostName = elbEndpoint
+		elbReg.DataCenterInfo.Name = eureka.Amazon
 		elbReg.SetMetadataString("is_elbv2", "true")
 		client.RegisterInstance(elbReg)
-
 	}
 }
 
 // DeregisterELBv2 - If specified, and all containers are gone, also deregister the ELBv2 (application load balancer, ALB) endpoint in eureka.
 //
 func DeregisterELBv2(service *bridge.Service, regDNSName string, regPort int64, client eureka.EurekaConnection) {
-	if checkELBFlags(service) {
+	if CheckELBFlags(service) {
 		// Check if there are any containers around with this ALB still attached
+		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %s:%v\n", regDNSName, string(regPort))
 		albName := regDNSName + ":" + string(regPort)
 		appName := "CONTAINER_" + service.Name
 		app, err := client.GetApp(appName)
 		if app != nil {
 			for _, instance := range app.Instances {
-				val, err := instance.Metadata.GetString("alb_endpoint")
+				val, err := instance.Metadata.GetString("elbv2_endpoint")
 				if err == nil && val == albName {
 					log.Printf("Eureka entry still present for one or more ALB linked containers: %s\n", val)
 					return
@@ -162,9 +174,10 @@ func DeregisterELBv2(service *bridge.Service, regDNSName string, regPort int64, 
 // be received more frequently than the --ttl-refresh interval if there are multiple hosts running registrator.
 //
 func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
-	if checkELBFlags(service) {
+	if CheckELBFlags(service) {
 		awsMetadata := GetMetadata()
 		elbMetadata := GetELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port))
+		log.Printf("Heartbeating ELBv2: %s:%s (for container: %s)\n", elbMetadata.DNSName, string(elbMetadata.Port), registration.HostName)
 		elbReg := new(eureka.Instance)
 		elbReg.IPAddr = elbMetadata.DNSName
 		elbReg.App = service.Name

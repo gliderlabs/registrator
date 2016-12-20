@@ -45,13 +45,18 @@ func (r *EurekaAdapter) Ping() error {
 	return nil
 }
 
+// Note: This is a function that is passed to the fargo library to determine how each registration is identified in eureka
+func uniqueID(instance eureka.Instance) string {
+	return instance.HostName
+}
+
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
 	var awsMetadata *aws.Metadata
-	uniqueID := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
 
-	registration.HostName = uniqueID
+	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
+	registration.UniqueID = uniqueID
 
 	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
 		registration.App = "CONTAINER_" + service.Name
@@ -101,13 +106,15 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	// Metadata flag for a container
 	registration.SetMetadataString("is_container", string("true"))
+	registration.SetMetadataString("containerID", service.Origin.ContainerID)
 
 	// If you are not running locally, check AWS API for metadata
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
 		awsMetadata = aws.GetMetadata()
+		// Set the instanceID here, because we don't want eureka to use it as a uniqueID
+		registration.SetMetadataString("aws_InstanceId", awsMetadata.InstanceID)
 		registration.DataCenterInfo.Name = eureka.Amazon
 		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
-			InstanceID:       awsMetadata.InstanceID,
 			AvailabilityZone: awsMetadata.AvailabilityZone,
 			PublicHostname:   awsMetadata.PublicHostname,
 			PublicIpv4:       awsMetadata.PublicIP,
@@ -133,6 +140,10 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
 	}
 
+	// Check if an ELBv2 is being used, and add container prefix if so
+	if aws.CheckELBFlags(service) {
+		registration.App = "CONTAINER_" + registration.App
+	}
 	return registration
 }
 
@@ -145,9 +156,9 @@ func (r *EurekaAdapter) Register(service *bridge.Service) error {
 
 func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	registration := new(eureka.Instance)
-	uniqueID := service.IP + ":" + strconv.Itoa(service.Port) + "_" + service.Origin.ContainerID
-	registration.HostName = uniqueID
-	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
+	registration.UniqueID = uniqueID
+	if aws.CheckELBFlags(service) {
 		registration.App = "CONTAINER_" + service.Name
 	} else {
 		registration.App = service.Name
