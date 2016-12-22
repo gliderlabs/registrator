@@ -50,6 +50,19 @@ func uniqueID(instance eureka.Instance) string {
 	return instance.HostName
 }
 
+// Helper function to check a boolean metadata flag
+func checkBooleanFlag(service *bridge.Service, flag string) bool {
+	if service.Attrs[flag] != "" {
+		v, err := strconv.ParseBool(service.Attrs[flag])
+		if err != nil {
+			log.Printf("eureka: %s must be valid boolean, was %v : %s", flag, v, err)
+			return false
+		}
+		return true
+	}
+	return false
+}
+
 func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration := new(eureka.Instance)
@@ -108,8 +121,8 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	registration.SetMetadataString("is_container", string("true"))
 	registration.SetMetadataString("containerID", service.Origin.ContainerID)
 
-	// If you are not running locally, check AWS API for metadata
-	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+	// If AWS metadata collection is enabled, use it
+	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
 		awsMetadata = aws.GetMetadata()
 		// Set the instanceID here, because we don't want eureka to use it as a uniqueID
 		registration.SetMetadataString("aws_InstanceId", awsMetadata.InstanceID)
@@ -123,19 +136,25 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 			HostName:         awsMetadata.PrivateHostname,
 			LocalIpv4:        awsMetadata.PrivateIP,
 		}
+		// Here we don't want auto population of metadata from AWS.  We'll use what we have from registrator, or overrides
+	} else if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn && !checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
+		registration.DataCenterInfo.Name = eureka.Amazon
+		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
+			InstanceID:     registration.HostName,
+			PublicHostname: ShortHandTernary(service.Attrs["eureka_datacenterinfo_publichostname"], service.Origin.HostIP),
+			PublicIpv4:     ShortHandTernary(service.Attrs["eureka_datacenterinfo_publicipv4"], service.Origin.HostIP),
+			LocalHostname:  ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP),
+			HostName:       ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP),
+			LocalIpv4:      ShortHandTernary(service.Attrs["eureka_datacenterinfo_localipv4"], service.IP),
+		}
 	} else {
 		registration.DataCenterInfo.Name = eureka.MyOwn
 	}
 
 	// If flag is set, register the AWS public IP as the endpoint instead of the private one
-	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
-		v, err := strconv.ParseBool(service.Attrs["eureka_register_aws_public_ip"])
-		if err != nil {
-			log.Printf("eureka: eureka_register_aws_public_ip must be valid boolean, was %v : %s", v, err)
-		} else {
-			registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], awsMetadata.PublicIP)
-			registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], awsMetadata.PublicIP)
-		}
+	if checkBooleanFlag(service, "eureka_register_aws_public_ip") && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+		registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], awsMetadata.PublicIP)
+		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], awsMetadata.PublicIP)
 	} else {
 		registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], service.IP)
 		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)

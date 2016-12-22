@@ -176,8 +176,8 @@ the host ip if not.
 The following defaults are set and can be overridden with service attributes:
 ```
 	SERVICE_EUREKA_STATUS = UP
-	SERVICE_EUREKA_VIP = Service IP
-	SERVICE_EUREKA_IPADDR = Service IP
+	SERVICE_EUREKA_VIP = Service IP (ignored if using SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP)
+	SERVICE_EUREKA_IPADDR = Service IP (ignored if using SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP)
 	SERVICE_EUREKA_LEASEINFO_RENEWALINTERVALINSECS = 30
 	SERVICE_EUREKA_LEASEINFO_DURATIONINSECS = 90
 	SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon
@@ -197,8 +197,16 @@ These will appear in eureka inside a metadata tag.  See https://github.com/hudl/
 
 If the Amazon Datacenter type is used, the following additional values are supported:
 ```	
-	SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP = false (if true, set VIP and IPADDR values to AWS public IP)
-	SERVICE_EUREKA_USE_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
+	
+If the Amazon Datacenter type is used, the following additional values are supported:
+```	
+SERVICE_EUREKA_DATACENTERINFO_AUTO_POPULATE=false (if set to true, will attempt to populate datacenter info automatically)
+SERVICE_EUREKA_DATACENTERINFO_PUBLICHOSTNAME = Host IP (ignored if using automatic population)
+SERVICE_EUREKA_DATACENTERINFO_PUBLICIPV4 = Host IP (ignored if using automatic population)
+SERVICE_EUREKA_DATACENTERINFO_LOCALIPV4 = Host or Container IP (depending on -internal flag, ignored if using automatic population)
+SERVICE_EUREKA_DATACENTERINFO_LOCALHOSTNAME = Host or Container IP (depending on -internal flag, ignored if using automatic population)
+SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP = false (if true, set VIP and IPADDR values to AWS public IP, ignored if NOT using automatic population)
+SERVICE_EUREKA_USE_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
 ```
 AWS datacenter metadata will be automatically populated.  _However_, the `InstanceID` will instead match `hostName`, which is the unique identifier for the container (Host_Port).  This is due to limitations in the eureka server.  
 Instead, a new metadata tag, `aws_instanceID` has the underlying host instanceID.
