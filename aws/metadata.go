@@ -15,6 +15,7 @@ type Metadata struct {
 	PrivateHostname  string
 	PublicHostname   string
 	AvailabilityZone string
+	Region           string
 }
 
 func getDataOrFail(svc *ec2metadata.EC2Metadata, key string) string {
@@ -34,7 +35,14 @@ func GetMetadata() *Metadata {
 	}
 	svc := ec2metadata.New(sess)
 	m := new(Metadata)
+
 	if svc.Available() {
+		ident, err := svc.GetInstanceIdentityDocument()
+		if err != nil {
+			m.Region = ""
+		} else {
+			m.Region = ident.Region
+		}
 		m.InstanceID = getDataOrFail(svc, "instance-id")
 		m.PrivateIP = getDataOrFail(svc, "local-ipv4")
 		m.PublicIP = getDataOrFail(svc, "public-ipv4")

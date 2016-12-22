@@ -118,6 +118,7 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 			AvailabilityZone: awsMetadata.AvailabilityZone,
 			PublicHostname:   awsMetadata.PublicHostname,
 			PublicIpv4:       awsMetadata.PublicIP,
+			InstanceID:       registration.HostName, // This is deliberate - due to limitations in uniqueIDs
 			LocalHostname:    awsMetadata.PrivateHostname,
 			HostName:         awsMetadata.PrivateHostname,
 			LocalIpv4:        awsMetadata.PrivateIP,
