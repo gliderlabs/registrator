@@ -19,19 +19,19 @@ type LBInfo struct {
 	Port    int64
 }
 
-// GetELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
+// getELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
 // if an error occurs, or the target is not found, an empty LBInfo is returned. Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
-func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
+func getELBV2ForContainer(instanceID string, port int64) (lbinfo *LBInfo, err error) {
 
 	var lb []*string
 	var lbPort *int64
-	info := LBInfo{}
+	info := &LBInfo{}
 
 	sess, err := session.NewSession()
 	if err != nil {
-		fmt.Printf("Failed to create session connecting to AWS: %s\n", err)
-		return info
+		message := fmt.Errorf("Failed to create session connecting to AWS: %s", err)
+		return nil, message
 	}
 
 	// Need to set the region here - we'll get it from instance metadata
@@ -47,7 +47,7 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 
 	if err != nil {
 		log.Printf("An error occurred using DescribeTargetGroups: %s \n", err.Error())
-		return info
+		return nil, err
 	}
 
 	// Check each target group for a matching port and instanceID
@@ -67,7 +67,7 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 		}
 		if err != nil {
 			log.Printf("An error occurred using DescribeTargetHealth: %s \n", err.Error())
-			return info
+			return nil, err
 		}
 	}
 
@@ -78,13 +78,13 @@ func GetELBV2ForContainer(instanceID string, port int64) LBInfo {
 
 	if err != nil {
 		log.Printf("An error occurred using DescribeLoadBalancers: %s \n", err.Error())
-		return info
+		return nil, err
 	}
-	fmt.Printf("LB Endpoint is: %s:%s\n", *lbData.LoadBalancers[0].DNSName, strconv.FormatInt(*lbPort, 10))
+	log.Printf("LB Endpoint is: %s:%s\n", *lbData.LoadBalancers[0].DNSName, strconv.FormatInt(*lbPort, 10))
 
 	info.DNSName = *lbData.LoadBalancers[0].DNSName
 	info.Port = *lbPort
-	return info
+	return info, err
 }
 
 // CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
@@ -94,26 +94,24 @@ func CheckELBFlags(service *bridge.Service) bool {
 		if err != nil {
 			log.Printf("eureka: eureka_use_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
 			return false
-		} else {
-			return true
 		}
-	} else {
-		return false
+		return true
 	}
+	return false
 }
 
 // Helper function to create a registration struct, and change container registration
 func setRegInfo(service *bridge.Service, registration *eureka.Instance) *eureka.Instance {
 
 	awsMetadata := GetMetadata()
-	elbMetadata := GetELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port))
-	elbStrPort := strconv.FormatInt(elbMetadata.Port, 10)
+	elbMetadata, err := getELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port))
 
-	if elbMetadata.DNSName == "" {
-		log.Printf("Unable to find associated ELBv2 for: %s\n", registration.HostName)
+	if err != nil {
+		log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
 		return nil
 	}
 
+	elbStrPort := strconv.FormatInt(elbMetadata.Port, 10)
 	elbEndpoint := elbMetadata.DNSName + "_" + elbStrPort
 
 	registration.SetMetadataString("has_elbv2", "true")
