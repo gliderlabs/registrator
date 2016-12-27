@@ -225,7 +225,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	metadata, _ := serviceMetaData(container.Config, "")
 	if mapDefault(metadata, "force_register", "") != "" {
 		// Register service even if no ports are published
-		if len(ports) == 0 {
+		if len(servicePorts) == 0 {
 			published := []dockerapi.PortBinding{ {"0.0.0.0", "0"}, }
 			servicePorts["0"] = servicePort(container, "0", published)
 		}
