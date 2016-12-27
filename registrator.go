@@ -21,7 +21,6 @@ var versionChecker = usage.NewChecker("registrator", Version)
 var filter = flag.String("filter", "external:*", "Comma separated filter for \"IP\":\"Port\" pairs.\n" +
 	"        \"IP\" can be a single ip address or CIDR (ex. 192.168.1.1 192.168.1.0/24)\n" +
 	"        \"Port\" can be a single number or \"-\" separated range of ports\n" +
-	"          0       : Only IP address is registered\n" +
 	"          *       : Any ports\n" +
 	"          80-8080 : Ports range from 80 to 8080\n" +
 	"        Protocol can be appended ends of ports with \"/\" separated. (ex. 80/tcp 53/udp)\n" +
