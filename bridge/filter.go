@@ -6,26 +6,49 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"log"
+	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
 type Filter struct {
-	hostIP      bool        // if true, host ip is accepted (external)
-	containerIP bool        // if true, container ip is accepted (internal)
-	ip          net.IP      // ip address
-	ipnet       *net.IPNet  // ip range
-	portLess    bool        // if true, ip only (no port)
-	portMin     uint16      // port range min
-	portMax     uint16      // port range max
-	proto       string      // protocol (tcp/udp)
+	externalIP bool       // if true, host ip is accepted (external)
+	internalIP bool       // if true, container ip is accepted (internal)
+	ip         net.IP     // ip address
+	ipnet      *net.IPNet // ip range
+	portMin    uint16     // port range min
+	portMax    uint16     // port range max
+	proto      string     // protocol (tcp/udp)
+	input      string     // input string
 
 }
+
 type Filters struct {
-	list []*Filter
+	list  []*Filter
 }
 
 // clear the filter lists
 func (f *Filters) Clear() {
 	f.list = []*Filter{}
+}
+
+func NewFilter(container *dockerapi.Container, defaultValue string) (*Filters, error) {
+	// build filter from registrator option & labels
+	filters := &Filters{}
+	if len(container.Config.Labels["REGISTRATOR_FILTER_OVERWRITE"]) > 0 {
+		if err := filters.Append(container.Config.Labels["REGISTRATOR_FILTER_OVERWRITE"]); err != nil {
+			return nil, err
+		}
+		return filters, nil
+	}
+	if err := filters.Append(defaultValue); err != nil {
+		return nil, err
+	}
+	if len(container.Config.Labels["REGISTRATOR_FILTER_APPEND"]) > 0 {
+		if err := filters.Append(container.Config.Labels["REGISTRATOR_FILTER_APPEND"]); err != nil {
+			return nil, err
+		}
+	}
+	return filters, nil
 }
 
 // build a filter lists from input string
@@ -42,16 +65,16 @@ func (f *Filters) Append(input string) error {
 		}
 		filter := new(Filter)
 		ipPort := strings.Split(entry, ":")
+		if len(ipPort) < 2 {
+			continue
+		}
 		if err := parseIp(ipPort[0], filter); err != nil {
 			return err
 		}
-		if len(ipPort) > 1 {
-			if err := parsePort(ipPort[1], filter); err != nil {
-				return err
-			}
-		} else {
-			filter.portLess = true
+		if err := parsePort(ipPort[1], filter); err != nil {
+			return err
 		}
+		filter.input = entry
 		f.list = append(f.list, filter)
 	}
 	return nil
@@ -59,13 +82,30 @@ func (f *Filters) Append(input string) error {
 
 // check ip:port is matched with one of filter in list
 // returned with matched filter for informations
-func (f *Filters) Match(ip string, port uint16, internal bool) (bool, *Filter, error) {
+func (f *Filters) Match(ip string, portStr string, internal bool) (result bool, filter *Filter, err error) {
+	dumpResult := func() {
+		if !result {
+			log.Println("not matched with filter: input:[" + ip + ":" + portStr + ":" + strconv.FormatBool(internal) + "]")
+		} else {
+			log.Println("matched with filter: input:[" + ip + ":" + portStr + ":" + strconv.FormatBool(internal) + "] filter:[" + filter.input + "]")
+		}
+	}
+	defer dumpResult()
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
 		return false, nil, errors.New("parse ip address error : " + ip)
 	}
+	var proto = "tcp"
+	portProto := strings.Split(portStr, "/")
+	if len(portProto) > 1 {
+		proto = portProto[1]
+	}
+	port, err := strconv.ParseUint(portProto[0], 10, 16)
+	if err != nil {
+		return false, nil, err
+	}
 	for _, filter := range f.list {
-		matched, _, err := matchIPPort(parsedIP, port, internal, filter)
+		matched, _, err := matchIPPort(parsedIP, uint16(port), proto, internal, filter)
 		if err != nil {
 			return false, nil, err
 		}
@@ -79,12 +119,12 @@ func (f *Filters) Match(ip string, port uint16, internal bool) (bool, *Filter, e
 // parse input string and generate filter ip parts
 // input string must be ip (ex 192.168.1.1) or cidr (ex 192.168.0.0/16)
 func parseIp(input string, filter *Filter) error {
-	if strings.EqualFold(input, "host") {
-		filter.hostIP = true
+	if strings.EqualFold(input, "external") {
+		filter.externalIP = true
 		return nil
 	}
-	if strings.EqualFold(input, "container") {
-		filter.containerIP = true
+	if strings.EqualFold(input, "internal") {
+		filter.internalIP = true
 		return nil
 	}
 	if strings.EqualFold(input, "0.0.0.0") {
@@ -162,26 +202,26 @@ func parseProto(input string, filter *Filter) error {
 
 // match ip:port with a filter
 // at first check ip is matched with filter and if matched, check port is matched
-func matchIPPort(ip net.IP, port uint16, internal bool, filter *Filter) (bool, *Filter, error) {
+func matchIPPort(ip net.IP, port uint16, proto string, internal bool, filter *Filter) (bool, *Filter, error) {
 	// check ip
 	// if filter is accept any host ip
-	if filter.hostIP == true && internal == false {
-		return matchPort(port, filter)
+	if filter.externalIP == true && internal == false {
+		return matchPort(port, proto, filter)
 	}
 	// if filter is accept any container ip
-	if filter.containerIP == true && internal == true {
-		return matchPort(port, filter)
+	if filter.internalIP == true && internal == true {
+		return matchPort(port, proto, filter)
 	}
 	// if filter is accept ip
 	if filter.ip != nil {
 		if filter.ip.Equal(ip) {
-			return matchPort(port, filter)
+			return matchPort(port, proto, filter)
 		}
 	}
 	// if filter is accept ip range
 	if filter.ipnet != nil {
 		if filter.ipnet.Contains(ip) {
-			return matchPort(port, filter)
+			return matchPort(port, proto, filter)
 		}
 	}
 	// not matched with filter ip/port
@@ -189,10 +229,9 @@ func matchIPPort(ip net.IP, port uint16, internal bool, filter *Filter) (bool, *
 }
 
 // match port with a filter
-// portless means report ip address only (without port) so if portless is true, always return true
-func matchPort(port uint16, filter *Filter) (bool, *Filter, error) {
-	if filter.portLess == true {
-		return true, filter, nil
+func matchPort(port uint16, proto string, filter *Filter) (bool, *Filter, error) {
+	if !strings.EqualFold(filter.proto, proto) {
+		return false, nil, nil
 	}
 	if filter.portMin <= port && filter.portMax >= port {
 		return true, filter, nil
