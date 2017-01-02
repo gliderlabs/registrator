@@ -1,10 +1,12 @@
-FROM gliderlabs/alpine:3.4
+FROM alpine:3.5
 ENTRYPOINT ["/bin/registrator"]
 
+ENV GOPATH /go
 COPY . /go/src/github.com/gliderlabs/registrator
-RUN apk-install -t build-deps build-base go git \
+RUN apk --no-cache add -t build-deps build-base go git glide \
 	&& cd /go/src/github.com/gliderlabs/registrator \
-	&& export GOPATH=/go \
+	&& glide install \
 	&& go build -ldflags "-X main.Version=$(cat VERSION)" -o /bin/registrator \
 	&& rm -rf /go \
+	&& glide cc \
 	&& apk del --purge build-deps

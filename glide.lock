@@ -1,0 +1,153 @@
+hash: 76aeb5612fc1fced933297add7f66ec6f702397b8a97257b67bd6d0663c5f6a8
+updated: 2017-01-02T11:44:58.514373219-06:00
+imports:
+- name: github.com/armon/go-metrics
+  version: 97c69685293dce4c0a2d0b19535179bbc976e4d2
+- name: github.com/aws/aws-sdk-go
+  version: 1b2abe886743dc2bcc78472bfd30a15dc0a61fb8
+  subpackages:
+  - aws
+  - aws/awserr
+  - aws/awsutil
+  - aws/client
+  - aws/client/metadata
+  - aws/corehandlers
+  - aws/credentials
+  - aws/credentials/ec2rolecreds
+  - aws/credentials/endpointcreds
+  - aws/credentials/stscreds
+  - aws/defaults
+  - aws/ec2metadata
+  - aws/request
+  - aws/session
+  - aws/signer/v4
+  - private/endpoints
+  - private/protocol
+  - private/protocol/json/jsonutil
+  - private/protocol/jsonrpc
+  - private/protocol/query
+  - private/protocol/query/queryutil
+  - private/protocol/rest
+  - private/protocol/xml/xmlutil
+  - private/waiter
+  - service/dynamodb
+  - service/dynamodb/dynamodbattribute
+  - service/sts
+- name: github.com/Azure/go-ansiterm
+  version: fa152c58bc15761d0200cb75fe958b89a9d4888e
+  subpackages:
+  - winterm
+- name: github.com/cenkalti/backoff
+  version: b02f2bbce11d7ea6b97f282ef1771b0fe2f65ef3
+- name: github.com/coreos/etcd
+  version: 24601ca24b46f5d700746c5902ee62aca6b1b805
+  subpackages:
+  - client
+  - pkg/pathutil
+  - pkg/types
+- name: github.com/docker/docker
+  version: 29f42b4036d633a486cd58b30379714d4da8823f
+  subpackages:
+  - api/types
+  - api/types/blkiodev
+  - api/types/container
+  - api/types/filters
+  - api/types/mount
+  - api/types/network
+  - api/types/registry
+  - api/types/strslice
+  - api/types/swarm
+  - api/types/versions
+  - opts
+  - pkg/archive
+  - pkg/fileutils
+  - pkg/homedir
+  - pkg/idtools
+  - pkg/ioutils
+  - pkg/jsonlog
+  - pkg/jsonmessage
+  - pkg/longpath
+  - pkg/pools
+  - pkg/promise
+  - pkg/stdcopy
+  - pkg/system
+  - pkg/term
+  - pkg/term/windows
+- name: github.com/docker/go-connections
+  version: eb315e36415380e7c2fdee175262560ff42359da
+  subpackages:
+  - nat
+- name: github.com/docker/go-units
+  version: e30f1e79f3cd72542f2026ceec18d3bd67ab859c
+- name: github.com/docker/libkv
+  version: a96576b7e2741bd17b924956ecdb86578fa475a8
+  repo: https://github.com/mattaitchison/libkv.git
+  subpackages:
+  - store
+  - store/consul
+  - store/dynamodb
+  - store/etcd
+  - store/zookeeper
+- name: github.com/fsouza/go-dockerclient
+  version: 4a934a8fd3ec3d4f84d9dcd8b47e7b277918c366
+- name: github.com/gliderlabs/pkg
+  version: 36f28d47ec7aae4d25d3d2741ac5af91f7f18680
+  subpackages:
+  - usage
+- name: github.com/go-ini/ini
+  version: 6e4869b434bd001f6983749881c7ead3545887d8
+- name: github.com/hashicorp/consul
+  version: dc2a54a77b3b053e77298d4ce587bdf0bd0bcd1c
+  subpackages:
+  - api
+- name: github.com/hashicorp/go-cleanhttp
+  version: ad28ea4487f05916463e2423a55166280e8254b5
+- name: github.com/hashicorp/serf
+  version: d3a67ab21bc8a4643fa53a3633f2d951dd50c6ca
+  subpackages:
+  - coordinate
+- name: github.com/jmespath/go-jmespath
+  version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
+- name: github.com/Microsoft/go-winio
+  version: 24a3e3d3fc7451805e09d11e11e95d9a0a4f205e
+- name: github.com/miekg/dns
+  version: 00b8eaaab9411e1ff61e5030ef7e58bed412ad2a
+- name: github.com/opencontainers/runc
+  version: db25629d4630459929ba08ea663dccf562b8ff70
+  subpackages:
+  - libcontainer/system
+  - libcontainer/user
+- name: github.com/pkg/errors
+  version: 839d9e913e063e28dfd0e6c7b7512793e0a48be9
+- name: github.com/samuel/go-zookeeper
+  version: 1d7be4effb13d2d908342d349d71a284a7542693
+  subpackages:
+  - zk
+- name: github.com/Sirupsen/logrus
+  version: 55eb11d21d2a31a3cc93838241d04800f52e823d
+- name: github.com/ugorji/go
+  version: 9c7f9b7a2bc3a520f7c7b30b34b7f85f47fe27b6
+  subpackages:
+  - codec
+- name: golang.org/x/net
+  version: 6cdc0daab091c43fc46193327e0047b4f883c613
+  subpackages:
+  - context
+  - context/ctxhttp
+- name: golang.org/x/sys
+  version: b699b7032584f0953262cb2788a0ca19bb494703
+  subpackages:
+  - windows
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib
+- name: github.com/stretchr/testify
+  version: 2402e8e7a02fc811447d11f881aa9746cdc57983
+  subpackages:
+  - assert

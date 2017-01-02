@@ -1,0 +1,21 @@
+package: github.com/gliderlabs/registrator
+import:
+- package: github.com/docker/libkv
+  repo: https://github.com/mattaitchison/libkv.git
+  subpackages:
+  - store
+  - store/dynamodb
+- package: github.com/fsouza/go-dockerclient
+- package: github.com/gliderlabs/pkg
+  subpackages:
+  - usage
+- package: github.com/hashicorp/consul
+  subpackages:
+  - api
+- package: github.com/hashicorp/go-cleanhttp
+- package: github.com/docker/docker
+  version: ^1.13.0-rc4
+testImport:
+- package: github.com/stretchr/testify
+  subpackages:
+  - assert
