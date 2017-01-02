@@ -19,7 +19,7 @@ If no address and port is specified, it will default to `127.0.0.1:8500`.
 
 Consul supports tags but no arbitrary service attributes.
 
-When using the `consul-tls` scheme, registrator communicates with Consul through TLS. You must set the following environment variables:
+When using the `consul-tls` scheme, Registrator communicates with Consul through TLS. You must set the following environment variables:
  * `CONSUL_CACERT` : CA file location
  * `CONSUL_TLSCERT` : Certificate file location
  * `CONSUL_TLSKEY` : Key location
@@ -42,7 +42,7 @@ you can also use `SERVICE_CHECK_HTTP`.
 ### Consul HTTPS Check
 
 This feature is only available when using Consul 0.5 or newer. Containers
-specifying these extra metedata in labels or environment will be used to
+specifying these extra metadata in labels or environment will be used to
 register an HTTPS health check with the service.
 
 ```bash

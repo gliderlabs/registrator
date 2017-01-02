@@ -13,10 +13,10 @@ func TestNewError(t *testing.T) {
 }
 
 func TestNewValid(t *testing.T) {
-	Register(new(fakeFactory), "fake")
+	Register("mock", NewMock)
 	// Note: the following is valid for New() since it does not
 	// actually connect to docker.
-	bridge, err := New(nil, "fake://", Config{})
+	bridge, err := New(nil, "mock://", Config{})
 
 	assert.NotNil(t, bridge)
 	assert.NoError(t, err)

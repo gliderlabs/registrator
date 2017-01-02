@@ -1,15 +1,22 @@
-//go:generate go-extpoints . AdapterFactory
 package bridge
 
 import (
+	"errors"
 	"net/url"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-type AdapterFactory interface {
-	New(uri *url.URL) RegistryAdapter
-}
+var (
+	// ErrCallNotSupported is thrown when a method is not implemented/supported by the current backend
+	ErrCallNotSupported = errors.New("The current call is not supported with this backend")
+
+	// ErrBackendNotSupported is thrown when the backend k/v store is not supported by libkv
+	ErrBackendNotSupported = errors.New("backend storage not supported, please choose one of")
+)
+
+// Initialize creates a new Backent object, initializing the client
+type Initialize func(uri *url.URL) (RegistryAdapter, error)
 
 type RegistryAdapter interface {
 	Ping() error
@@ -20,11 +27,11 @@ type RegistryAdapter interface {
 }
 
 type Config struct {
-	HostIp          string
+	HostIP          string
 	Internal        bool
-	UseIpFromLabel  string
+	UseIPFromLabel  string
 	ForceTags       string
-	RefreshTtl      int
+	RefreshTTL      int
 	RefreshInterval int
 	DeregisterCheck string
 	Cleanup         bool

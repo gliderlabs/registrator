@@ -6,7 +6,6 @@ Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
 [![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
 [![ImageLayers Size](https://img.shields.io/imagelayers/image-size/gliderlabs/registrator/latest.svg)](https://imagelayers.io/?images=gliderlabs%2Fregistrator:latest)
 [![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
-<br /><br />
 
 Registrator automatically registers and deregisters services for any Docker
 container by inspecting containers as they come online. Registrator

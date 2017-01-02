@@ -1,18 +1,20 @@
 package bridge
 
 import (
-	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/url"
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
@@ -26,63 +28,89 @@ type Bridge struct {
 	config         Config
 }
 
+var (
+	// Backend initializers
+	initializers = make(map[string]Initialize)
+
+	supportedBackend = func() string {
+		keys := make([]string, 0, len(initializers))
+		for k := range initializers {
+			keys = append(keys, string(k))
+		}
+		sort.Strings(keys)
+		return strings.Join(keys, ", ")
+	}
+)
+
+// Register adds a new store backend to libkv
+func Register(name string, init Initialize) {
+	initializers[name] = init
+}
+
 func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
 	uri, err := url.Parse(adapterUri)
 	if err != nil {
-		return nil, errors.New("bad adapter uri: " + adapterUri)
+		return nil, errors.Wrapf(err, "bad adapter uri: %s", adapterUri)
 	}
-	factory, found := AdapterFactories.Lookup(uri.Scheme)
+
+	init, found := initializers[uri.Scheme]
 	if !found {
-		return nil, errors.New("unrecognized adapter: " + adapterUri)
+		return nil, fmt.Errorf("%s %s", ErrBackendNotSupported, supportedBackend())
 	}
 
 	log.Println("Using", uri.Scheme, "adapter:", uri)
+	registry, err := init(uri)
 	return &Bridge{
 		docker:         docker,
 		config:         config,
-		registry:       factory.New(uri),
+		registry:       registry,
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
-	}, nil
+	}, err
 }
 
 func (b *Bridge) Ping() error {
 	return b.registry.Ping()
 }
 
-func (b *Bridge) Add(containerId string) {
+func (b *Bridge) Add(containerID string) {
 	b.Lock()
 	defer b.Unlock()
-	b.add(containerId, false)
+	b.add(containerID, false)
 }
 
-func (b *Bridge) Remove(containerId string) {
-	b.remove(containerId, true)
+func (b *Bridge) Remove(containerID string) {
+	b.remove(containerID, true)
 }
 
-func (b *Bridge) RemoveOnExit(containerId string) {
-	b.remove(containerId, b.shouldRemove(containerId))
+func (b *Bridge) RemoveOnExit(containerID string) {
+	b.remove(containerID, b.shouldRemove(containerID))
 }
 
 func (b *Bridge) Refresh() {
 	b.Lock()
 	defer b.Unlock()
 
-	for containerId, deadContainer := range b.deadContainers {
+	for containerID, deadContainer := range b.deadContainers {
 		deadContainer.TTL -= b.config.RefreshInterval
 		if deadContainer.TTL <= 0 {
-			delete(b.deadContainers, containerId)
+			delete(b.deadContainers, containerID)
 		}
 	}
 
-	for containerId, services := range b.services {
+	for containerID, services := range b.services {
 		for _, service := range services {
 			err := b.registry.Refresh(service)
+			if err == ErrCallNotSupported {
+				log.Println("refresh: call unsupported by backend")
+				return
+			}
+
 			if err != nil {
 				log.Println("refresh failed:", service.ID, err)
 				continue
 			}
-			log.Println("refreshed:", containerId[:12], service.ID)
+			log.Println("refreshed:", containerID[:12], service.ID)
 		}
 	}
 }
@@ -127,18 +155,18 @@ func (b *Bridge) Sync(quiet bool) {
 			log.Println("error listing nonExitedContainers, skipping sync", err)
 			return
 		}
-		for listingId, _ := range b.services {
+		for listingID := range b.services {
 			found := false
 			for _, container := range nonExitedContainers {
-				if listingId == container.ID {
+				if listingID == container.ID {
 					found = true
 					break
 				}
 			}
 			// This is a container that does not exist
 			if !found {
-				log.Printf("stale: Removing service %s because it does not exist", listingId)
-				go b.RemoveOnExit(listingId)
+				log.Printf("stale: Removing service %s because it does not exist", listingID)
+				go b.RemoveOnExit(listingID)
 			}
 		}
 
@@ -180,29 +208,29 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 }
 
-func (b *Bridge) add(containerId string, quiet bool) {
-	if d := b.deadContainers[containerId]; d != nil {
-		b.services[containerId] = d.Services
-		delete(b.deadContainers, containerId)
+func (b *Bridge) add(containerID string, quiet bool) {
+	if d := b.deadContainers[containerID]; d != nil {
+		b.services[containerID] = d.Services
+		delete(b.deadContainers, containerID)
 	}
 
-	if b.services[containerId] != nil {
-		log.Println("container, ", containerId[:12], ", already exists, ignoring")
+	if b.services[containerID] != nil {
+		log.Println("container, ", containerID[:12], ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
 		return
 	}
 
-	container, err := b.docker.InspectContainer(containerId)
+	container, err := b.docker.InspectContainer(containerID)
 	if err != nil {
-		log.Println("unable to inspect container:", containerId[:12], err)
+		log.Println("unable to inspect container:", containerID[:12], err)
 		return
 	}
 
 	ports := make(map[string]ServicePort)
 
 	// Extract configured host port mappings, relevant when using --net=host
-	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+	for port := range container.Config.ExposedPorts {
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -255,6 +283,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	if hostname == "" {
 		hostname = port.HostIP
 	}
+
 	if port.HostIP == "0.0.0.0" {
 		ip, err := net.ResolveIPAddr("ip", hostname)
 		if err == nil {
@@ -262,8 +291,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		}
 	}
 
-	if b.config.HostIp != "" {
-		port.HostIP = b.config.HostIp
+	if b.config.HostIP != "" {
+		port.HostIP = b.config.HostIP
 	}
 
 	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
@@ -291,19 +320,19 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	}
 	service.Port = p
 
-	if b.config.UseIpFromLabel != "" {
-		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
-		if containerIp != "" {
-			slashIndex := strings.LastIndex(containerIp, "/")
+	if b.config.UseIPFromLabel != "" {
+		containerIP := container.Config.Labels[b.config.UseIPFromLabel]
+		if containerIP != "" {
+			slashIndex := strings.LastIndex(containerIP, "/")
 			if slashIndex > -1 {
-				service.IP = containerIp[:slashIndex]
+				service.IP = containerIP[:slashIndex]
 			} else {
-				service.IP = containerIp
+				service.IP = containerIP
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIPFromLabel + "'")
 		} else {
-			log.Println("Label '" + b.config.UseIpFromLabel +
+			log.Println("Label '" + b.config.UseIPFromLabel +
 				"' not found in container configuration")
 		}
 	}
@@ -312,11 +341,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	networkMode := container.HostConfig.NetworkMode
 	if networkMode != "" {
 		if strings.HasPrefix(networkMode, "container:") {
-			networkContainerId := strings.Split(networkMode, ":")[1]
-			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
-			networkContainer, err := b.docker.InspectContainer(networkContainerId)
+			networkContainerID := strings.Split(networkMode, ":")[1]
+			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerID[:12])
+			networkContainer, err := b.docker.InspectContainer(networkContainerID)
 			if err != nil {
-				log.Println("unable to inspect network container:", networkContainerId[:12], err)
+				log.Println("unable to inspect network container:", networkContainerID[:12], err)
 			} else {
 				service.IP = networkContainer.NetworkSettings.IPAddress
 				log.Println(service.Name + ": using network container IP " + service.IP)
@@ -342,12 +371,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	delete(metadata, "tags")
 	delete(metadata, "name")
 	service.Attrs = metadata
-	service.TTL = b.config.RefreshTtl
+	service.TTL = b.config.RefreshTTL
 
 	return service
 }
 
-func (b *Bridge) remove(containerId string, deregister bool) {
+func (b *Bridge) remove(containerID string, deregister bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -359,43 +388,43 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 					log.Println("deregister failed:", service.ID, err)
 					continue
 				}
-				log.Println("removed:", containerId[:12], service.ID)
+				log.Println("removed:", containerID[:12], service.ID)
 			}
 		}
-		deregisterAll(b.services[containerId])
-		if d := b.deadContainers[containerId]; d != nil {
+		deregisterAll(b.services[containerID])
+		if d := b.deadContainers[containerID]; d != nil {
 			deregisterAll(d.Services)
-			delete(b.deadContainers, containerId)
+			delete(b.deadContainers, containerID)
 		}
-	} else if b.config.RefreshTtl != 0 && b.services[containerId] != nil {
+	} else if b.config.RefreshTTL != 0 && b.services[containerID] != nil {
 		// need to stop the refreshing, but can't delete it yet
-		b.deadContainers[containerId] = &DeadContainer{b.config.RefreshTtl, b.services[containerId]}
+		b.deadContainers[containerID] = &DeadContainer{b.config.RefreshTTL, b.services[containerID]}
 	}
-	delete(b.services, containerId)
+	delete(b.services, containerID)
 }
 
 // bit set on ExitCode if it represents an exit via a signal
-var dockerSignaledBit = 128
+const dockerSignaledBit = 128
 
-func (b *Bridge) shouldRemove(containerId string) bool {
+func (b *Bridge) shouldRemove(containerID string) bool {
 	if b.config.DeregisterCheck == "always" {
 		return true
 	}
-	container, err := b.docker.InspectContainer(containerId)
+	container, err := b.docker.InspectContainer(containerID)
 	if _, ok := err.(*dockerapi.NoSuchContainer); ok {
 		// the container has already been removed from Docker
 		// e.g. probabably run with "--rm" to remove immediately
 		// so its exit code is not accessible
-		log.Printf("registrator: container %v was removed, could not fetch exit code", containerId[:12])
+		log.Printf("registrator: container %v was removed, could not fetch exit code", containerID[:12])
 		return true
 	}
 
 	switch {
 	case err != nil:
-		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", containerId[:12], err)
+		log.Printf("registrator: error fetching status for container %v on \"die\" event: %v\n", containerID[:12], err)
 		return false
 	case container.State.Running:
-		log.Printf("registrator: not removing container %v, still running", containerId[:12])
+		log.Printf("registrator: not removing container %v, still running", containerID[:12])
 		return false
 	case container.State.ExitCode == 0:
 		return true

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -12,17 +11,18 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/pkg/errors"
 )
 
 var Version string
 
 var versionChecker = usage.NewChecker("registrator", Version)
 
-var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
+var hostIP = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
-var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored in a label assigned to the container")
+var useIPFromLabel = flag.String("useIPFromLabel", "", "Use IP which is stored in a label assigned to the container")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
-var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
+var refreshTTL = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
@@ -70,13 +70,13 @@ func main() {
 		os.Exit(2)
 	}
 
-	if *hostIp != "" {
-		log.Println("Forcing host IP to", *hostIp)
+	if *hostIP != "" {
+		log.Println("Forcing host IP to", *hostIP)
 	}
 
-	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
+	if (*refreshTTL == 0 && *refreshInterval > 0) || (*refreshTTL > 0 && *refreshInterval == 0) {
 		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
-	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
+	} else if *refreshTTL > 0 && *refreshTTL <= *refreshInterval {
 		assert(errors.New("-ttl must be greater than -ttl-refresh"))
 	}
 
@@ -97,11 +97,11 @@ func main() {
 	}
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
-		HostIp:          *hostIp,
+		HostIP:          *hostIP,
 		Internal:        *internal,
-		UseIpFromLabel:  *useIpFromLabel,
+		UseIPFromLabel:  *useIPFromLabel,
 		ForceTags:       *forceTags,
-		RefreshTtl:      *refreshTtl,
+		RefreshTTL:      *refreshTTL,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
 		Cleanup:         *cleanup,
@@ -119,7 +119,7 @@ func main() {
 		}
 
 		if err != nil && attempt == *retryAttempts {
-			assert(err)
+			assert(errors.Wrapf(err, "failed to ping backend: %s ", flag.Arg(0)))
 		}
 
 		time.Sleep(time.Duration(*retryInterval) * time.Millisecond)

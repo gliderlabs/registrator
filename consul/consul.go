@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"strings"
 	"os"
+	"strings"
+
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
@@ -14,35 +15,32 @@ import (
 const DefaultInterval = "10s"
 
 func init() {
-	f := new(Factory)
-	bridge.Register(f, "consul")
-	bridge.Register(f, "consul-tls")
-	bridge.Register(f, "consul-unix")
+	bridge.Register("consul", New)
+	bridge.Register("consul-tls", New)
+	bridge.Register("consul-unix", New)
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
-	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
-	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
+	withIP := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
+	withPort := strings.Replace(withIP, "$SERVICE_PORT", service.Origin.HostPort, -1)
 	return withPort
 }
 
-type Factory struct{}
-
-func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
+func New(uri *url.URL) (bridge.RegistryAdapter, error) {
 	config := consulapi.DefaultConfig()
 	if uri.Scheme == "consul-unix" {
 		config.Address = strings.TrimPrefix(uri.String(), "consul-")
 	} else if uri.Scheme == "consul-tls" {
-	        tlsConfigDesc := &consulapi.TLSConfig {
-			  Address: uri.Host,
-			  CAFile: os.Getenv("CONSUL_CACERT"),
-  			  CertFile: os.Getenv("CONSUL_TLSCERT"),
-  			  KeyFile: os.Getenv("CONSUL_TLSKEY"),
-			  InsecureSkipVerify: false,
+		tlsConfigDesc := &consulapi.TLSConfig{
+			Address:            uri.Host,
+			CAFile:             os.Getenv("CONSUL_CACERT"),
+			CertFile:           os.Getenv("CONSUL_TLSCERT"),
+			KeyFile:            os.Getenv("CONSUL_TLSKEY"),
+			InsecureSkipVerify: false,
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
 		if err != nil {
-		   log.Fatal("Cannot set up Consul TLSConfig", err)
+			log.Fatal("Cannot set up Consul TLSConfig", err)
 		}
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
@@ -53,10 +51,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		config.Address = uri.Host
 	}
 	client, err := consulapi.NewClient(config)
-	if err != nil {
-		log.Fatal("consul: ", uri.Scheme)
-	}
-	return &ConsulAdapter{client: client}
+	return &ConsulAdapter{client: client}, err
 }
 
 type ConsulAdapter struct {
@@ -76,13 +71,15 @@ func (r *ConsulAdapter) Ping() error {
 }
 
 func (r *ConsulAdapter) Register(service *bridge.Service) error {
-	registration := new(consulapi.AgentServiceRegistration)
-	registration.ID = service.ID
-	registration.Name = service.Name
-	registration.Port = service.Port
-	registration.Tags = service.Tags
-	registration.Address = service.IP
-	registration.Check = r.buildCheck(service)
+	registration := &consulapi.AgentServiceRegistration{
+		ID:      service.ID,
+		Name:    service.Name,
+		Port:    service.Port,
+		Tags:    service.Tags,
+		Address: service.IP,
+		Check:   r.buildCheck(service),
+	}
+
 	return r.client.Agent().ServiceRegister(registration)
 }
 
