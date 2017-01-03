@@ -118,14 +118,15 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	}
 
 	// Metadata flag for a container
-	registration.SetMetadataString("is_container", string("true"))
-	registration.SetMetadataString("containerID", service.Origin.ContainerID)
+	registration.SetMetadataString("is-container", string("true"))
+	registration.SetMetadataString("container-id", service.Origin.ContainerID)
+	registration.SetMetadataString("container-name", service.Origin.ContainerName)
 
 	// If AWS metadata collection is enabled, use it
 	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
 		awsMetadata = aws.GetMetadata()
 		// Set the instanceID here, because we don't want eureka to use it as a uniqueID
-		registration.SetMetadataString("aws_InstanceId", awsMetadata.InstanceID)
+		registration.SetMetadataString("aws-instance-id", awsMetadata.InstanceID)
 		registration.DataCenterInfo.Name = eureka.Amazon
 		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
 			AvailabilityZone: awsMetadata.AvailabilityZone,

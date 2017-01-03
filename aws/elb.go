@@ -114,8 +114,8 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance) *eureka.
 	elbStrPort := strconv.FormatInt(elbMetadata.Port, 10)
 	elbEndpoint := elbMetadata.DNSName + "_" + elbStrPort
 
-	registration.SetMetadataString("has_elbv2", "true")
-	registration.SetMetadataString("elbv2_endpoint", elbEndpoint)
+	registration.SetMetadataString("has-elbv2", "true")
+	registration.SetMetadataString("elbv2-endpoint", elbEndpoint)
 
 	elbReg := new(eureka.Instance)
 
@@ -134,7 +134,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance) *eureka.
 	elbReg.VipAddress = elbReg.IPAddr
 	elbReg.HostName = elbMetadata.DNSName
 	elbReg.DataCenterInfo.Name = eureka.Amazon
-	elbReg.SetMetadataString("is_elbv2", "true")
+	elbReg.SetMetadataString("is-elbv2", "true")
 	return elbReg
 }
 
