@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/gliderlabs/registrator/interfaces"
 )
 
 type Metadata struct {
@@ -18,15 +19,8 @@ type Metadata struct {
 	Region           string
 }
 
-// IEC2Metadata Interface to help with test mocking
-type IEC2Metadata interface {
-	GetMetadata(string) (string, error)
-	Available() bool
-	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
-}
-
 // Test retrieval of metadata key and print an error if not, returning empty string
-func getDataOrFail(svc IEC2Metadata, key string) string {
+func getDataOrFail(svc interfaces.EC2MetadataGetter, key string) string {
 	val, err := svc.GetMetadata(key)
 	if err != nil {
 		log.Printf("Unable to retrieve %s from the EC2 instance: %s\n", key, err)
@@ -46,7 +40,7 @@ func GetMetadata() *Metadata {
 }
 
 // RetrieveMetadata - retrieve metadata from AWS about the current host, using IAM role
-func retrieveMetadata(svc IEC2Metadata) *Metadata {
+func retrieveMetadata(svc interfaces.EC2MetadataGetter) *Metadata {
 	log.Println("Attempting to retrieve AWS metadata.")
 
 	m := new(Metadata)
