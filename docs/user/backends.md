@@ -163,3 +163,105 @@ The JSON will contain all infromation about the published container service. As 
 Will result in the zookeeper path and JSON znode body:
 
     /basepath/www/80 = {"Name":"www","IP":"192.168.1.123","PublicPort":49153,"PrivatePort":80,"ContainerID":"9124853ff0d1","Tags":[],"Attrs":{}}
+    
+
+## Eureka
+
+The Eureka backend (based on uses a few conventions that can be overridden with container attributes.  
+By default, containers will be registered with a datacenter of Amazon, with a public 
+hostname and IP of the host IP address, and a local hostname and IP of either the
+docker-assigned internal IP address if the `-internal` flag is set or
+the host ip if not.
+
+The following defaults are set and can be overridden with service attributes:
+```
+	SERVICE_EUREKA_STATUS = UP
+	SERVICE_EUREKA_VIP = Service IP (ignored if using SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP)
+	SERVICE_EUREKA_IPADDR = Service IP (ignored if using SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP)
+	SERVICE_EUREKA_LEASEINFO_RENEWALINTERVALINSECS = 30
+	SERVICE_EUREKA_LEASEINFO_DURATIONINSECS = 90
+	SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon
+```
+
+
+To set custom eureka metadata for your own purposes, you can use service attributes prefixed with SERVICE_EUREKA_METADATA_, e.g.:
+```
+	SERVICE_EUREKA_METADATA_MYROUTES=/route1*|/route2*
+	SERVICE_EUREKA_METADATA_BE_AWESOME=true
+```
+These will appear in eureka inside a metadata tag.  See https://github.com/hudl/fargo/blob/master/metadata.go for some ideas on how to use them.
+
+
+
+### AWS Datacenter Metadata Population
+
+If the Amazon Datacenter type is used, the following additional values are supported:
+```	
+	
+If the Amazon Datacenter type is used, the following additional values are supported:
+```	
+SERVICE_EUREKA_DATACENTERINFO_AUTO_POPULATE=false (if set to true, will attempt to populate datacenter info automatically)
+SERVICE_EUREKA_DATACENTERINFO_PUBLICHOSTNAME = Host IP (ignored if using automatic population)
+SERVICE_EUREKA_DATACENTERINFO_PUBLICIPV4 = Host IP (ignored if using automatic population)
+SERVICE_EUREKA_DATACENTERINFO_LOCALIPV4 = Host or Container IP (depending on -internal flag, ignored if using automatic population)
+SERVICE_EUREKA_DATACENTERINFO_LOCALHOSTNAME = Host or Container IP (depending on -internal flag, ignored if using automatic population)
+SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP = false (if true, set VIP and IPADDR values to AWS public IP, ignored if NOT using automatic population)
+SERVICE_EUREKA_USE_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
+```
+AWS datacenter metadata will be automatically populated.  _However_, the `InstanceID` will instead match `hostName`, which is the unique identifier for the container (Host_Port).  This is due to limitations in the eureka server.  
+Instead, a new metadata tag, `aws_instanceID` has the underlying host instanceID.
+
+For any of this to work, it requires properly functioning IAM roles for your container host.  On ECS, this will just work  - however, if you are running custom container hosts on EC2 with kubernetes or the like, then it may need further setup for the AWS metadata to work.
+
+Have a look at this to help with that: https://github.com/jtblin/kube2iam - the concept is a metadata proxy, which will allow containers to see the underlying AWS metadata.
+
+
+### Using ELBv2
+
+If you are using ECS (EC2 Container Service) and run containers in target groups, with an Application Load Balancer in front of them (described by Amazon as ELBv2) then you can have registrator add the load 
+balancer reference to eureka too.  It may work with custom EC2 instances behind a target group too, but has not been tested.  This has the following properties at present:
+
+- It is piggybacked off container registration/deregistration/heartbeats, so it will not happen independently.
+- It is not persistent, so if all the containers disappear, so will the eureka registration to the supporting ELBv2 (this might be what you want, or it might not)
+- It works safely across multiple hosts, you'll only get one entry for the ELBv2 endpoint, no matter how many ECS hosts are running registrator.
+- ELBv2 Heartbeats happen as and when container heartbeat happens.  So, if you have four containers on an ELBv2, the ELBv2 will get a heartbeat for every one of them, on whatever you set your heartbeat interval is set to. In practice, this ought not be a problem.
+
+If you set the flag `SERVICE_EUREKA_USE_ELBV2_ENDPOINT=true` AND you have `SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon` then this feature is enabled.  It will:
+
+1. Attempt to connect to the AWS service using the IAM role of the container host.  In ECS, this should just work.  It will find the region associated with the container host, and connect using that region.
+2. This will alter the app name to be prefixed by CONTAINER_ for the containers beneath it.
+3. A new entry is added to eureka representing the ALB, and removed when the last container disappears. This entry will have some basic information, such as the hostname and port endpoint. It also has an `is_elbv2flag` in metadata.
+4. The containers underneath the ALB have extra information added in metadata about being attached to the ELB; the `elbv2_endpoint` metadata and `has_elbv2` flag.
+
+
+#### IAM Policy
+In order for this to work (you will receive a log error if not) the IAM role attached to the ECS host must have something like the following additional policy:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1482328407000",
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:DescribeInstanceHealth",
+                "elasticloadbalancing:DescribeListeners",
+                "elasticloadbalancing:DescribeLoadBalancerAttributes",
+                "elasticloadbalancing:DescribeLoadBalancerPolicyTypes",
+                "elasticloadbalancing:DescribeLoadBalancerPolicies",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeRules",
+                "elasticloadbalancing:DescribeSSLPolicies",
+                "elasticloadbalancing:DescribeTags",
+                "elasticloadbalancing:DescribeTargetGroupAttributes",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTargetHealth"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+```
+
