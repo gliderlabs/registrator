@@ -18,22 +18,37 @@ type Metadata struct {
 	Region           string
 }
 
-func getDataOrFail(svc *ec2metadata.EC2Metadata, key string) string {
+// IEC2Metadata Interface to help with test mocking
+type IEC2Metadata interface {
+	GetMetadata(string) (string, error)
+	Available() bool
+	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
+}
+
+// Test retrieval of metadata key and print an error if not, returning empty string
+func getDataOrFail(svc IEC2Metadata, key string) string {
 	val, err := svc.GetMetadata(key)
 	if err != nil {
-		fmt.Printf("Unable to retrieve %s from the EC2 instance: %s\n", key, err)
+		log.Printf("Unable to retrieve %s from the EC2 instance: %s\n", key, err)
 		return ""
 	}
 	return val
 }
 
+// GetMetadata - retrieve metadata from AWS about the current host, using IAM role
 func GetMetadata() *Metadata {
-	log.Println("Attempting to retrieve AWS metadata.")
 	sess, err := session.NewSession()
 	if err != nil {
 		fmt.Printf("Unable to connect to the EC2 metadata service: %s\n", err)
 	}
 	svc := ec2metadata.New(sess)
+	return retrieveMetadata(svc)
+}
+
+// RetrieveMetadata - retrieve metadata from AWS about the current host, using IAM role
+func retrieveMetadata(svc IEC2Metadata) *Metadata {
+	log.Println("Attempting to retrieve AWS metadata.")
+
 	m := new(Metadata)
 
 	if svc.Available() {
