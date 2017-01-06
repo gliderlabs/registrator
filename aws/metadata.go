@@ -19,6 +19,9 @@ type Metadata struct {
 	Region           string
 }
 
+var metadataCache *Metadata
+var inited = false
+
 // Test retrieval of metadata key and print an error if not, returning empty string
 func getDataOrFail(svc interfaces.EC2MetadataGetter, key string) string {
 	val, err := svc.GetMetadata(key)
@@ -31,12 +34,22 @@ func getDataOrFail(svc interfaces.EC2MetadataGetter, key string) string {
 
 // GetMetadata - retrieve metadata from AWS about the current host, using IAM role
 func GetMetadata() *Metadata {
+
+	if inited {
+		log.Println("Returning cached metadata.")
+		return metadataCache
+	}
+
 	sess, err := session.NewSession()
 	if err != nil {
 		fmt.Printf("Unable to connect to the EC2 metadata service: %s\n", err)
 	}
 	svc := ec2metadata.New(sess)
-	return retrieveMetadata(svc)
+
+	metadataCache = retrieveMetadata(svc)
+	inited = true
+
+	return metadataCache
 }
 
 // RetrieveMetadata - retrieve metadata from AWS about the current host, using IAM role
