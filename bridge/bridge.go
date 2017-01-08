@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"log"
 	"net"
@@ -11,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -247,42 +250,17 @@ func (b *Bridge) add(containerId string, quiet bool) {
 }
 
 func mapTags(metadata map[string]string, container *dockerapi.Container) []string {
-	// take the tags, parse them and replace those
-	// inside {{ }} with the path in the container description
-	// if found, else replace by empty string
-	var tags = make([]string, 0)
-	tag_re := regexp.MustCompile("([^,]+)")
-	vp_re := regexp.MustCompile("{{(.*)}}")
-	tk_re := regexp.MustCompile("\\{{([^\\.]*)\\.?(.*)}}")
-	tk2_re := regexp.MustCompile("([^\\.]*)\\.?(.*)")
-	// fetch all the tags in an array by using commas
-	metadata_tags := tag_re.FindAllString(metadata["tags"], -1)
-	log.Println(metadata_tags)
-	// then for all tags, check if an expression is enclosed between double
-	// braces and replace each of them
-	config := container.Config
-	for _, tag := range metadata_tags {
-		// for that, we get all braces expression
-		mapped_tag := vp_re.ReplaceAllStringFunc(tag, func(value_path string) string {
-			tag_key := tk_re.FindStringSubmatch(value_path)
-			if tag_key[1] == "Config" {
-				// we search for 2nd element of the path since we enter config
-				tag_key_sub := tk2_re.FindStringSubmatch(tag_key[2])
-				if tag_key_sub[1] == "Labels" {
-					log.Println(tag_key_sub)
-					return config.Labels[tag_key_sub[2]]
-				} else {
-					return ""
-				}
-			} else if tag_key[1] == "Id" {
-				return container.ID
-			} else {
-				return ""
-			}
-		})
-		tags = append(tags, mapped_tag)
+	// execute go-template on tags using containger description in docker-client
+	// !! the go structure is used not the docker json description
+	var tags []string
+	var tag bytes.Buffer
+	var metadata_tags = metadata["tags"]
+	tagTemplate := template.Must(template.New("tags").Parse(metadata_tags))
+	err := tagTemplate.Execute(&tag, container)
+	if err != nil {
+		log.Println("executing template:", err)
 	}
-	log.Println(tags)
+	tags = strings.Split(tag.String(), ",")
 	return tags
 }
 

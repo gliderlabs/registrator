@@ -21,7 +21,7 @@ services:
         labels:
             com.delairtech.test.registrator: test_local
         environment:
-            SERVICE_80_TAGS: "com.delairtech.test.resgistrator={{Config.Labels.com.delairtech.test.registrator}},{{Id}}"
+            SERVICE_80_TAGS: 'com.delairtech.test.registrator={{index .Config.Labels "com.delairtech.test.registrator"}},{{.ID}}'
         ports:
             - "80:80"
         command:
