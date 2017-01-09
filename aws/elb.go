@@ -22,15 +22,18 @@ type LBInfo struct {
 var lbCache = make(map[string]*LBInfo)
 
 // getELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
-// if an error occurs, or the target is not found, an empty LBInfo is returned. Return the DNS:port pair as an identifier to put in the container's registration metadata
+// if an error occurs, or the target is not found, an empty LBInfo is returned.
+// Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
+// useCache parameter, if true, will retrieve ELBv2 details from memory, rather than calling AWS.
+// this is only really safe to use for heartbeat calls, as details can change dynamically
 func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
 
 	// Retrieve from basic cache (for heartbeats)
 	cacheKey := instanceID + "_" + strconv.FormatInt(port, 10)
-	if useCache && lbCache[cacheKey] != nil {
+	if val, ok := lbCache[cacheKey]; ok && useCache {
 		log.Println("Retrieving value from cache.")
-		return lbCache[cacheKey], nil
+		return val, nil
 	}
 
 	var lb []*string
@@ -97,7 +100,7 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 	// Add to a basic cache for heartbeats
 	lbCache[cacheKey] = info
 
-	return info, err
+	return info, nil
 }
 
 // CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
@@ -114,6 +117,7 @@ func CheckELBFlags(service *bridge.Service) bool {
 }
 
 // Helper function to create a registration struct, and change container registration
+// useCache parameter is passed to getELBV2ForContainer
 func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool) *eureka.Instance {
 
 	awsMetadata := GetMetadata()
@@ -204,7 +208,7 @@ func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, clie
 	if CheckELBFlags(service) {
 		log.Printf("Heartbeating ELBv2 for container: %s)\n", registration.HostName)
 
-		elbReg := setRegInfo(service, registration, true)
+		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
 		if elbReg != nil {
 			client.HeartBeatInstance(elbReg)
 		}
