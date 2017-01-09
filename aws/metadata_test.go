@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/gliderlabs/registrator/interfaces"
 )
 
 // Mock out a metadata interface and implement basic methods
@@ -14,7 +15,26 @@ type testMetadata struct {
 	ec2Doc  ec2metadata.EC2InstanceIdentityDocument
 }
 
-var _ IEC2Metadata = (*testMetadata)(nil)
+var r *Metadata
+
+func initMetadata() {
+
+	md := &Metadata{
+		InstanceID:       "init1",
+		PrivateIP:        "i1.2.3.4",
+		PublicIP:         "i4.5.6.7",
+		PrivateHostname:  "ihost1",
+		PublicHostname:   "ihost2",
+		AvailabilityZone: "ius-east-1c",
+		Region:           "ius-east-1",
+	}
+
+	metadataCache = md
+	inited = true
+
+}
+
+var _ interfaces.EC2MetadataGetter = (*testMetadata)(nil)
 
 func (t *testMetadata) GetMetadata(key string) (string, error) {
 	if t.m[key] != "" {
@@ -84,7 +104,7 @@ func TestRetrieveMetadata(t *testing.T) {
 	}
 	metadata.ec2Doc = getIdentDoc()
 	metadata.isError = nil
-	r := retrieveMetadata(metadata)
+	r = retrieveMetadata(metadata)
 
 	checkVS(t, metadata.m, "region", r.Region)
 	checkVS(t, metadata.m, "placement/availability-zone", r.AvailabilityZone)
@@ -93,6 +113,17 @@ func TestRetrieveMetadata(t *testing.T) {
 	checkVS(t, metadata.m, "local-hostname", r.PrivateHostname)
 	checkVS(t, metadata.m, "public-hostname", r.PublicHostname)
 	checkVS(t, metadata.m, "instance-id", r.InstanceID)
+
+}
+
+// Test metadata is now cached after first retrieval
+func TestCacheMetadata(t *testing.T) {
+	initMetadata()
+	md := GetMetadata()
+
+	if md.InstanceID != "init1" {
+		t.Errorf("Metadata %v InstanceName: does not match expected init1.\n", md)
+	}
 
 }
 

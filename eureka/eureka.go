@@ -8,7 +8,7 @@ import (
 
 	aws "github.com/gliderlabs/registrator/aws"
 	"github.com/gliderlabs/registrator/bridge"
-	eureka "github.com/hudl/fargo"
+	fargo "github.com/hudl/fargo"
 )
 
 const DefaultInterval = "10s"
@@ -20,17 +20,17 @@ func init() {
 type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
-	client := eureka.EurekaConnection{}
+	client := fargo.EurekaConnection{}
 	if uri.Host != "" {
-		client = eureka.NewConn("http://" + uri.Host + uri.Path)
+		client = fargo.NewConn("http://" + uri.Host + uri.Path)
 	} else {
-		client = eureka.NewConn("http://eureka:8761")
+		client = fargo.NewConn("http://eureka:8761")
 	}
 	return &EurekaAdapter{client: client}
 }
 
 type EurekaAdapter struct {
-	client eureka.EurekaConnection
+	client fargo.EurekaConnection
 }
 
 // Ping will try to connect to consul by attempting to retrieve the current leader.
@@ -46,7 +46,7 @@ func (r *EurekaAdapter) Ping() error {
 }
 
 // Note: This is a function that is passed to the fargo library to determine how each registration is identified in eureka
-func uniqueID(instance eureka.Instance) string {
+func uniqueID(instance fargo.Instance) string {
 	return instance.HostName
 }
 
@@ -63,15 +63,15 @@ func checkBooleanFlag(service *bridge.Service, flag string) bool {
 	return false
 }
 
-func instanceInformation(service *bridge.Service) *eureka.Instance {
+func instanceInformation(service *bridge.Service) *fargo.Instance {
 
-	registration := new(eureka.Instance)
+	registration := new(fargo.Instance)
 	var awsMetadata *aws.Metadata
 
 	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
 	registration.UniqueID = uniqueID
 
-	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn {
 		registration.App = "CONTAINER_" + service.Name
 	} else {
 		registration.App = service.Name
@@ -79,10 +79,10 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 
 	registration.Port = service.Port
 
-	if service.Attrs["eureka_status"] == string(eureka.DOWN) {
-		registration.Status = eureka.DOWN
+	if service.Attrs["eureka_status"] == string(fargo.DOWN) {
+		registration.Status = fargo.DOWN
 	} else {
-		registration.Status = eureka.UP
+		registration.Status = fargo.UP
 	}
 
 	// Set the renewal interval in seconds, or default 30
@@ -123,12 +123,12 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 	registration.SetMetadataString("container-name", service.Origin.ContainerName)
 
 	// If AWS metadata collection is enabled, use it
-	if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
+	if service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
 		awsMetadata = aws.GetMetadata()
 		// Set the instanceID here, because we don't want eureka to use it as a uniqueID
 		registration.SetMetadataString("aws-instance-id", awsMetadata.InstanceID)
-		registration.DataCenterInfo.Name = eureka.Amazon
-		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
+		registration.DataCenterInfo.Name = fargo.Amazon
+		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
 			AvailabilityZone: awsMetadata.AvailabilityZone,
 			PublicHostname:   awsMetadata.PublicHostname,
 			PublicIpv4:       awsMetadata.PublicIP,
@@ -138,9 +138,9 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 			LocalIpv4:        awsMetadata.PrivateIP,
 		}
 		// Here we don't want auto population of metadata from AWS.  We'll use what we have from registrator, or overrides
-	} else if service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn && !checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
-		registration.DataCenterInfo.Name = eureka.Amazon
-		registration.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
+	} else if service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn && !checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
+		registration.DataCenterInfo.Name = fargo.Amazon
+		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
 			InstanceID:     registration.HostName,
 			PublicHostname: ShortHandTernary(service.Attrs["eureka_datacenterinfo_publichostname"], service.Origin.HostIP),
 			PublicIpv4:     ShortHandTernary(service.Attrs["eureka_datacenterinfo_publicipv4"], service.Origin.HostIP),
@@ -149,11 +149,11 @@ func instanceInformation(service *bridge.Service) *eureka.Instance {
 			LocalIpv4:      ShortHandTernary(service.Attrs["eureka_datacenterinfo_localipv4"], service.IP),
 		}
 	} else {
-		registration.DataCenterInfo.Name = eureka.MyOwn
+		registration.DataCenterInfo.Name = fargo.MyOwn
 	}
 
 	// If flag is set, register the AWS public IP as the endpoint instead of the private one
-	if checkBooleanFlag(service, "eureka_register_aws_public_ip") && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
+	if checkBooleanFlag(service, "eureka_register_aws_public_ip") && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") && service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn {
 		registration.IPAddr = ShortHandTernary(service.Attrs["eureka_ipaddr"], awsMetadata.PublicIP)
 		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], awsMetadata.PublicIP)
 	} else {
@@ -176,7 +176,7 @@ func (r *EurekaAdapter) Register(service *bridge.Service) error {
 }
 
 func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
-	registration := new(eureka.Instance)
+	registration := new(fargo.Instance)
 	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
 	registration.UniqueID = uniqueID
 	if aws.CheckELBFlags(service) {
