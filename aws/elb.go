@@ -19,10 +19,22 @@ type LBInfo struct {
 	Port    int64
 }
 
+var lbCache = make(map[string]*LBInfo)
+
 // getELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
-// if an error occurs, or the target is not found, an empty LBInfo is returned. Return the DNS:port pair as an identifier to put in the container's registration metadata
+// if an error occurs, or the target is not found, an empty LBInfo is returned.
+// Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
-func getELBV2ForContainer(instanceID string, port int64) (lbinfo *LBInfo, err error) {
+// useCache parameter, if true, will retrieve ELBv2 details from memory, rather than calling AWS.
+// this is only really safe to use for heartbeat calls, as details can change dynamically
+func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
+
+	// Retrieve from basic cache (for heartbeats)
+	cacheKey := instanceID + "_" + strconv.FormatInt(port, 10)
+	if val, ok := lbCache[cacheKey]; ok && useCache {
+		log.Println("Retrieving value from cache.")
+		return val, nil
+	}
 
 	var lb []*string
 	var lbPort *int64
@@ -84,7 +96,11 @@ func getELBV2ForContainer(instanceID string, port int64) (lbinfo *LBInfo, err er
 
 	info.DNSName = *lbData.LoadBalancers[0].DNSName
 	info.Port = *lbPort
-	return info, err
+
+	// Add to a basic cache for heartbeats
+	lbCache[cacheKey] = info
+
+	return info, nil
 }
 
 // CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
@@ -95,16 +111,18 @@ func CheckELBFlags(service *bridge.Service) bool {
 			log.Printf("eureka: eureka_use_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
 			return false
 		}
-		return true
+		return v
 	}
 	return false
 }
 
 // Helper function to create a registration struct, and change container registration
-func setRegInfo(service *bridge.Service, registration *eureka.Instance) *eureka.Instance {
+// useCache parameter is passed to getELBV2ForContainer
+func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool) *eureka.Instance {
 
 	awsMetadata := GetMetadata()
-	elbMetadata, err := getELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port))
+
+	elbMetadata, err := getELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port), useCache)
 
 	if err != nil {
 		log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
@@ -120,8 +138,6 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance) *eureka.
 	elbReg := new(eureka.Instance)
 
 	// Put a little metadata in here as required - setting InstanceID to the ELB endpoint prevents double registration
-	elbReg.DataCenterInfo.Name = eureka.Amazon
-
 	elbReg.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
 		PublicHostname: elbMetadata.DNSName,
 		HostName:       elbMetadata.DNSName,
@@ -144,7 +160,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance) *eureka.
 func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
-		elbReg := setRegInfo(service, registration)
+		elbReg := setRegInfo(service, registration, false)
 		if elbReg != nil {
 			client.RegisterInstance(elbReg)
 		}
@@ -192,7 +208,7 @@ func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, clie
 	if CheckELBFlags(service) {
 		log.Printf("Heartbeating ELBv2 for container: %s)\n", registration.HostName)
 
-		elbReg := setRegInfo(service, registration)
+		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
 		if elbReg != nil {
 			client.HeartBeatInstance(elbReg)
 		}
