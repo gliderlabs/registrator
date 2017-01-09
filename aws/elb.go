@@ -19,13 +19,52 @@ type LBInfo struct {
 	Port    int64
 }
 
+// Helper function to retrieve all target groups
+func getAllTargetGroups(svc *elbv2.ELBV2) ([]*elbv2.DescribeTargetGroupsOutput, error) {
+	var tgs []*elbv2.DescribeTargetGroupsOutput
+	var e error
+	var mark *string
+
+	// Get first page of groups
+	tgs[0], e = getTargetGroupsPage(svc, mark)
+	mark = tgs[0].NextMarker
+
+	// Page through all remaining target groups generating a slice of DescribeTargetGroupOutputs
+	i := 1
+	for mark != nil {
+		tgs[i], e = getTargetGroupsPage(svc, mark)
+		mark = tgs[i].NextMarker
+		if e != nil {
+			return nil, e
+		}
+		i++
+	}
+	return tgs, e
+}
+
+// Helper function to get a page of target groups
+func getTargetGroupsPage(svc *elbv2.ELBV2, marker *string) (*elbv2.DescribeTargetGroupsOutput, error) {
+	params := &elbv2.DescribeTargetGroupsInput{
+		PageSize: awssdk.Int64(400),
+		Marker:   marker,
+	}
+	tg, e := svc.DescribeTargetGroups(params)
+
+	if e != nil {
+		log.Printf("An error occurred using DescribeTargetGroups: %s \n", e.Error())
+		return nil, e
+	}
+	return tg, nil
+}
+
 // getELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
 // if an error occurs, or the target is not found, an empty LBInfo is returned. Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
 func getELBV2ForContainer(instanceID string, port int64) (lbinfo *LBInfo, err error) {
 
-	var lb []*string
+	var lbArns []*string
 	var lbPort *int64
+	var tgArn *string
 	info := &LBInfo{}
 
 	sess, err := session.NewSession()
@@ -38,48 +77,67 @@ func getELBV2ForContainer(instanceID string, port int64) (lbinfo *LBInfo, err er
 	awsMetadata := GetMetadata()
 	svc := elbv2.New(sess, awssdk.NewConfig().WithRegion(awsMetadata.Region))
 
-	// Loop through target group pages and check for port and instanceID
-	// TODO: This needs to handle lots of target groups efficiently
-	params := &elbv2.DescribeTargetGroupsInput{
-		PageSize: awssdk.Int64(400),
-	}
-	tgs, err := svc.DescribeTargetGroups(params)
-
+	// TODO Note: There could be thousands of these, and we need to check them all.  Seems to be no
+	// other way to retrieve a TG via instance/port with current API
+	tgslice, err := getAllTargetGroups(svc)
 	if err != nil {
-		log.Printf("An error occurred using DescribeTargetGroups: %s \n", err.Error())
-		return nil, err
+		message := fmt.Errorf("Failed to retrieve Target Groups: %s", err)
+		return nil, message
 	}
 
-	// Check each target group for a matching port and instanceID
+	// Check each target group's target list for a matching port and instanceID
 	// Assumption: that that there is only one LB for the target group (though the data structure allows more)
-	for _, tg := range tgs.TargetGroups {
-		params4 := &elbv2.DescribeTargetHealthInput{
-			TargetGroupArn: awssdk.String(*tg.TargetGroupArn),
-		}
-		tarH, err := svc.DescribeTargetHealth(params4)
+	for _, tgs := range tgslice {
+		for _, tg := range tgs.TargetGroups {
+			td := []*elbv2.TargetDescription{{
+				Id:   &instanceID,
+				Port: &port,
+			}}
 
-		for _, thd := range tarH.TargetHealthDescriptions {
-			if *thd.Target.Port == port && *thd.Target.Id == instanceID {
-				lb = tg.LoadBalancerArns
-				lbPort = tg.Port
+			thParams := &elbv2.DescribeTargetHealthInput{
+				TargetGroupArn: awssdk.String(*tg.TargetGroupArn),
+				Targets:        td,
 			}
 
-		}
-		if err != nil {
-			log.Printf("An error occurred using DescribeTargetHealth: %s \n", err.Error())
-			return nil, err
+			tarH, err := svc.DescribeTargetHealth(thParams)
+
+			for _, thd := range tarH.TargetHealthDescriptions {
+				if *thd.Target.Port == port && *thd.Target.Id == instanceID {
+					lbArns = tg.LoadBalancerArns
+					tgArn = tg.TargetGroupArn
+				}
+			}
+			if err != nil {
+				log.Printf("An error occurred using DescribeTargetHealth: %s \n", err.Error())
+				return nil, err
+			}
 		}
 	}
 
-	params2 := &elbv2.DescribeLoadBalancersInput{
-		LoadBalancerArns: lb,
+	// Loop through the load balancer listeners to get the listener port for the target group
+	lsnrParams := &elbv2.DescribeListenersInput{
+		LoadBalancerArn: lbArns[0],
 	}
-	lbData, err := svc.DescribeLoadBalancers(params2)
+	lnrData, err := svc.DescribeListeners(lsnrParams)
+	for _, listener := range lnrData.Listeners {
+		for _, act := range listener.DefaultActions {
+			if act.TargetGroupArn == tgArn {
+				lbPort = listener.Port
+			}
+		}
+	}
+
+	// Get more information on the load balancer to retrieve the DNSName
+	lbParams := &elbv2.DescribeLoadBalancersInput{
+		LoadBalancerArns: lbArns,
+	}
+	lbData, err := svc.DescribeLoadBalancers(lbParams)
 
 	if err != nil {
 		log.Printf("An error occurred using DescribeLoadBalancers: %s \n", err.Error())
 		return nil, err
 	}
+
 	log.Printf("LB Endpoint is: %s:%s\n", *lbData.LoadBalancers[0].DNSName, strconv.FormatInt(*lbPort, 10))
 
 	info.DNSName = *lbData.LoadBalancers[0].DNSName
