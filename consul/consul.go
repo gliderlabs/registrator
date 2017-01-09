@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"strings"
 	"os"
+	"strings"
+
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
@@ -21,9 +22,11 @@ func init() {
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
-	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
-	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
-	return withPort
+	str := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
+	str = strings.Replace(str, "$SERVICE_PORT", service.Origin.HostPort, -1)
+	str = strings.Replace(str, "$SERVICE_EXPOSED_IP", service.Origin.ExposedIP, -1)
+	str = strings.Replace(str, "$SERVICE_EXPOSED_PORT", service.Origin.ExposedPort, -1)
+	return str
 }
 
 type Factory struct{}
@@ -33,16 +36,16 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if uri.Scheme == "consul-unix" {
 		config.Address = strings.TrimPrefix(uri.String(), "consul-")
 	} else if uri.Scheme == "consul-tls" {
-	        tlsConfigDesc := &consulapi.TLSConfig {
-			  Address: uri.Host,
-			  CAFile: os.Getenv("CONSUL_CACERT"),
-  			  CertFile: os.Getenv("CONSUL_TLSCERT"),
-  			  KeyFile: os.Getenv("CONSUL_TLSKEY"),
-			  InsecureSkipVerify: false,
+		tlsConfigDesc := &consulapi.TLSConfig{
+			Address:            uri.Host,
+			CAFile:             os.Getenv("CONSUL_CACERT"),
+			CertFile:           os.Getenv("CONSUL_TLSCERT"),
+			KeyFile:            os.Getenv("CONSUL_TLSKEY"),
+			InsecureSkipVerify: false,
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
 		if err != nil {
-		   log.Fatal("Cannot set up Consul TLSConfig", err)
+			log.Fatal("Cannot set up Consul TLSConfig", err)
 		}
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
@@ -111,6 +114,14 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
+		}
+	} else if dockerScript := service.Attrs["check_docker"]; dockerScript != "" {
+		check.Script = r.interpolateService(dockerScript, service)
+		check.DockerContainerID = service.Origin.ContainerID[:12]
+		if dockerShell := service.Attrs["check_shell"]; dockerShell != "" {
+			check.Shell = dockerShell
+		} else {
+			check.Shell = "/bin/sh"
 		}
 	} else {
 		return nil
