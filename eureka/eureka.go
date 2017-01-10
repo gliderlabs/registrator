@@ -186,7 +186,7 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	}
 	log.Println("Deregistering ", registration.HostName)
 	instance := r.client.DeregisterInstance(registration)
-	aws.DeregisterELBv2(service, service.Name, int64(registration.Port), r.client)
+	aws.DeregisterELBv2(service, registration.Metadata.GetString("elbv2-endpoint"), int64(registration.Port), r.client)
 	return instance
 }
 

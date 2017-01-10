@@ -238,18 +238,17 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 
 // DeregisterELBv2 - If specified, and all containers are gone, also deregister the ELBv2 (application load balancer, ALB) endpoint in eureka.
 //
-func DeregisterELBv2(service *bridge.Service, regDNSName string, regPort int64, client eureka.EurekaConnection) {
+func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
 		// Check if there are any containers around with this ALB still attached
-		elbStrPort := strconv.FormatInt(regPort, 10)
-		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %s:%v\n", regDNSName, elbStrPort)
-		albName := regDNSName + "_" + elbStrPort
+		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %s:%v\n", albEndpoint)
 		appName := "CONTAINER_" + service.Name
+
 		app, err := client.GetApp(appName)
 		if app != nil {
 			for _, instance := range app.Instances {
 				val, err := instance.Metadata.GetString("elbv2_endpoint")
-				if err == nil && val == albName {
+				if err == nil && val == albEndpoint {
 					log.Printf("Eureka entry still present for one or more ALB linked containers: %s\n", val)
 					return
 				}
@@ -260,11 +259,10 @@ func DeregisterELBv2(service *bridge.Service, regDNSName string, regPort int64, 
 		}
 
 		if app == nil {
-			log.Printf("Removing eureka entry for ELBv2: %s\n", albName)
+			log.Printf("Removing eureka entry for ELBv2: %s\n", albEndpoint)
 			elbReg := new(eureka.Instance)
-			elbReg.IPAddr = regDNSName
 			elbReg.App = service.Name
-			elbReg.HostName = albName // This uses the full endpoint identifier so eureka can find it to remove
+			elbReg.HostName = albEndpoint // This uses the full endpoint identifier so eureka can find it to remove
 			client.DeregisterInstance(elbReg)
 		}
 	}
