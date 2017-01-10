@@ -118,7 +118,6 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 
 			for _, thd := range tarH.TargetHealthDescriptions {
 				if *thd.Target.Port == port && *thd.Target.Id == instanceID {
-					log.Printf("Identitified TG: %+v", thd)
 					lbArns = tg.LoadBalancerArns
 					tgArn = *tg.TargetGroupArn
 					break
@@ -141,7 +140,6 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 	}
 	for _, listener := range lnrData.Listeners {
 		for _, act := range listener.DefaultActions {
-			log.Printf("Listener: %+v", act)
 			if *act.TargetGroupArn == tgArn {
 				log.Printf("Found matching listener: %v", *listener.ListenerArn)
 				lbPort = listener.Port
