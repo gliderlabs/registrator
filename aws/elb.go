@@ -100,20 +100,14 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		message := fmt.Errorf("Failed to retrieve Target Groups: %s", err)
 		return nil, message
 	}
-	log.Printf("Found %v total target groups.", len(tgslice))
 
 	// Check each target group's target list for a matching port and instanceID
 	// Assumption: that that there is only one LB for the target group (though the data structure allows more)
 	for _, tgs := range tgslice {
 		for _, tg := range tgs.TargetGroups {
-			// td := []*elbv2.TargetDescription{{
-			// 	Id:   &instanceID,
-			// 	Port: &port,
-			// }}
 
 			thParams := &elbv2.DescribeTargetHealthInput{
 				TargetGroupArn: awssdk.String(*tg.TargetGroupArn),
-				// Targets:        td,
 			}
 
 			tarH, err := svc.DescribeTargetHealth(thParams)
@@ -145,12 +139,11 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		log.Printf("An error occurred using DescribeListeners: %s \n", err.Error())
 		return nil, err
 	}
-	log.Printf("Found %v listeners.", len(lnrData.Listeners))
 	for _, listener := range lnrData.Listeners {
 		for _, act := range listener.DefaultActions {
 			log.Printf("Listener: %+v", act)
 			if *act.TargetGroupArn == tgArn {
-				log.Printf("Found matching listener.")
+				log.Printf("Found matching listener: %v", *listener.ListenerArn)
 				lbPort = listener.Port
 				break
 			}
@@ -170,9 +163,7 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		log.Printf("An error occurred using DescribeLoadBalancers: %s \n", err.Error())
 		return nil, err
 	}
-	log.Printf("Found %v load balancers.", len(lbData.LoadBalancers))
-
-	log.Printf("LB Endpoint is: %s:%s\n", *lbData.LoadBalancers[0].DNSName, strconv.FormatInt(*lbPort, 10))
+	log.Printf("LB Endpoint for Instance:%v Port:%v, Target Group:%v, is: %s:%s\n", instanceID, port, tgArn, *lbData.LoadBalancers[0].DNSName, strconv.FormatInt(*lbPort, 10))
 
 	info.DNSName = *lbData.LoadBalancers[0].DNSName
 	info.Port = *lbPort
