@@ -22,6 +22,12 @@ type Metadata struct {
 var metadataCache *Metadata
 var inited = false
 
+// SetMetadata - Set the metadata and init - mainly for testing
+func SetMetadata(md *Metadata) {
+	metadataCache = md
+	inited = true
+}
+
 // Test retrieval of metadata key and print an error if not, returning empty string
 func getDataOrFail(svc interfaces.EC2MetadataGetter, key string) string {
 	val, err := svc.GetMetadata(key)

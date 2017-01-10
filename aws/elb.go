@@ -28,18 +28,22 @@ func getAllTargetGroups(svc *elbv2.ELBV2) ([]*elbv2.DescribeTargetGroupsOutput, 
 	var mark *string
 
 	// Get first page of groups
-	tgs[0], e = getTargetGroupsPage(svc, mark)
-	mark = tgs[0].NextMarker
+	tg, e := getTargetGroupsPage(svc, mark)
+
+	if e != nil {
+		return nil, e
+	}
+	tgs = append(tgs, tg)
+	mark = tg.NextMarker
 
 	// Page through all remaining target groups generating a slice of DescribeTargetGroupOutputs
-	i := 1
 	for mark != nil {
-		tgs[i], e = getTargetGroupsPage(svc, mark)
-		mark = tgs[i].NextMarker
+		tg, e = getTargetGroupsPage(svc, mark)
+		tgs = append(tgs, tg)
+		mark = tg.NextMarker
 		if e != nil {
 			return nil, e
 		}
-		i++
 	}
 	return tgs, e
 }
@@ -76,7 +80,7 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 
 	var lbArns []*string
 	var lbPort *int64
-	var tgArn *string
+	var tgArn string
 	info := &LBInfo{}
 
 	sess, err := session.NewSession()
@@ -92,37 +96,43 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 	// TODO Note: There could be thousands of these, and we need to check them all.  Seems to be no
 	// other way to retrieve a TG via instance/port with current API
 	tgslice, err := getAllTargetGroups(svc)
-	if err != nil {
+	if err != nil || tgslice == nil {
 		message := fmt.Errorf("Failed to retrieve Target Groups: %s", err)
 		return nil, message
 	}
+	log.Printf("Found %v total target groups.", len(tgslice))
 
 	// Check each target group's target list for a matching port and instanceID
 	// Assumption: that that there is only one LB for the target group (though the data structure allows more)
 	for _, tgs := range tgslice {
 		for _, tg := range tgs.TargetGroups {
-			td := []*elbv2.TargetDescription{{
-				Id:   &instanceID,
-				Port: &port,
-			}}
+			// td := []*elbv2.TargetDescription{{
+			// 	Id:   &instanceID,
+			// 	Port: &port,
+			// }}
 
 			thParams := &elbv2.DescribeTargetHealthInput{
 				TargetGroupArn: awssdk.String(*tg.TargetGroupArn),
-				Targets:        td,
+				// Targets:        td,
 			}
 
 			tarH, err := svc.DescribeTargetHealth(thParams)
-
-			for _, thd := range tarH.TargetHealthDescriptions {
-				if *thd.Target.Port == port && *thd.Target.Id == instanceID {
-					lbArns = tg.LoadBalancerArns
-					tgArn = tg.TargetGroupArn
-				}
-			}
 			if err != nil {
 				log.Printf("An error occurred using DescribeTargetHealth: %s \n", err.Error())
 				return nil, err
 			}
+
+			for _, thd := range tarH.TargetHealthDescriptions {
+				if *thd.Target.Port == port && *thd.Target.Id == instanceID {
+					log.Printf("Identitified TG: %+v", thd)
+					lbArns = tg.LoadBalancerArns
+					tgArn = *tg.TargetGroupArn
+					break
+				}
+			}
+		}
+		if lbArns != nil && tgArn != "" {
+			break
 		}
 	}
 
@@ -131,12 +141,24 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		LoadBalancerArn: lbArns[0],
 	}
 	lnrData, err := svc.DescribeListeners(lsnrParams)
+	if err != nil {
+		log.Printf("An error occurred using DescribeListeners: %s \n", err.Error())
+		return nil, err
+	}
+	log.Printf("Found %v listeners.", len(lnrData.Listeners))
 	for _, listener := range lnrData.Listeners {
 		for _, act := range listener.DefaultActions {
-			if act.TargetGroupArn == tgArn {
+			log.Printf("Listener: %+v", act)
+			if *act.TargetGroupArn == tgArn {
+				log.Printf("Found matching listener.")
 				lbPort = listener.Port
+				break
 			}
 		}
+	}
+	if lbPort == nil {
+		message := fmt.Errorf("error: Unable to identify listener port for ELBv2")
+		return nil, message
 	}
 
 	// Get more information on the load balancer to retrieve the DNSName
@@ -144,11 +166,11 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		LoadBalancerArns: lbArns,
 	}
 	lbData, err := svc.DescribeLoadBalancers(lbParams)
-
 	if err != nil {
 		log.Printf("An error occurred using DescribeLoadBalancers: %s \n", err.Error())
 		return nil, err
 	}
+	log.Printf("Found %v load balancers.", len(lbData.LoadBalancers))
 
 	log.Printf("LB Endpoint is: %s:%s\n", *lbData.LoadBalancers[0].DNSName, strconv.FormatInt(*lbPort, 10))
 
