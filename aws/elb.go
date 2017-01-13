@@ -102,7 +102,7 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 	}
 
 	// Check each target group's target list for a matching port and instanceID
-	// Assumption: that that there is only one LB for the target group (though the data structure allows more)
+	// TODO Assumption: that that there is only one LB for the target group (though the data structure allows more)
 	for _, tgs := range tgslice {
 		for _, tg := range tgs.TargetGroups {
 
@@ -127,6 +127,11 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		if lbArns != nil && tgArn != "" {
 			break
 		}
+	}
+
+	if err != nil || lbArns == nil {
+		message := fmt.Errorf("failed to retrieve load balancer ARN")
+		return nil, message
 	}
 
 	// Loop through the load balancer listeners to get the listener port for the target group
