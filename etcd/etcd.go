@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
-	"strings"
 )
 
 func init() {
@@ -23,7 +23,6 @@ type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
-
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	} else {
@@ -160,7 +159,7 @@ func (r *EtcdAdapter) getKeyValueMapForMethod(s *bridge.Service, addr string) ma
 
 	return map[string]string {
 		prefix + "/url": addr,
-		prefix + "/weight": "weight",
+		prefix + "/weight": "10",
 	}
 
 }
