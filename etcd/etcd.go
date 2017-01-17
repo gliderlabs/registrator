@@ -12,6 +12,7 @@ import (
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
+	"strings"
 )
 
 func init() {
@@ -22,6 +23,7 @@ type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
+
 	if uri.Host != "" {
 		urls = append(urls, "http://"+uri.Host)
 	} else {
@@ -41,7 +43,13 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
 	}
 
-	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}
+	query := uri.Query()
+	method := "plain"
+	if nm, ok := query["method"]; ok {
+		method = nm[0]
+	}
+
+	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path, method: method}
 }
 
 type EtcdAdapter struct {
@@ -49,6 +57,7 @@ type EtcdAdapter struct {
 	client2 *etcd2.Client
 
 	path string
+	method string
 }
 
 func (r *EtcdAdapter) Ping() error {
@@ -85,21 +94,26 @@ func (r *EtcdAdapter) syncEtcdCluster() {
 func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	r.syncEtcdCluster()
 
-	path := r.path + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
 
+	desiredKV := r.getKeyValueMapForMethod(service, addr)
+
 	var err error
-	if r.client != nil {
-		_, err = r.client.Set(path, addr, uint64(service.TTL))
-	} else {
-		_, err = r.client2.Set(path, addr, uint64(service.TTL))
+	for k, v := range(desiredKV) {
+		if r.client != nil {
+			_, err = r.client.Set(k, v, uint64(service.TTL))
+		} else {
+			_, err = r.client2.Set(k, v, uint64(service.TTL))
+		}
+
+		if err != nil {
+			log.Println("etcd: failed to register service:", err)
+			return err
+		}
 	}
 
-	if err != nil {
-		log.Println("etcd: failed to register service:", err)
-	}
-	return err
+	return nil
 }
 
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
@@ -126,4 +140,43 @@ func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 
 func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
+}
+
+func (r *EtcdAdapter) getKeyValueMapForMethod(s *bridge.Service, addr string) map[string]string {
+	if r.method != "traefik" {
+		return map[string]string {
+			r.path + "/" + s.Name + "/" + s.ID: addr,
+		}
+	}
+
+	tags := extractTraefikTags(s.Tags)
+	backendName := s.Name
+
+	if be, ok := tags["backend"]; ok {
+		backendName = be
+	}
+
+	prefix := r.path + "/backends" + backendName + "/servers/" + addr
+
+	return map[string]string {
+		prefix + "/url": addr,
+		prefix + "/weight": "weight",
+	}
+
+}
+
+func extractTraefikTags(tags []string) map[string]string {
+	a := map[string]string{}
+
+	for _, v := range(tags) {
+		if strings.HasPrefix(v, "traefik.") {
+			kv := strings.Split(v[8:], "=")
+
+			if len(kv) == 2 {
+				a[kv[0]] = kv[1]
+			}
+		}
+	}
+
+	return a
 }
