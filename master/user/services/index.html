@@ -306,6 +306,12 @@ differentiate from a TCP service that could be listening on the same port.</p>
 }
 </code></pre>
 <p>Keep in mind not all of the <code>Service</code> object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use.</p>
+<p>The comma can be escaped by adding a backslash, such as the following example:</p>
+<pre><code>$ docker run -d --name redis.0 -p 10000:6379 \
+    -e "SERVICE_NAME=db" \
+    -e "SERVICE_TAGS=/(;\\,:-_)/" \
+    -e "SERVICE_REGION=us2" progrium/redis
+</code></pre>
 <h3 id="multiple-services-with-defaults">Multiple services with defaults</h3>
 <pre><code>$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 progrium/nginx
 </code></pre>
