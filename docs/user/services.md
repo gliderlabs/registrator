@@ -166,6 +166,13 @@ Results in `Service`:
 
 Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use.
 
+The comma can be escaped by adding a backslash, such as the following example:
+
+    $ docker run -d --name redis.0 -p 10000:6379 \
+        -e "SERVICE_NAME=db" \
+        -e "SERVICE_TAGS=/(;\\,:-_)/" \
+        -e "SERVICE_REGION=us2" progrium/redis
+
 ### Multiple services with defaults
 
 	$ docker run -d --name nginx.0 -p 4443:443 -p 8000:80 progrium/nginx
