@@ -1,4 +1,7 @@
 machine:
+  pre:
+    # Upgrade to Dicker 1.10.0 instead of default version 1.8.2
+    - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
   services:
     - docker
 
@@ -12,7 +15,7 @@ dependencies:
 
 test:
   override:
-    - /bin/true
+    - make test
 
 deployment:
   master:
