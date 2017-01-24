@@ -225,6 +225,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 	elbReg.HostName = elbMetadata.DNSName
 	elbReg.DataCenterInfo.Name = eureka.Amazon
 	elbReg.SetMetadataString("is-elbv2", "true")
+	elbReg.Status = eureka.UP
 	return elbReg
 }
 
@@ -246,7 +247,7 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
 		// Check if there are any containers around with this ALB still attached
-		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %s:%v\n", albEndpoint)
+		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %v\n", albEndpoint)
 		appName := "CONTAINER_" + service.Name
 
 		app, err := client.GetApp(appName)
