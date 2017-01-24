@@ -16,11 +16,12 @@ func Test_getELBV2ForContainer(t *testing.T) {
 		DNSName: "",
 		Port:    int64(1234),
 	}
-	lbCache["instance-123_1234"] = &lbWant
+	lbCache["instance-123_123123412"] = &lbWant
 
 	type args struct {
-		instanceID string
-		port       int64
+		containerID string
+		instanceID  string
+		port        int64
 	}
 	tests := []struct {
 		name       string
@@ -30,7 +31,7 @@ func Test_getELBV2ForContainer(t *testing.T) {
 	}{
 		{
 			name:       "should match",
-			args:       args{instanceID: "instance-123", port: int64(1234)},
+			args:       args{containerID: "123123412", instanceID: "instance-123", port: int64(1234)},
 			wantErr:    false,
 			wantLbinfo: &lbWant,
 		},
@@ -38,7 +39,7 @@ func Test_getELBV2ForContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLbinfo, err := getELBV2ForContainer(tt.args.instanceID, tt.args.port, true)
+			gotLbinfo, err := getELBV2ForContainer(tt.args.containerID, tt.args.instanceID, tt.args.port, true)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getELBV2ForContainer() error = %+v, wantErr %+v", err, tt.wantErr)
 				return
@@ -117,6 +118,9 @@ func Test_setRegInfo(t *testing.T) {
 			"eureka_datacenterinfo_name": "AMAZON",
 		},
 		Name: "app",
+		Origin: bridge.ServicePort{
+			ContainerID: "123123412",
+		},
 	}
 
 	awsInfo := eureka.AmazonMetadataType{
@@ -140,7 +144,7 @@ func Test_setRegInfo(t *testing.T) {
 	}
 
 	// Init LB info cache
-	lbCache["init1_5001"] = &LBInfo{
+	lbCache["init1_123123412"] = &LBInfo{
 		DNSName: "lb-dnsname",
 		Port:    9001,
 	}
@@ -162,6 +166,7 @@ func Test_setRegInfo(t *testing.T) {
 		IPAddr:         "lb-dnsname",
 		VipAddress:     "lb-dnsname",
 		HostName:       "lb-dnsname",
+		Status:         eureka.UP,
 	}
 
 	type args struct {
