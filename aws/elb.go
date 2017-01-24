@@ -69,10 +69,10 @@ func getTargetGroupsPage(svc *elbv2.ELBV2, marker *string) (*elbv2.DescribeTarge
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
 // useCache parameter, if true, will retrieve ELBv2 details from memory, rather than calling AWS.
 // this is only really safe to use for heartbeat calls, as details can change dynamically
-func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
+func getELBV2ForContainer(containerID string, instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
 
 	// Retrieve from basic cache (for heartbeats)
-	cacheKey := instanceID + "_" + strconv.FormatInt(port, 10)
+	cacheKey := instanceID + "_" + containerID
 	if val, ok := lbCache[cacheKey]; ok && useCache {
 		log.Println("Retrieving value from cache.")
 		return val, nil
@@ -196,7 +196,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 
 	awsMetadata := GetMetadata()
 
-	elbMetadata, err := getELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port), useCache)
+	elbMetadata, err := getELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
 
 	if err != nil {
 		log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
