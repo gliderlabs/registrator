@@ -250,6 +250,11 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 		appName := "CONTAINER_" + service.Name
 
 		app, err := client.GetApp(appName)
+		if err != nil {
+			log.Printf("Unable to retrieve app metadata for %s: %s\n", appName, err)
+			return
+		}
+
 		if app != nil {
 			for _, instance := range app.Instances {
 				val, err := instance.Metadata.GetString("elbv2_endpoint")
@@ -258,9 +263,6 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 					return
 				}
 			}
-		}
-		if err != nil {
-			log.Printf("Unable to retrieve app metadata for %s: %s\n", appName, err)
 		}
 
 		if app == nil {
