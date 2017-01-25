@@ -467,18 +467,16 @@ func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
 				// no point to publish docker swarm internal ingress network VIP
 				if network.Name != "ingress" && len(vip.Addr) > 0 && strings.Contains(vip.Addr, "/") {
 					vipAddr := strings.Split(vip.Addr, "/")[0]
-					if len(service.Spec.EndpointSpec.Ports) > 0 {
-						b.registerSwarmVipServicePorts(service.Spec.Name, true, vipAddr, service.Spec.EndpointSpec.Ports)
+					if len(service.Endpoint.Ports) > 0 {
+						b.registerSwarmVipServicePorts(service.Spec.Name, true, vipAddr, service.Endpoint.Ports, service.Spec.TaskTemplate.ContainerSpec.Env)
 					}
-					// publish VIP in with out ports in any case
-					b.registerSwarmVipService(service.Spec.Name, true, vipAddr, false, 0, "ip")
 				}
 			}
 		}
 	} else {
 		// if there is no published ports, no point to register it out side
-		if len(service.Spec.EndpointSpec.Ports) > 0 {
-			b.registerSwarmVipServicePorts(service.Spec.Name, false, b.config.HostIp, service.Spec.EndpointSpec.Ports)
+		if len(service.Endpoint.Ports) > 0 {
+			b.registerSwarmVipServicePorts(service.Spec.Name, false, b.config.HostIp, service.Endpoint.Ports, service.Spec.TaskTemplate.ContainerSpec.Env)
 		}
 	}
 }
@@ -488,19 +486,13 @@ func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
 // docker configuration there is no such events
 // registrations created here are unique, and not based on containers
 // so we will just create them and forget, i don't see proper way to cleanup them at the moment
-func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig) {
+func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig, envs []string) {
 	for _, port := range ports {
-		var portNum uint32
-		if portNum = port.PublishedPort; inside {
-			// inside port is not translated to published port
-			portNum = port.TargetPort
-		}
-
-		b.registerSwarmVipService(serviceName, inside, vip, true, int(portNum), port.Protocol)
+		b.registerSwarmVipService(serviceName, inside, vip, true, int(port.PublishedPort), port.Protocol, int(port.TargetPort), envs)
 	}
 }
 
-func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol) {
+func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol, targetPort int, envs []string) {
 
 	var tag string
 	if tag = "vip-outside"; inside {
@@ -510,8 +502,7 @@ func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip st
 	svcReg := new(Service)
 	svcReg.Name = ""
 
-	service, err := b.docker.InspectService(serviceName)
-	for _, env := range service.Spec.TaskTemplate.ContainerSpec.Env  {
+	for _, env := range envs  {
 		envSplited := strings.Split(env, "_")
 		if len(envSplited) == 3 {
 			if envSplited[0] == "SERVICE" {
@@ -519,7 +510,7 @@ func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip st
 				if err != nil {
 					log.Println("Impossile to converse str to int", err)
 				}
-				if  envPort == port {
+				if  envPort == targetPort {
 					if strings.Split(envSplited[2], "=")[0] == "NAME" {
 						svcReg.Name = strings.Split(envSplited[2], "=")[1]
 					} else if strings.Split(envSplited[2], "=")[0] == "TAGS" {
@@ -551,7 +542,7 @@ func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip st
 	svcReg.IP = vip
 	svcReg.Port = port
 
-	err = b.registry.Register(svcReg)
+	err := b.registry.Register(svcReg)
 	if err != nil {
 		log.Println("register failed:", svcReg.Name, err)
 	}
