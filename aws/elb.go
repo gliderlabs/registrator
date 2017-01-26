@@ -272,7 +272,7 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 
 		if app != nil {
 			for _, instance := range app.Instances {
-				val, err := instance.Metadata.GetString("elbv2_endpoint")
+				val, err := instance.Metadata.GetString("elbv2-endpoint")
 				if err == nil && val == albEndpoint {
 					log.Printf("Eureka entry still present for one or more ALB linked containers: %s\n", val)
 					delete(registrations, service.Origin.ContainerID)
