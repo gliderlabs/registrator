@@ -8,8 +8,8 @@ import (
 	eureka "github.com/hudl/fargo"
 )
 
-// Test_getELBV2ForContainer - Test expected values are returned
-func Test_getELBV2ForContainer(t *testing.T) {
+// Test_GetELBV2ForContainer - Test expected values are returned
+func Test_GetELBV2ForContainer(t *testing.T) {
 
 	// Setup cache
 	lbWant := LBInfo{
@@ -39,13 +39,13 @@ func Test_getELBV2ForContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLbinfo, err := getELBV2ForContainer(tt.args.containerID, tt.args.instanceID, tt.args.port, true)
+			gotLbinfo, err := GetELBV2ForContainer(tt.args.containerID, tt.args.instanceID, tt.args.port, true)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("getELBV2ForContainer() error = %+v, wantErr %+v", err, tt.wantErr)
+				t.Errorf("GetELBV2ForContainer() error = %+v, wantErr %+v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(gotLbinfo, tt.wantLbinfo) {
-				t.Errorf("getELBV2ForContainer() = %+v, want %+v", gotLbinfo, tt.wantLbinfo)
+				t.Errorf("GetELBV2ForContainer() = %+v, want %+v", gotLbinfo, tt.wantLbinfo)
 			}
 		})
 	}
