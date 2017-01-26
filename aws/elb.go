@@ -20,6 +20,7 @@ type LBInfo struct {
 }
 
 var lbCache = make(map[string]*LBInfo)
+var registrations = make(map[string]bool)
 
 // Helper function to retrieve all target groups
 func getAllTargetGroups(svc *elbv2.ELBV2) ([]*elbv2.DescribeTargetGroupsOutput, error) {
@@ -72,7 +73,7 @@ func getTargetGroupsPage(svc *elbv2.ELBV2, marker *string) (*elbv2.DescribeTarge
 func getELBV2ForContainer(containerID string, instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
 
 	// Retrieve from basic cache (for heartbeats)
-	cacheKey := instanceID + "_" + containerID
+	cacheKey := containerID
 	if val, ok := lbCache[cacheKey]; ok && useCache {
 		log.Println("Retrieving value from cache.")
 		return val, nil
@@ -237,7 +238,10 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
 		elbReg := setRegInfo(service, registration, false)
 		if elbReg != nil {
-			client.RegisterInstance(elbReg)
+			err := client.RegisterInstance(elbReg)
+			if err != nil {
+				registrations[service.Origin.ContainerID] = true
+			}
 		}
 	}
 }
@@ -246,6 +250,12 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 //
 func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
+
+		if albEndpoint == "" {
+			log.Printf("No endpoint available when attempting deregister.  ELBv2 will remain registered. Container: %v, IP: %v Port: %v", service.Origin.ContainerID, service.IP, service.Port)
+			return
+		}
+
 		// Check if there are any containers around with this ALB still attached
 		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %v\n", albEndpoint)
 		appName := "CONTAINER_" + service.Name
@@ -253,6 +263,8 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 		app, err := client.GetApp(appName)
 		if err != nil {
 			log.Printf("Unable to retrieve app metadata for %s: %s\n", appName, err)
+			delete(registrations, service.Origin.ContainerID)
+			delete(lbCache, service.Origin.ContainerID)
 			return
 		}
 
@@ -261,6 +273,8 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 				val, err := instance.Metadata.GetString("elbv2_endpoint")
 				if err == nil && val == albEndpoint {
 					log.Printf("Eureka entry still present for one or more ALB linked containers: %s\n", val)
+					delete(registrations, service.Origin.ContainerID)
+					delete(lbCache, service.Origin.ContainerID)
 					return
 				}
 			}
@@ -272,6 +286,8 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 			elbReg.App = service.Name
 			elbReg.HostName = albEndpoint // This uses the full endpoint identifier so eureka can find it to remove
 			client.DeregisterInstance(elbReg)
+			delete(registrations, service.Origin.ContainerID)
+			delete(lbCache, service.Origin.ContainerID)
 		}
 	}
 }
@@ -282,6 +298,11 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
 		log.Printf("Heartbeating ELBv2 for container: %s)\n", registration.HostName)
+
+		if reg, ok := registrations[service.Origin.ContainerID]; !ok || !reg {
+			log.Printf("ELBv2 failed previous registration.  Attempting register now.")
+			RegisterELBv2(service, registration, client)
+		}
 
 		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
 		if elbReg != nil {

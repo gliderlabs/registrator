@@ -182,13 +182,7 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	registration.App = service.Name
 	var albEndpoint string
 	if aws.CheckELBFlags(service) {
-		var ok bool
-		t, _ := instanceInformation(service).Metadata.GetMap()["elbv2-endpoint"]
-		albEndpoint, ok = t.(string)
-		if !ok {
-			log.Printf("Failed to retrieve endpoint for ELBv2!")
-		}
-
+		albEndpoint, _ = instanceInformation(service).Metadata.GetString("elbv2-endpoint")
 		registration.App = "CONTAINER_" + service.Name
 	}
 	log.Println("Deregistering ", registration.HostName)

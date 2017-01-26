@@ -16,7 +16,7 @@ func Test_getELBV2ForContainer(t *testing.T) {
 		DNSName: "",
 		Port:    int64(1234),
 	}
-	lbCache["instance-123_123123412"] = &lbWant
+	lbCache["123123412"] = &lbWant
 
 	type args struct {
 		containerID string
@@ -144,7 +144,7 @@ func Test_setRegInfo(t *testing.T) {
 	}
 
 	// Init LB info cache
-	lbCache["init1_123123412"] = &LBInfo{
+	lbCache["123123412"] = &LBInfo{
 		DNSName: "lb-dnsname",
 		Port:    9001,
 	}
