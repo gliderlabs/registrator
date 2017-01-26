@@ -180,10 +180,12 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
 	registration.UniqueID = uniqueID
 	registration.App = service.Name
+	awsMetadata := aws.GetMetadata()
 	var albEndpoint string
 	if aws.CheckELBFlags(service) {
-		albEndpoint, _ = instanceInformation(service).Metadata.GetString("elbv2-endpoint")
 		registration.App = "CONTAINER_" + service.Name
+		lbInfo, _ := aws.GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(service.Port), true)
+		albEndpoint = lbInfo.DNSName + "_" + strconv.FormatInt(lbInfo.Port, 10)
 	}
 	log.Println("Deregistering ", registration.HostName)
 	instance := r.client.DeregisterInstance(registration)

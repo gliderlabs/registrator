@@ -64,13 +64,13 @@ func getTargetGroupsPage(svc *elbv2.ELBV2, marker *string) (*elbv2.DescribeTarge
 	return tg, nil
 }
 
-// getELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
+// GetELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
 // if an error occurs, or the target is not found, an empty LBInfo is returned.
 // Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
 // useCache parameter, if true, will retrieve ELBv2 details from memory, rather than calling AWS.
 // this is only really safe to use for heartbeat calls, as details can change dynamically
-func getELBV2ForContainer(containerID string, instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
+func GetELBV2ForContainer(containerID string, instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
 
 	// Retrieve from basic cache (for heartbeats)
 	cacheKey := containerID
@@ -197,7 +197,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 
 	awsMetadata := GetMetadata()
 
-	elbMetadata, err := getELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
+	elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
 
 	if err != nil {
 		log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
@@ -239,9 +239,11 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 		elbReg := setRegInfo(service, registration, false)
 		if elbReg != nil {
 			err := client.RegisterInstance(elbReg)
-			if err != nil {
+			if err == nil {
 				registrations[service.Origin.ContainerID] = true
 			}
+			// We reregister the container again too because ELB adds data to it
+			client.ReregisterInstance(registration)
 		}
 	}
 }
@@ -302,6 +304,8 @@ func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, clie
 		if reg, ok := registrations[service.Origin.ContainerID]; !ok || !reg {
 			log.Printf("ELBv2 failed previous registration.  Attempting register now.")
 			RegisterELBv2(service, registration, client)
+			// We reregister the container again too because ELB adds data to it
+			client.ReregisterInstance(registration)
 		}
 
 		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
