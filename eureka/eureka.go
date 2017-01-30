@@ -170,8 +170,8 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 
 func (r *EurekaAdapter) Register(service *bridge.Service) error {
 	registration := instanceInformation(service)
-	instance := r.client.RegisterInstance(registration)
 	aws.RegisterELBv2(service, registration, r.client)
+	instance := r.client.RegisterInstance(registration)
 	return instance
 }
 
@@ -189,15 +189,16 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	}
 	log.Println("Deregistering ", registration.HostName)
 	instance := r.client.DeregisterInstance(registration)
-	aws.DeregisterELBv2(service, albEndpoint, r.client)
+	// Run in a seperate goroutine to allow it to happen async
+	go aws.DeregisterELBv2(service, albEndpoint, r.client)
 	return instance
 }
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 	log.Println("Heartbeating...")
 	registration := instanceInformation(service)
-	err := r.client.HeartBeatInstance(registration)
 	aws.HeartbeatELBv2(service, registration, r.client)
+	err := r.client.HeartBeatInstance(registration)
 	log.Println("Done heartbeating for: ", registration.HostName)
 	return err
 }

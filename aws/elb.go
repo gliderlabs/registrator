@@ -3,7 +3,9 @@ package aws
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -242,8 +244,6 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 			if err == nil {
 				registrations[service.Origin.ContainerID] = true
 			}
-			// We reregister the container again too because ELB adds data to it
-			client.ReregisterInstance(registration)
 		}
 	}
 }
@@ -257,6 +257,11 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 			log.Printf("No endpoint available when attempting deregister.  ELBv2 will remain registered. Container: %v, IP: %v Port: %v", service.Origin.ContainerID, service.IP, service.Port)
 			return
 		}
+
+		// We need to have small random wait here, because it takes a little while for all potential containers to be deleted from eureka
+		rand.NewSource(time.Now().UnixNano())
+		period := time.Second * time.Duration(rand.Intn(10)+5)
+		time.Sleep(period)
 
 		// Check if there are any containers around with this ALB still attached
 		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %v\n", albEndpoint)
@@ -282,15 +287,13 @@ func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.
 			}
 		}
 
-		if app == nil {
-			log.Printf("Removing eureka entry for ELBv2: %s\n", albEndpoint)
-			elbReg := new(eureka.Instance)
-			elbReg.App = service.Name
-			elbReg.HostName = albEndpoint // This uses the full endpoint identifier so eureka can find it to remove
-			client.DeregisterInstance(elbReg)
-			delete(registrations, service.Origin.ContainerID)
-			delete(lbCache, service.Origin.ContainerID)
-		}
+		log.Printf("Removing eureka entry for ELBv2: %s\n", albEndpoint)
+		elbReg := new(eureka.Instance)
+		elbReg.App = service.Name
+		elbReg.HostName = albEndpoint // This uses the full endpoint identifier so eureka can find it to remove
+		client.DeregisterInstance(elbReg)
+		delete(registrations, service.Origin.ContainerID)
+		delete(lbCache, service.Origin.ContainerID)
 	}
 }
 
@@ -304,8 +307,9 @@ func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, clie
 		if reg, ok := registrations[service.Origin.ContainerID]; !ok || !reg {
 			log.Printf("ELBv2 failed previous registration.  Attempting register now.")
 			RegisterELBv2(service, registration, client)
-			// We reregister the container again too because ELB adds data to it
+			// We need to reregister the container to add the ELBv2 info
 			client.ReregisterInstance(registration)
+			return
 		}
 
 		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
