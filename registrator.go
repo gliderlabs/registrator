@@ -135,6 +135,22 @@ func main() {
 
 	quit := make(chan struct{})
 
+	// Start a dead container pruning timer to allow refresh to work independently
+	if *refreshInterval > 0 {
+		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					b.PruneDeadContainers()
+				case <-quit:
+					ticker.Stop()
+					return
+				}
+			}
+		}()
+	}
+
 	// Start the TTL refresh timer
 	if *refreshInterval > 0 {
 		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)

@@ -184,6 +184,7 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
 			InstanceID: albEndpoint,
 		}
+		aws.RemoveLBCache(service.Origin.ContainerID)
 	}
 	log.Println("Deregistering ", registration.HostName)
 	instance := r.client.DeregisterInstance(registration)

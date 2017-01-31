@@ -187,7 +187,7 @@ func Test_setRegInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := setRegInfo(tt.args.service, tt.args.registration, true, true)
+			got := setRegInfo(tt.args.service, tt.args.registration, true)
 			val := got.Metadata.GetMap()["has-elbv2"]
 			if val != "true" {
 				t.Errorf("setRegInfo() = %+v, \n Wanted has-elbv2=true in metadata, was %+v", got, val)
