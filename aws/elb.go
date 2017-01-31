@@ -193,11 +193,16 @@ func CheckELBFlags(service *bridge.Service) bool {
 	return false
 }
 
-// Helper function to create a registration struct, and change container registration
+// Helper function to alter registration info and add the ELBv2 endpoint
 // useCache parameter is passed to getELBV2ForContainer
 func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool) *eureka.Instance {
 
 	awsMetadata := GetMetadata()
+
+	// We need to have small random wait here, because it takes a little while for new containers to appear in target groups
+	rand.NewSource(time.Now().UnixNano())
+	period := time.Second * time.Duration(rand.Intn(10)+20)
+	time.Sleep(period)
 
 	elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
 
@@ -212,30 +217,15 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 	registration.SetMetadataString("has-elbv2", "true")
 	registration.SetMetadataString("elbv2-endpoint", elbEndpoint)
 
-	elbReg := new(eureka.Instance)
-
-	// Put a little metadata in here as required - setting InstanceID to the ELB endpoint prevents double registration
-	elbReg.DataCenterInfo.Metadata = eureka.AmazonMetadataType{
-		PublicHostname: elbMetadata.DNSName,
-		HostName:       elbMetadata.DNSName,
-		InstanceID:     elbEndpoint,
-	}
-
-	elbReg.Port = int(elbMetadata.Port)
-	elbReg.IPAddr = elbMetadata.DNSName
-	elbReg.App = service.Name
-	elbReg.VipAddress = elbReg.IPAddr
-	elbReg.HostName = elbMetadata.DNSName
-	elbReg.DataCenterInfo.Name = eureka.Amazon
-	elbReg.SetMetadataString("is-elbv2", "true")
-	elbReg.Status = eureka.UP
-	return elbReg
+	registration.Port = int(elbMetadata.Port)
+	registration.IPAddr = elbMetadata.DNSName
+	registration.VipAddress = registration.IPAddr
+	return registration
 }
 
-// RegisterELBv2 - If specified, also register an ELBv2 (application load balancer, ALB) endpoint in eureka, and alter service name
-// for container registrations.  This will mean traffic is directed to the ALB rather than directly to containers
-// though they are still registered in eureka for information purposes
-func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
+// RegisterWithELBv2 - If called, and flags are active, register an ELBv2 endpoint instead of the container directly
+// This will mean traffic is directed to the ALB rather than directly to containers
+func RegisterWithELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) error {
 	if CheckELBFlags(service) {
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
 		elbReg := setRegInfo(service, registration, false)
@@ -244,77 +234,8 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 			if err == nil {
 				registrations[service.Origin.ContainerID] = true
 			}
+			return nil
 		}
 	}
-}
-
-// DeregisterELBv2 - If specified, and all containers are gone, also deregister the ELBv2 (application load balancer, ALB) endpoint in eureka.
-//
-func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.EurekaConnection) {
-	if CheckELBFlags(service) {
-
-		if albEndpoint == "" {
-			log.Printf("No endpoint available when attempting deregister.  ELBv2 will remain registered. Container: %v, IP: %v Port: %v", service.Origin.ContainerID, service.IP, service.Port)
-			return
-		}
-
-		// We need to have small random wait here, because it takes a little while for all potential containers to be deleted from eureka
-		rand.NewSource(time.Now().UnixNano())
-		period := time.Second * time.Duration(rand.Intn(10)+5)
-		time.Sleep(period)
-
-		// Check if there are any containers around with this ALB still attached
-		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %v\n", albEndpoint)
-		appName := "CONTAINER_" + service.Name
-
-		app, err := client.GetApp(appName)
-		if err != nil {
-			log.Printf("Unable to retrieve app metadata for %s: %s\n", appName, err)
-			delete(registrations, service.Origin.ContainerID)
-			delete(lbCache, service.Origin.ContainerID)
-			return
-		}
-
-		if app != nil {
-			for _, instance := range app.Instances {
-				val, err := instance.Metadata.GetString("elbv2-endpoint")
-				if err == nil && val == albEndpoint {
-					log.Printf("Eureka entry still present for one or more ALB linked containers: %s\n", val)
-					delete(registrations, service.Origin.ContainerID)
-					delete(lbCache, service.Origin.ContainerID)
-					return
-				}
-			}
-		}
-
-		log.Printf("Removing eureka entry for ELBv2: %s\n", albEndpoint)
-		elbReg := new(eureka.Instance)
-		elbReg.App = service.Name
-		elbReg.HostName = albEndpoint // This uses the full endpoint identifier so eureka can find it to remove
-		client.DeregisterInstance(elbReg)
-		delete(registrations, service.Origin.ContainerID)
-		delete(lbCache, service.Origin.ContainerID)
-	}
-}
-
-// HeartbeatELBv2 - Send a heartbeat to eureka for this ELBv2 registration.  Every host running registrator will send heartbeats, meaning they will
-// be received more frequently than the --ttl-refresh interval if there are multiple hosts running registrator.
-//
-func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
-	if CheckELBFlags(service) {
-		log.Printf("Heartbeating ELBv2 for container: %s)\n", registration.HostName)
-
-		if reg, ok := registrations[service.Origin.ContainerID]; !ok || !reg {
-			log.Printf("ELBv2 failed previous registration.  Attempting register now.")
-			RegisterELBv2(service, registration, client)
-			// We need to reregister the container to add the ELBv2 info
-			client.ReregisterInstance(registration)
-			return
-		}
-
-		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
-		if elbReg != nil {
-			client.HeartBeatInstance(elbReg)
-		}
-	}
+	return fmt.Errorf("unable to register ELBv2")
 }
