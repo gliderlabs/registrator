@@ -29,9 +29,7 @@ func initMetadata() {
 		Region:           "ius-east-1",
 	}
 
-	metadataCache = md
-	inited = true
-
+	SetMetadata(md)
 }
 
 var _ interfaces.EC2MetadataGetter = (*testMetadata)(nil)

@@ -3,7 +3,9 @@ package aws
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"strconv"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -20,6 +22,7 @@ type LBInfo struct {
 }
 
 var lbCache = make(map[string]*LBInfo)
+var registrations = make(map[string]bool)
 
 // Helper function to retrieve all target groups
 func getAllTargetGroups(svc *elbv2.ELBV2) ([]*elbv2.DescribeTargetGroupsOutput, error) {
@@ -63,16 +66,16 @@ func getTargetGroupsPage(svc *elbv2.ELBV2, marker *string) (*elbv2.DescribeTarge
 	return tg, nil
 }
 
-// getELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
+// GetELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
 // if an error occurs, or the target is not found, an empty LBInfo is returned.
 // Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
 // useCache parameter, if true, will retrieve ELBv2 details from memory, rather than calling AWS.
 // this is only really safe to use for heartbeat calls, as details can change dynamically
-func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
+func GetELBV2ForContainer(containerID string, instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
 
 	// Retrieve from basic cache (for heartbeats)
-	cacheKey := instanceID + "_" + strconv.FormatInt(port, 10)
+	cacheKey := containerID
 	if val, ok := lbCache[cacheKey]; ok && useCache {
 		log.Println("Retrieving value from cache.")
 		return val, nil
@@ -102,7 +105,7 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 	}
 
 	// Check each target group's target list for a matching port and instanceID
-	// Assumption: that that there is only one LB for the target group (though the data structure allows more)
+	// TODO Assumption: that that there is only one LB for the target group (though the data structure allows more)
 	for _, tgs := range tgslice {
 		for _, tg := range tgs.TargetGroups {
 
@@ -127,6 +130,11 @@ func getELBV2ForContainer(instanceID string, port int64, useCache bool) (lbinfo 
 		if lbArns != nil && tgArn != "" {
 			break
 		}
+	}
+
+	if err != nil || lbArns == nil {
+		message := fmt.Errorf("failed to retrieve load balancer ARN")
+		return nil, message
 	}
 
 	// Loop through the load balancer listeners to get the listener port for the target group
@@ -191,7 +199,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 
 	awsMetadata := GetMetadata()
 
-	elbMetadata, err := getELBV2ForContainer(awsMetadata.InstanceID, int64(registration.Port), useCache)
+	elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
 
 	if err != nil {
 		log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
@@ -220,6 +228,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 	elbReg.HostName = elbMetadata.DNSName
 	elbReg.DataCenterInfo.Name = eureka.Amazon
 	elbReg.SetMetadataString("is-elbv2", "true")
+	elbReg.Status = eureka.UP
 	return elbReg
 }
 
@@ -231,42 +240,60 @@ func RegisterELBv2(service *bridge.Service, registration *eureka.Instance, clien
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
 		elbReg := setRegInfo(service, registration, false)
 		if elbReg != nil {
-			client.RegisterInstance(elbReg)
+			err := client.RegisterInstance(elbReg)
+			if err == nil {
+				registrations[service.Origin.ContainerID] = true
+			}
 		}
 	}
 }
 
 // DeregisterELBv2 - If specified, and all containers are gone, also deregister the ELBv2 (application load balancer, ALB) endpoint in eureka.
 //
-func DeregisterELBv2(service *bridge.Service, regDNSName string, regPort int64, client eureka.EurekaConnection) {
+func DeregisterELBv2(service *bridge.Service, albEndpoint string, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
+
+		if albEndpoint == "" {
+			log.Printf("No endpoint available when attempting deregister.  ELBv2 will remain registered. Container: %v, IP: %v Port: %v", service.Origin.ContainerID, service.IP, service.Port)
+			return
+		}
+
+		// We need to have small random wait here, because it takes a little while for all potential containers to be deleted from eureka
+		rand.NewSource(time.Now().UnixNano())
+		period := time.Second * time.Duration(rand.Intn(10)+5)
+		time.Sleep(period)
+
 		// Check if there are any containers around with this ALB still attached
-		elbStrPort := strconv.FormatInt(regPort, 10)
-		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %s:%v\n", regDNSName, elbStrPort)
-		albName := regDNSName + "_" + elbStrPort
+		log.Printf("Found ELBv2 flags, will check if it needs to be deregistered too, for: %v\n", albEndpoint)
 		appName := "CONTAINER_" + service.Name
+
 		app, err := client.GetApp(appName)
+		if err != nil {
+			log.Printf("Unable to retrieve app metadata for %s: %s\n", appName, err)
+			delete(registrations, service.Origin.ContainerID)
+			delete(lbCache, service.Origin.ContainerID)
+			return
+		}
+
 		if app != nil {
 			for _, instance := range app.Instances {
-				val, err := instance.Metadata.GetString("elbv2_endpoint")
-				if err == nil && val == albName {
+				val, err := instance.Metadata.GetString("elbv2-endpoint")
+				if err == nil && val == albEndpoint {
 					log.Printf("Eureka entry still present for one or more ALB linked containers: %s\n", val)
+					delete(registrations, service.Origin.ContainerID)
+					delete(lbCache, service.Origin.ContainerID)
 					return
 				}
 			}
 		}
-		if err != nil {
-			log.Printf("Unable to retrieve app metadata for %s: %s\n", appName, err)
-		}
 
-		if app == nil {
-			log.Printf("Removing eureka entry for ELBv2: %s\n", albName)
-			elbReg := new(eureka.Instance)
-			elbReg.IPAddr = regDNSName
-			elbReg.App = service.Name
-			elbReg.HostName = albName // This uses the full endpoint identifier so eureka can find it to remove
-			client.DeregisterInstance(elbReg)
-		}
+		log.Printf("Removing eureka entry for ELBv2: %s\n", albEndpoint)
+		elbReg := new(eureka.Instance)
+		elbReg.App = service.Name
+		elbReg.HostName = albEndpoint // This uses the full endpoint identifier so eureka can find it to remove
+		client.DeregisterInstance(elbReg)
+		delete(registrations, service.Origin.ContainerID)
+		delete(lbCache, service.Origin.ContainerID)
 	}
 }
 
@@ -276,6 +303,14 @@ func DeregisterELBv2(service *bridge.Service, regDNSName string, regPort int64, 
 func HeartbeatELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) {
 	if CheckELBFlags(service) {
 		log.Printf("Heartbeating ELBv2 for container: %s)\n", registration.HostName)
+
+		if reg, ok := registrations[service.Origin.ContainerID]; !ok || !reg {
+			log.Printf("ELBv2 failed previous registration.  Attempting register now.")
+			RegisterELBv2(service, registration, client)
+			// We need to reregister the container to add the ELBv2 info
+			client.ReregisterInstance(registration)
+			return
+		}
 
 		elbReg := setRegInfo(service, registration, true) // Can safely use cache when heartbeating
 		if elbReg != nil {
