@@ -140,7 +140,8 @@ func Test_setRegInfo(t *testing.T) {
 		IPAddr:         "4.3.2.1",
 		App:            "app",
 		VipAddress:     "4.3.2.1",
-		HostName:       "hostname",
+		HostName:       "hostname_identifier",
+		Status:         eureka.UP,
 	}
 
 	// Init LB info cache
@@ -150,9 +151,9 @@ func Test_setRegInfo(t *testing.T) {
 	}
 
 	wantedAwsInfo := eureka.AmazonMetadataType{
-		PublicHostname: "lb-dnsname",
-		HostName:       "lb-dnsname",
-		InstanceID:     "lb-dnsname_9001",
+		PublicHostname: "dns-name",
+		HostName:       "dns-name",
+		InstanceID:     "endpoint",
 	}
 	wantedDCInfo := eureka.DataCenterInfo{
 		Name:     eureka.Amazon,
@@ -165,7 +166,7 @@ func Test_setRegInfo(t *testing.T) {
 		App:            svc.Name,
 		IPAddr:         "lb-dnsname",
 		VipAddress:     "lb-dnsname",
-		HostName:       "lb-dnsname",
+		HostName:       "hostname_identifier",
 		Status:         eureka.UP,
 	}
 
@@ -186,10 +187,14 @@ func Test_setRegInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := setRegInfo(tt.args.service, tt.args.registration, true)
-			val := got.Metadata.GetMap()["is-elbv2"]
+			got := setRegInfo(tt.args.service, tt.args.registration, true, true)
+			val := got.Metadata.GetMap()["has-elbv2"]
 			if val != "true" {
-				t.Errorf("setRegInfo() = %+v, \n Wanted is-elbv2=true in metadata, was %+v", got, val)
+				t.Errorf("setRegInfo() = %+v, \n Wanted has-elbv2=true in metadata, was %+v", got, val)
+			}
+			val2 := got.Metadata.GetMap()["elbv2-endpoint"]
+			if val2 != "lb-dnsname_9001" {
+				t.Errorf("setRegInfo() = %+v, \n Wanted elbv2-endpoint=lb-dnsname_9001 in metadata, was %+v", got, val)
 			}
 			//Overwrite metadata before comparing data structure - we've directly checked the flag we are looking for
 			got.Metadata = eureka.InstanceMetadata{}

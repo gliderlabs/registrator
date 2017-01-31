@@ -195,15 +195,16 @@ func CheckELBFlags(service *bridge.Service) bool {
 
 // Helper function to alter registration info and add the ELBv2 endpoint
 // useCache parameter is passed to getELBV2ForContainer
-func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool) *eureka.Instance {
+func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool, skipWait bool) *eureka.Instance {
 
 	awsMetadata := GetMetadata()
 
 	// We need to have small random wait here, because it takes a little while for new containers to appear in target groups
-	rand.NewSource(time.Now().UnixNano())
-	period := time.Second * time.Duration(rand.Intn(10)+20)
-	time.Sleep(period)
-
+	if !skipWait {
+		rand.NewSource(time.Now().UnixNano())
+		period := time.Second * time.Duration(rand.Intn(10)+20)
+		time.Sleep(period)
+	}
 	elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
 
 	if err != nil {
@@ -228,7 +229,7 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 func RegisterWithELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) error {
 	if CheckELBFlags(service) {
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
-		elbReg := setRegInfo(service, registration, false)
+		elbReg := setRegInfo(service, registration, false, false)
 		if elbReg != nil {
 			err := client.RegisterInstance(elbReg)
 			if err == nil {
