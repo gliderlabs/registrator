@@ -63,7 +63,9 @@ func (b *Bridge) RemoveOnExit(containerId string) {
 }
 
 func (b *Bridge) Refresh() {
-
+	// TODO: Since we are no longer using mutexes here, there's a small chance that
+	// the refresh will fail for a container that gets removed during the refresh occurring
+	// That's more than offset by allowing this operation to run on schedule
 	var snapshot = b.services
 	for containerId, services := range snapshot {
 		for _, service := range services {
@@ -90,7 +92,6 @@ func (b *Bridge) PruneDeadContainers() {
 
 func (b *Bridge) Sync(quiet bool) {
 	b.Lock()
-	defer b.Unlock()
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
@@ -102,6 +103,7 @@ func (b *Bridge) Sync(quiet bool) {
 
 	log.Printf("Syncing services on %d containers", len(containers))
 
+	b.Unlock()
 	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
 		services := b.services[listing.ID]
