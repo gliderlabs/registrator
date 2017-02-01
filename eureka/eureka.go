@@ -71,11 +71,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
 	registration.UniqueID = uniqueID
 
-	if service.Attrs["eureka_register_aws_public_ip"] != "" && service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn {
-		registration.App = "CONTAINER_" + service.Name
-	} else {
-		registration.App = service.Name
-	}
+	registration.App = service.Name
 
 	registration.Port = service.Port
 
@@ -161,17 +157,17 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 		registration.VipAddress = ShortHandTernary(service.Attrs["eureka_vip"], service.IP)
 	}
 
-	// Check if an ELBv2 is being used, and add container prefix if so
-	if aws.CheckELBFlags(service) {
-		registration.App = "CONTAINER_" + registration.App
-	}
 	return registration
 }
 
 func (r *EurekaAdapter) Register(service *bridge.Service) error {
 	registration := instanceInformation(service)
-	aws.RegisterELBv2(service, registration, r.client)
-	instance := r.client.RegisterInstance(registration)
+	var instance error
+	if aws.CheckELBFlags(service) {
+		instance = aws.RegisterWithELBv2(service, registration, r.client)
+	} else {
+		instance = r.client.RegisterInstance(registration)
+	}
 	return instance
 }
 
@@ -183,21 +179,21 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	awsMetadata := aws.GetMetadata()
 	var albEndpoint string
 	if aws.CheckELBFlags(service) {
-		registration.App = "CONTAINER_" + service.Name
 		lbInfo, _ := aws.GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(service.Port), true)
 		albEndpoint = lbInfo.DNSName + "_" + strconv.FormatInt(lbInfo.Port, 10)
+		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
+			InstanceID: albEndpoint,
+		}
+		aws.RemoveLBCache(service.Origin.ContainerID)
 	}
 	log.Println("Deregistering ", registration.HostName)
 	instance := r.client.DeregisterInstance(registration)
-	// Run in a seperate goroutine to allow it to happen async
-	go aws.DeregisterELBv2(service, albEndpoint, r.client)
 	return instance
 }
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 	log.Println("Heartbeating...")
 	registration := instanceInformation(service)
-	aws.HeartbeatELBv2(service, registration, r.client)
 	err := r.client.HeartBeatInstance(registration)
 	log.Println("Done heartbeating for: ", registration.HostName)
 	return err
