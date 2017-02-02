@@ -57,15 +57,15 @@ func TestCheckELBFlags(t *testing.T) {
 
 	svcFalse := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_use_elbv2_endpoint":  "false",
-			"eureka_datacenterinfo_name": "AMAZON",
+			"eureka_lookup_elbv2_endpoint": "false",
+			"eureka_datacenterinfo_name":   "AMAZON",
 		},
 	}
 
 	svcFalse2 := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_use_elbv2_endpoint":  "true",
-			"eureka_datacenterinfo_name": "MyOwn",
+			"eureka_lookup_elbv2_endpoint": "true",
+			"eureka_datacenterinfo_name":   "MyOwn",
 		},
 	}
 
@@ -76,19 +76,10 @@ func TestCheckELBFlags(t *testing.T) {
 		},
 	}
 
-	svcFalse4 := bridge.Service{
-		Attrs: map[string]string{
-			"eureka_elbv2_hostname":      "my-name",
-			"eureka_use_elbv2_endpoint":  "false",
-			"eureka_elbv2_port":          "1234",
-			"eureka_datacenterinfo_name": "AMAZON",
-		},
-	}
-
 	svcTrue := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_use_elbv2_endpoint":  "true",
-			"eureka_datacenterinfo_name": "AMAZON",
+			"eureka_lookup_elbv2_endpoint": "true",
+			"eureka_datacenterinfo_name":   "AMAZON",
 		},
 	}
 
@@ -102,10 +93,19 @@ func TestCheckELBFlags(t *testing.T) {
 
 	svcTrue3 := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_elbv2_hostname":      "my-name",
-			"eureka_use_elbv2_endpoint":  "true",
-			"eureka_elbv2_port":          "1234",
-			"eureka_datacenterinfo_name": "AMAZON",
+			"eureka_elbv2_hostname":        "my-name",
+			"eureka_lookup_elbv2_endpoint": "true",
+			"eureka_elbv2_port":            "1234",
+			"eureka_datacenterinfo_name":   "AMAZON",
+		},
+	}
+
+	svcTrue4 := bridge.Service{
+		Attrs: map[string]string{
+			"eureka_elbv2_hostname":        "my-name",
+			"eureka_lookup_elbv2_endpoint": "false",
+			"eureka_elbv2_port":            "1234",
+			"eureka_datacenterinfo_name":   "AMAZON",
 		},
 	}
 
@@ -118,7 +118,7 @@ func TestCheckELBFlags(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "use endpoint set to false",
+			name: "use lookup set to false",
 			args: args{service: &svcFalse},
 			want: false,
 		},
@@ -133,12 +133,7 @@ func TestCheckELBFlags(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "elb hostname, and port are set, but endpoint is false",
-			args: args{service: &svcFalse4},
-			want: false,
-		},
-		{
-			name: "elb endpoint set to true",
+			name: "elb lookup set to true",
 			args: args{service: &svcTrue},
 			want: true,
 		},
@@ -148,8 +143,13 @@ func TestCheckELBFlags(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "elb hostname and port are set, as is use endpoint",
+			name: "elb hostname and port are set, as is lookup",
 			args: args{service: &svcTrue3},
+			want: true,
+		},
+		{
+			name: "elb hostname, and port are set, lookup is false",
+			args: args{service: &svcTrue4},
 			want: true,
 		},
 	}
@@ -168,8 +168,8 @@ func Test_setRegInfo(t *testing.T) {
 
 	svc := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_use_elbv2_endpoint":  "false",
-			"eureka_datacenterinfo_name": "AMAZON",
+			"eureka_lookup_elbv2_endpoint": "false",
+			"eureka_datacenterinfo_name":   "AMAZON",
 		},
 		Name: "app",
 		Origin: bridge.ServicePort{
@@ -267,10 +267,10 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 
 	svc := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_use_elbv2_endpoint":  "false",
-			"eureka_elbv2_hostname":      "hostname-i-set",
-			"eureka_elbv2_port":          "65535",
-			"eureka_datacenterinfo_name": "AMAZON",
+			"eureka_lookup_elbv2_endpoint": "false",
+			"eureka_elbv2_hostname":        "hostname-i-set",
+			"eureka_elbv2_port":            "65535",
+			"eureka_datacenterinfo_name":   "AMAZON",
 		},
 		Name: "app",
 		Origin: bridge.ServicePort{

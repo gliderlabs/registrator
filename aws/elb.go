@@ -192,7 +192,7 @@ func RemoveLBCache(containerID string) {
 }
 
 // CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
-// We accept two possible configurations here - either eureka_use_elbv2_endpoint can be set,
+// We accept two possible configurations here - either eureka_lookup_elbv2_endpoint can be set,
 // for automatic lookup, or eureka_elbv2_hostname and eureka_elbv2_port can be set manually
 // to avoid the 10-20s wait for lookups
 func CheckELBFlags(service *bridge.Service) bool {
@@ -211,16 +211,16 @@ func CheckELBFlags(service *bridge.Service) bool {
 		useLookup = true
 	}
 
-	if service.Attrs["eureka_use_elbv2_endpoint"] != "" {
-		v, err := strconv.ParseBool(service.Attrs["eureka_use_elbv2_endpoint"])
+	if service.Attrs["eureka_lookup_elbv2_endpoint"] != "" {
+		v, err := strconv.ParseBool(service.Attrs["eureka_lookup_elbv2_endpoint"])
 		if err != nil {
-			log.Printf("eureka: eureka_use_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
+			log.Printf("eureka: eureka_lookup_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
 			useLookup = false
 		}
 		useLookup = v
 	}
 
-	if ((hasExplicit && useLookup) || useLookup) && isAws {
+	if (hasExplicit || useLookup) && isAws {
 		return true
 	}
 	return false
