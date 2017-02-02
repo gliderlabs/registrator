@@ -91,7 +91,6 @@ func (b *Bridge) PruneDeadContainers() {
 }
 
 func (b *Bridge) Sync(quiet bool) {
-	b.Lock()
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
@@ -101,12 +100,14 @@ func (b *Bridge) Sync(quiet bool) {
 		log.Fatal(err)
 	}
 
+	// Take this to avoid having to use a mutex
+	servicesSnapshot := b.services
+
 	log.Printf("Syncing services on %d containers", len(containers))
 
-	b.Unlock()
 	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
-		services := b.services[listing.ID]
+		services := servicesSnapshot[listing.ID]
 		if services == nil {
 			b.add(listing.ID, quiet)
 		} else {
@@ -130,7 +131,7 @@ func (b *Bridge) Sync(quiet bool) {
 			log.Println("error listing nonExitedContainers, skipping sync", err)
 			return
 		}
-		for listingId, _ := range b.services {
+		for listingId, _ := range servicesSnapshot {
 			found := false
 			for _, container := range nonExitedContainers {
 				if listingId == container.ID {
@@ -165,7 +166,7 @@ func (b *Bridge) Sync(quiet bool) {
 				continue
 			}
 			serviceContainerName := matches[2]
-			for _, listing := range b.services {
+			for _, listing := range servicesSnapshot {
 				for _, service := range listing {
 					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
 						continue Outer
@@ -183,13 +184,25 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 }
 
-func (b *Bridge) add(containerId string, quiet bool) {
+func (b *Bridge) deleteDeadContainer(containerId string) {
 	b.Lock()
+	defer b.Unlock()
+
 	if d := b.deadContainers[containerId]; d != nil {
 		b.services[containerId] = d.Services
 		delete(b.deadContainers, containerId)
 	}
-	b.Unlock()
+}
+
+func (b *Bridge) appendService(containerId string, service *Service) {
+	b.Lock()
+	defer b.Unlock()
+	b.services[containerId] = append(b.services[containerId], service)
+	log.Println("added:", containerId[:12], service.ID)
+}
+
+func (b *Bridge) add(containerId string, quiet bool) {
+	b.deleteDeadContainer(containerId)
 
 	if b.services[containerId] != nil {
 		log.Println("container, ", containerId[:12], ", already exists, ignoring")
@@ -246,10 +259,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			log.Println("register failed:", service, err)
 			continue
 		}
-		b.Lock()
-		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
-		b.Unlock()
+		b.appendService(container.ID, service)
 	}
 }
 
