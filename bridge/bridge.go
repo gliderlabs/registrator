@@ -66,7 +66,7 @@ func (b *Bridge) Refresh() {
 	// TODO: Since we are no longer using mutexes here, there's a small chance that
 	// the refresh will fail for a container that gets removed during the refresh occurring
 	// That's more than offset by allowing this operation to run on schedule
-	var snapshot = b.services
+	var snapshot = b.getServices()
 	for containerId, services := range snapshot {
 		for _, service := range services {
 			err := b.registry.Refresh(service)
@@ -81,13 +81,21 @@ func (b *Bridge) Refresh() {
 
 func (b *Bridge) PruneDeadContainers() {
 	b.Lock()
+	defer b.Unlock()
 	for containerId, deadContainer := range b.deadContainers {
 		deadContainer.TTL -= b.config.RefreshInterval
 		if deadContainer.TTL <= 0 {
 			delete(b.deadContainers, containerId)
 		}
 	}
-	b.Unlock()
+}
+
+// Get a copy of the current services in a thread-safe way
+func (b *Bridge) getServices() map[string][]*Service {
+	b.Lock()
+	defer b.Unlock()
+	svcs := b.services
+	return svcs
 }
 
 func (b *Bridge) Sync(quiet bool) {
@@ -101,7 +109,7 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 
 	// Take this to avoid having to use a mutex
-	servicesSnapshot := b.services
+	servicesSnapshot := b.getServices()
 
 	log.Printf("Syncing services on %d containers", len(containers))
 
@@ -204,7 +212,7 @@ func (b *Bridge) appendService(containerId string, service *Service) {
 func (b *Bridge) add(containerId string, quiet bool) {
 	b.deleteDeadContainer(containerId)
 
-	if b.services[containerId] != nil {
+	if b.getServices()[containerId] != nil {
 		log.Println("container, ", containerId[:12], ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
 		return
