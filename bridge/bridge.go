@@ -63,11 +63,7 @@ func (b *Bridge) RemoveOnExit(containerId string) {
 }
 
 func (b *Bridge) Refresh() {
-	// TODO: Since we are no longer using mutexes here, there's a small chance that
-	// the refresh will fail for a container that gets removed during the refresh occurring
-	// That's more than offset by allowing this operation to run on schedule
-	var snapshot = b.getServices()
-	for containerId, services := range snapshot {
+	for containerId, services := range b.getServicesCopy() {
 		for _, service := range services {
 			err := b.registry.Refresh(service)
 			if err != nil {
@@ -90,12 +86,22 @@ func (b *Bridge) PruneDeadContainers() {
 	}
 }
 
-// Get a copy of the current services in a thread-safe way
-func (b *Bridge) getServices() map[string][]*Service {
+// Get a deep copy of the current services in a thread-safe way
+func (b *Bridge) getServicesCopy() map[string][]*Service {
 	b.Lock()
 	defer b.Unlock()
-	svcs := b.services
-	return svcs
+	svcsCopy := make(map[string][]*Service)
+
+	for id, svc := range b.services {
+		var svcPointers []*Service
+		for _, s := range svc {
+			t := *s
+			z := &t
+			svcPointers = append(svcPointers, z)
+		}
+		svcsCopy[id] = svcPointers
+	}
+	return svcsCopy
 }
 
 func (b *Bridge) Sync(quiet bool) {
@@ -109,7 +115,7 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 
 	// Take this to avoid having to use a mutex
-	servicesSnapshot := b.getServices()
+	servicesSnapshot := b.getServicesCopy()
 
 	log.Printf("Syncing services on %d containers", len(containers))
 
@@ -212,7 +218,7 @@ func (b *Bridge) appendService(containerId string, service *Service) {
 func (b *Bridge) add(containerId string, quiet bool) {
 	b.deleteDeadContainer(containerId)
 
-	if b.getServices()[containerId] != nil {
+	if b.getServicesCopy()[containerId] != nil {
 		log.Println("container, ", containerId[:12], ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
 		return
