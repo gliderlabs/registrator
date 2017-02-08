@@ -82,6 +82,7 @@ func GetELBV2ForContainer(containerID string, instanceID string, port int64, use
 	}
 
 	// We need to have small random wait here, because it takes a little while for new containers to appear in target groups
+	// to avoid any wait, the endpoints can be specified manually as eureka_elbv2_hostname and eureka_elbv2_port vars
 	rand.NewSource(time.Now().UnixNano())
 	period := time.Second * time.Duration(rand.Intn(10)+20)
 	time.Sleep(period)
@@ -191,14 +192,36 @@ func RemoveLBCache(containerID string) {
 }
 
 // CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
+// We accept two possible configurations here - either eureka_lookup_elbv2_endpoint can be set,
+// for automatic lookup, or eureka_elbv2_hostname and eureka_elbv2_port can be set manually
+// to avoid the 10-20s wait for lookups
 func CheckELBFlags(service *bridge.Service) bool {
-	if service.Attrs["eureka_use_elbv2_endpoint"] != "" && service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn {
-		v, err := strconv.ParseBool(service.Attrs["eureka_use_elbv2_endpoint"])
+
+	isAws := service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn
+	var hasExplicit bool
+	var useLookup bool
+
+	if service.Attrs["eureka_elbv2_hostname"] != "" && service.Attrs["eureka_elbv2_port"] != "" {
+		v, err := strconv.ParseUint(service.Attrs["eureka_elbv2_port"], 10, 16)
 		if err != nil {
-			log.Printf("eureka: eureka_use_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
-			return false
+			log.Printf("eureka: eureka_elbv2_port must be valid 16-bit unsigned int, was %v : %s", v, err)
+			hasExplicit = false
 		}
-		return v
+		hasExplicit = true
+		useLookup = true
+	}
+
+	if service.Attrs["eureka_lookup_elbv2_endpoint"] != "" {
+		v, err := strconv.ParseBool(service.Attrs["eureka_lookup_elbv2_endpoint"])
+		if err != nil {
+			log.Printf("eureka: eureka_lookup_elbv2_endpoint must be valid boolean, was %v : %s", v, err)
+			useLookup = false
+		}
+		useLookup = v
+	}
+
+	if (hasExplicit || useLookup) && isAws {
+		return true
 	}
 	return false
 }
@@ -208,22 +231,32 @@ func CheckELBFlags(service *bridge.Service) bool {
 func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool) *eureka.Instance {
 
 	awsMetadata := GetMetadata()
+	var elbEndpoint string
 
-	elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
+	// We've been given the ELB endpoint, so use this
+	if service.Attrs["eureka_elbv2_hostname"] != "" && service.Attrs["eureka_elbv2_port"] != "" {
+		log.Printf("Found ELBv2 hostname=%v and port=%v options, using these.", service.Attrs["eureka_elbv2_hostname"], service.Attrs["eureka_elbv2_port"])
+		registration.Port, _ = strconv.Atoi(service.Attrs["eureka_elbv2_port"])
+		registration.IPAddr = service.Attrs["eureka_elbv2_hostname"]
+		elbEndpoint = service.Attrs["eureka_elbv2_hostname"] + "_" + service.Attrs["eureka_elbv2_port"]
 
-	if err != nil {
-		log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
-		return nil
+	} else {
+		// We don't have the ELB endpoint, so look it up.
+		elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
+
+		if err != nil {
+			log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
+			return nil
+		}
+
+		elbStrPort := strconv.FormatInt(elbMetadata.Port, 10)
+		elbEndpoint = elbMetadata.DNSName + "_" + elbStrPort
+		registration.Port = int(elbMetadata.Port)
+		registration.IPAddr = elbMetadata.DNSName
 	}
-
-	elbStrPort := strconv.FormatInt(elbMetadata.Port, 10)
-	elbEndpoint := elbMetadata.DNSName + "_" + elbStrPort
 
 	registration.SetMetadataString("has-elbv2", "true")
 	registration.SetMetadataString("elbv2-endpoint", elbEndpoint)
-
-	registration.Port = int(elbMetadata.Port)
-	registration.IPAddr = elbMetadata.DNSName
 	registration.VipAddress = registration.IPAddr
 	return registration
 }

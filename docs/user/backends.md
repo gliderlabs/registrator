@@ -206,7 +206,10 @@ SERVICE_EUREKA_DATACENTERINFO_PUBLICIPV4 = Host IP (ignored if using automatic p
 SERVICE_EUREKA_DATACENTERINFO_LOCALIPV4 = Host or Container IP (depending on -internal flag, ignored if using automatic population)
 SERVICE_EUREKA_DATACENTERINFO_LOCALHOSTNAME = Host or Container IP (depending on -internal flag, ignored if using automatic population)
 SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP = false (if true, set VIP and IPADDR values to AWS public IP, ignored if NOT using automatic population)
-SERVICE_EUREKA_USE_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
+SERVICE_EUREKA_LOOKUP_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
+SERVICE_EUREKA_ELBV2_HOSTNAME = If set, will explicitly be used as the ELBv2 hostname - see below section.
+SERVICE_EUREKA_ELBV2_PORT = If set, will be explicitly used as the ELBv2 Port - see below.
+
 ```
 AWS datacenter metadata will be automatically populated.  _However_, the `InstanceID` will instead match `hostName`, which is the unique identifier for the container (Host_Port).  This is due to limitations in the eureka server.  
 Instead, a new metadata tag, `aws_instanceID` has the underlying host instanceID.
@@ -221,17 +224,22 @@ Have a look at this to help with that: https://github.com/jtblin/kube2iam - the 
 If you are using ECS (EC2 Container Service) and run containers in target groups, with an Application Load Balancer in front of them (described by Amazon as ELBv2) then you can have registrator add the load 
 balancer reference to eureka too.  It may work with custom EC2 instances behind a target group too, but has not been tested.  This has the following properties at present:
 
-- It is piggybacked off container registration/deregistration/heartbeats, so it will not happen independently.
-- It is not persistent, so if all the containers disappear, so will the eureka registration to the supporting ELBv2 (this might be what you want, or it might not)
-- It works safely across multiple hosts, you'll only get one entry for the ELBv2 endpoint, no matter how many ECS hosts are running registrator.
-- ELBv2 Heartbeats happen as and when container heartbeat happens.  So, if you have four containers on an ELBv2, the ELBv2 will get a heartbeat for every one of them, on whatever you set your heartbeat interval is set to. In practice, this ought not be a problem.
+- It alters the Port, ipAddr and vipAddr entries in eureka to match the ELBv2 endpoint instead of the container.
+- You will end up with multiple entries in eureka with the same endpoint, one for each container.  HostName is still set to the container IP and port combo
+- Extra information added in metadata about being attached to the ELB; the `elbv2_endpoint` metadata and `has_elbv2` flag.
 
-If you set the flag `SERVICE_EUREKA_USE_ELBV2_ENDPOINT=true` AND you have `SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon` then this feature is enabled.  It will:
+#### Automatic Lookups
 
-1. Attempt to connect to the AWS service using the IAM role of the container host.  In ECS, this should just work.  It will find the region associated with the container host, and connect using that region.
-2. This will alter the app name to be prefixed by CONTAINER_ for the containers beneath it.
-3. A new entry is added to eureka representing the ALB, and removed when the last container disappears. This entry will have some basic information, such as the hostname and port endpoint. It also has an `is_elbv2flag` in metadata.
-4. The containers underneath the ALB have extra information added in metadata about being attached to the ELB; the `elbv2_endpoint` metadata and `has_elbv2` flag.
+If you set the flag `SERVICE_EUREKA_LOOKUP_ELBV2_ENDPOINT=true` AND you have `SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon` then this feature is enabled.  
+
+It will attempt to connect to the AWS service using the IAM role of the container host.  In ECS, this should just work.  It will find the region associated with the container host, and connect using that region.
+
+#### Manual Endpoint Specification
+
+If you specify `SERVICE_EUREKA_ELBV2_HOSTNAME=` and `SERVICE_EUREKA_ELBV2_PORT=` values on the container, then these will be used, rather than a lookup attempted.
+
+If you specify the lookup flag, and also add these settings, the manual ones will take precedent.
+
 
 
 #### IAM Policy
