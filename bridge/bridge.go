@@ -468,7 +468,7 @@ func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
 				if network.Name != "ingress" && len(vip.Addr) > 0 && strings.Contains(vip.Addr, "/") {
 					vipAddr := strings.Split(vip.Addr, "/")[0]
 					if len(service.Endpoint.Ports) > 0 {
-						b.registerSwarmVipServicePorts(service.Spec.Name, true, vipAddr, service.Endpoint.Ports, service.Spec.TaskTemplate.ContainerSpec.Env)
+						b.registerSwarmVipServicePorts(service.Spec.Name, true, vipAddr, service.Endpoint.Ports, service.Spec.TaskTemplate.ContainerSpec)
 					}
 				}
 			}
@@ -476,7 +476,7 @@ func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
 	} else {
 		// if there is no published ports, no point to register it out side
 		if len(service.Endpoint.Ports) > 0 {
-			b.registerSwarmVipServicePorts(service.Spec.Name, false, b.config.HostIp, service.Endpoint.Ports, service.Spec.TaskTemplate.ContainerSpec.Env)
+			b.registerSwarmVipServicePorts(service.Spec.Name, false, b.config.HostIp, service.Endpoint.Ports, service.Spec.TaskTemplate.ContainerSpec)
 		}
 	}
 }
@@ -486,67 +486,70 @@ func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
 // docker configuration there is no such events
 // registrations created here are unique, and not based on containers
 // so we will just create them and forget, i don't see proper way to cleanup them at the moment
-func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig, envs []string) {
+func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig, config swarm.ContainerSpec) {
 	for _, port := range ports {
-		b.registerSwarmVipService(serviceName, inside, vip, true, int(port.PublishedPort), port.Protocol, int(port.TargetPort), envs)
+		b.registerSwarmVipService(serviceName, inside, vip, true, int(port.PublishedPort), port.Protocol, int(port.TargetPort), config)
 	}
 }
 
-func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol, targetPort int, envs []string) {
+func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol, targetPort int, config swarm.ContainerSpec) {
 
 	var tag string
 	if tag = "vip-outside"; inside {
 		tag = "vip-inside"
 	}
 
-	svcReg := new(Service)
-	svcReg.Name = ""
+	service := new(Service)
+	defaultName := serviceName + "-" + strconv.Itoa(port)
 
-	for _, env := range envs  {
-		envSplited := strings.Split(env, "_")
-		if len(envSplited) == 3 {
-			if envSplited[0] == "SERVICE" {
-				envPort, err := strconv.Atoi(envSplited[1])
-				if err != nil {
-					log.Println("Impossile to converse str to int", err)
-				}
-				if  envPort == targetPort {
-					if strings.Split(envSplited[2], "=")[0] == "NAME" {
-						svcReg.Name = strings.Split(envSplited[2], "=")[1]
-					} else if strings.Split(envSplited[2], "=")[0] == "TAGS" {
-						tag = "vip-outside," + strings.Split(envSplited[2], "=")[1]
-					}
-				}
-			}
-		}
-	}
-
-	if svcReg.Name == "" {
-		svcReg.Name = serviceName + "-" + strconv.Itoa(port)
-	}
+	metadata, _ := swarmServiceMetaData(config, strconv.Itoa(targetPort))
+	service.Name = mapDefault(metadata, "name", defaultName)
+	// for _, env := range envs  {
+	// 	envSplited := strings.Split(env, "_")
+	// 	if len(envSplited) == 3 {
+	// 		if envSplited[0] == "SERVICE" {
+	// 			envPort, err := strconv.Atoi(envSplited[1])
+	// 			if err != nil {
+	// 				log.Println("Impossile to converse str to int", err)
+	// 			}
+	// 			if  envPort == targetPort {
+	// 				if strings.Split(envSplited[2], "=")[0] == "NAME" {
+	// 					service.Name = strings.Split(envSplited[2], "=")[1]
+	// 				} else if strings.Split(envSplited[2], "=")[0] == "TAGS" {
+	// 					tag = "vip-outside," + strings.Split(envSplited[2], "=")[1]
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	if inside {
 		// VIP is global and singleton, so we can use service name as service id
-		svcReg.ID = svcReg.Name
+		service.ID = service.Name
 	} else {
 		// VIP is actually host ip address or whatever provided by user
-		svcReg.ID = b.config.NodeId + "-" + svcReg.Name
+		service.ID = b.config.NodeId + "-" + service.Name
 	}
 	// tag it for convenience
 	if protocol != swarm.PortConfigProtocolTCP {
-		svcReg.Tags = combineTags(tag, b.config.ForceTags, string(protocol))
+		service.Tags = combineTags(
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, tag, string(protocol))
 	} else {
-		svcReg.Tags = combineTags(tag, b.config.ForceTags)
+		service.Tags = combineTags(
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, tag)
 	}
 
-	svcReg.IP = vip
-	svcReg.Port = port
+	delete(metadata, "name")
+	delete(metadata, "tags")
+	service.IP = vip
+	service.Port = port
+	service.Attrs = metadata
 
-	err := b.registry.Register(svcReg)
+	err := b.registry.Register(service)
 	if err != nil {
-		log.Println("register failed:", svcReg.Name, err)
+		log.Println("register failed:", service.Name, err)
 	}
-	log.Println("added:", svcReg.Name)
+	log.Println("added:", service.Name)
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {
