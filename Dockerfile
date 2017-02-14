@@ -1,11 +1,12 @@
-FROM gliderlabs/alpine
+FROM alpine:3.5
 ENTRYPOINT ["/bin/registrator"]
 
 COPY . /go/src/github.com/gliderlabs/registrator
-RUN apk-install -t build-deps build-base go git mercurial \
+RUN apk --no-cache add -t build-deps build-base go git \
 	&& cd /go/src/github.com/gliderlabs/registrator \
 	&& export GOPATH=/go \
+  && git config --global http.https://gopkg.in.followRedirects true \
 	&& go get \
 	&& go build -ldflags "-X main.Version=$(cat VERSION)" -o /bin/registrator \
 	&& rm -rf /go \
-	&& apk del --purge build-deps git mercurial
+	&& apk del --purge build-deps 
