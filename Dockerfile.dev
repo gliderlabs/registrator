@@ -2,7 +2,7 @@ FROM alpine:3.5
 CMD ["/bin/registrator"]
 
 ENV GOPATH /go
-RUN apk --no-cache add build-base go git
+RUN apk --no-cache add build-base go git ca-certificates
 COPY . /go/src/github.com/gliderlabs/registrator
 RUN cd /go/src/github.com/gliderlabs/registrator \
   && git config --global http.https://gopkg.in.followRedirects true \
