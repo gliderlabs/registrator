@@ -55,16 +55,18 @@ func combineTags(tagParts ...string) []string {
 }
 
 func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
-	meta := config.Env
-	for k, v := range config.Labels {
-		meta = append(meta, k+"="+v)
+	meta := config.Labels
+
+	// Env take precedence over labels
+	for _, v := range config.Env {
+		str := strings.SplitN(v, "=", 2)
+		meta[str[0]] = str[1]
 	}
 	metadata := make(map[string]string)
 	metadataFromPort := make(map[string]bool)
-	for _, kv := range meta {
-		kvp := strings.SplitN(kv, "=", 2)
-		if strings.HasPrefix(kvp[0], "SERVICE_") && len(kvp) > 1 {
-			key := strings.ToLower(strings.TrimPrefix(kvp[0], "SERVICE_"))
+	for ks, kv := range meta {
+		if strings.HasPrefix(ks, "SERVICE_") && len(ks) > 1 {
+			key := strings.ToLower(strings.TrimPrefix(ks, "SERVICE_"))
 			if metadataFromPort[key] {
 				continue
 			}
@@ -74,10 +76,10 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 				if portkey[0] != port {
 					continue
 				}
-				metadata[portkey[1]] = kvp[1]
+				metadata[portkey[1]] = kv
 				metadataFromPort[portkey[1]] = true
 			} else {
-				metadata[key] = kvp[1]
+				metadata[key] = kv
 			}
 		}
 	}
