@@ -1,6 +1,6 @@
 NAME=registrator
 VERSION=$(shell cat VERSION)
-DEV_RUN_OPTS ?= -ttl 60 -ttl-refresh 30 -require-label REGISTER -ip 127.0.0.1  eureka://localhost:8090/eureka/v2
+DEV_RUN_OPTS ?= -ttl 60 -ttl-refresh 30 -require-label -ip 127.0.0.1  eureka://localhost:8090/eureka/v2
 RELEASE_TAG=761584570493.dkr.ecr.us-east-1.amazonaws.com/registrator
 
 dev:

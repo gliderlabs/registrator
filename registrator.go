@@ -29,7 +29,7 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
-var requireLabel = flag.String("require-label", "", "Only register containers which have a particular label, and ignore all others.")
+var requireLabel = flag.Bool("require-label", false, "Only register containers which have the SERVICE_REGISTER label, and ignore all others.")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -75,8 +75,8 @@ func main() {
 		log.Println("Forcing host IP to", *hostIp)
 	}
 
-	if *requireLabel != "" {
-		log.Printf("Required label to register containers will be SERVICE_%v", *requireLabel)
+	if *requireLabel {
+		log.Printf("SERVICE_REGISTER label is required to register containers.")
 	}
 
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {

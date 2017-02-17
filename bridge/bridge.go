@@ -304,10 +304,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		return nil
 	}
 
-	if b.config.RequireLabel != "" {
-		log.Printf("Checking for label SERVICE_%v", b.config.RequireLabel)
-		if mapDefault(metadata, strings.ToLower(b.config.RequireLabel), "") == "" {
-			log.Printf("Did not find label SERVICE_%v", b.config.RequireLabel)
+	if b.config.RequireLabel {
+		log.Printf("Checking for label SERVICE_REGISTER")
+		if mapDefault(metadata, "register", "") == "" {
+			log.Printf("Did not find label SERVICE_REGISTER")
 			return nil
 		}
 	}
