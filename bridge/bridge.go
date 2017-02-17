@@ -304,6 +304,14 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		return nil
 	}
 
+	if b.config.RequireLabel != "" {
+		log.Printf("Checking for label SERVICE_%v", b.config.RequireLabel)
+		if mapDefault(metadata, strings.ToLower(b.config.RequireLabel), "") == "" {
+			log.Printf("Did not find label SERVICE_%v", b.config.RequireLabel)
+			return nil
+		}
+	}
+
 	service := new(Service)
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
