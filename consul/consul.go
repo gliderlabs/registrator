@@ -144,19 +144,12 @@ func buildServiceKey(service *bridge.Service, key string) string {
 	return fmt.Sprintf("service/%s/meta/%s", service.Name, key)
 }
 
-func (r *ConsulAdapter) RemoveAttributes(service *bridge.Service) error {
-	for k, _ := range service.Attrs {
-		r.client.KV().Delete(buildServiceKey(service, k), nil)
-	}
-	return nil
-}
-
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	r.removeAttributes(service)
+	r.RemoveAttributes(service)
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 
-func (r *ConsulAdapter) removeAttributes(service *bridge.Service) error {
+func (r *ConsulAdapter) RemoveAttributes(service *bridge.Service) error {
 	for k, _ := range service.Attrs {
 		r.client.KV().Delete(buildServiceKey(service, k), nil)
 	}
