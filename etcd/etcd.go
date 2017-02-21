@@ -102,6 +102,16 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	return err
 }
 
+func (r *EtcdAdapter) RemoveAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *EtcdAdapter) PostAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	r.syncEtcdCluster()
 

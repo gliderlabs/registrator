@@ -65,6 +65,16 @@ func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
 	return err
 }
 
+func (r *ConsulKVAdapter) RemoveAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *ConsulKVAdapter) PostAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
 func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
