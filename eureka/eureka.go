@@ -47,7 +47,7 @@ func (r *EurekaAdapter) Ping() error {
 
 // Note: This is a function that is passed to the fargo library to determine how each registration is identified in eureka
 func uniqueID(instance fargo.Instance) string {
-	return instance.HostName
+	return instance.HostName + "_" + strconv.Itoa(instance.Port)
 }
 
 // Helper function to check a boolean metadata flag
@@ -68,11 +68,8 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 	registration := new(fargo.Instance)
 	var awsMetadata *aws.Metadata
 
-	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
 	registration.UniqueID = uniqueID
-
 	registration.App = service.Name
-
 	registration.Port = service.Port
 
 	if service.Attrs["eureka_status"] == string(fargo.DOWN) {
@@ -121,6 +118,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 	// If AWS metadata collection is enabled, use it
 	if service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn && checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
 		awsMetadata = aws.GetMetadata()
+		registration.HostName = awsMetadata.PrivateHostname
 		// Set the instanceID here, because we don't want eureka to use it as a uniqueID
 		registration.SetMetadataString("aws-instance-id", awsMetadata.InstanceID)
 		registration.DataCenterInfo.Name = fargo.Amazon
@@ -128,7 +126,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 			AvailabilityZone: awsMetadata.AvailabilityZone,
 			PublicHostname:   awsMetadata.PublicHostname,
 			PublicIpv4:       awsMetadata.PublicIP,
-			InstanceID:       registration.HostName, // This is deliberate - due to limitations in uniqueIDs
+			InstanceID:       uniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
 			LocalHostname:    awsMetadata.PrivateHostname,
 			HostName:         awsMetadata.PrivateHostname,
 			LocalIpv4:        awsMetadata.PrivateIP,
@@ -136,8 +134,9 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 		// Here we don't want auto population of metadata from AWS.  We'll use what we have from registrator, or overrides
 	} else if service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn && !checkBooleanFlag(service, "eureka_datacenterinfo_auto_populate") {
 		registration.DataCenterInfo.Name = fargo.Amazon
+		registration.HostName = ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP)
 		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
-			InstanceID:     registration.HostName,
+			InstanceID:     uniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
 			PublicHostname: ShortHandTernary(service.Attrs["eureka_datacenterinfo_publichostname"], service.Origin.HostIP),
 			PublicIpv4:     ShortHandTernary(service.Attrs["eureka_datacenterinfo_publicipv4"], service.Origin.HostIP),
 			LocalHostname:  ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP),
@@ -146,6 +145,9 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 		}
 	} else {
 		registration.DataCenterInfo.Name = fargo.MyOwn
+		// We don't have a uniqueID, so manipulate hostname to provide it there.
+		registration.HostName = service.IP
+		registration.HostName = uniqueID(*registration)
 	}
 
 	// If flag is set, register the AWS public IP as the endpoint instead of the private one
@@ -172,30 +174,19 @@ func (r *EurekaAdapter) Register(service *bridge.Service) error {
 }
 
 func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
-	registration := new(fargo.Instance)
-	registration.HostName = service.IP + "_" + strconv.Itoa(service.Port)
-	registration.UniqueID = uniqueID
-	registration.App = service.Name
-	awsMetadata := aws.GetMetadata()
-	var albEndpoint string
+	registration := instanceInformation(service)
 	if aws.CheckELBFlags(service) {
-		lbInfo, _ := aws.GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(service.Port), true)
-		albEndpoint = lbInfo.DNSName + "_" + strconv.FormatInt(lbInfo.Port, 10)
-		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
-			InstanceID: albEndpoint,
-		}
 		aws.RemoveLBCache(service.Origin.ContainerID)
 	}
-	log.Println("Deregistering ", registration.HostName)
+	log.Println("Deregistering", uniqueID(*registration))
 	instance := r.client.DeregisterInstance(registration)
 	return instance
 }
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
-	log.Println("Heartbeating...")
 	registration := instanceInformation(service)
 	err := r.client.HeartBeatInstance(registration)
-	log.Println("Done heartbeating for: ", registration.HostName)
+	log.Println("Done heartbeating for:", uniqueID(*registration))
 	return err
 }
 

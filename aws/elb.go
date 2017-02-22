@@ -237,7 +237,9 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 	if service.Attrs["eureka_elbv2_hostname"] != "" && service.Attrs["eureka_elbv2_port"] != "" {
 		log.Printf("Found ELBv2 hostname=%v and port=%v options, using these.", service.Attrs["eureka_elbv2_hostname"], service.Attrs["eureka_elbv2_port"])
 		registration.Port, _ = strconv.Atoi(service.Attrs["eureka_elbv2_port"])
-		registration.IPAddr = service.Attrs["eureka_elbv2_hostname"]
+		registration.HostName = service.Attrs["eureka_elbv2_hostname"]
+		registration.IPAddr = ""
+		registration.VipAddress = ""
 		elbEndpoint = service.Attrs["eureka_elbv2_hostname"] + "_" + service.Attrs["eureka_elbv2_port"]
 
 	} else {
@@ -252,7 +254,8 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 		elbStrPort := strconv.FormatInt(elbMetadata.Port, 10)
 		elbEndpoint = elbMetadata.DNSName + "_" + elbStrPort
 		registration.Port = int(elbMetadata.Port)
-		registration.IPAddr = elbMetadata.DNSName
+		registration.IPAddr = ""
+		registration.HostName = elbMetadata.DNSName
 	}
 
 	registration.SetMetadataString("has-elbv2", "true")
