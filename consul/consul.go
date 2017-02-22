@@ -83,6 +83,7 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Tags = service.Tags
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
+	r.PostAttributes(service)
 	return r.client.Agent().ServiceRegister(registration)
 }
 
@@ -125,8 +126,33 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	return check
 }
 
+func (r *ConsulAdapter) PostAttributes(service *bridge.Service) error {
+	for k, v := range service.Attrs {
+		data := new(consulapi.KVPair)
+		data.Key = buildServiceKey(service, k)
+		data.Value = []byte(v)
+		log.Println("Updating Consul KV: ", data.Key, v)
+		_, err := r.client.KV().Put(data, nil)
+		if err != nil {
+			log.Println("Error Updating Attribute: ", err)
+		}
+	}
+	return nil
+}
+
+func buildServiceKey(service *bridge.Service, key string) string {
+	return fmt.Sprintf("service/%s/meta/%s", service.Name, key)
+}
+
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 	return r.client.Agent().ServiceDeregister(service.ID)
+}
+
+func (r *ConsulAdapter) RemoveAttributes(service *bridge.Service) error {
+	for k, _ := range service.Attrs {
+		r.client.KV().Delete(buildServiceKey(service, k), nil)
+	}
+	return nil
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {

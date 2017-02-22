@@ -17,6 +17,8 @@ type RegistryAdapter interface {
 	Deregister(service *Service) error
 	Refresh(service *Service) error
 	Services() ([]*Service, error)
+	RemoveAttributes(service *Service) error
+	PostAttributes(service *Service) error
 }
 
 type Config struct {
