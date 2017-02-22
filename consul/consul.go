@@ -2,12 +2,12 @@ package consul
 
 import (
 	"fmt"
-	"github.com/gliderlabs/registrator/bridge"
-	consulapi "github.com/hashicorp/consul/api"
 	"log"
 	"net/url"
 	"strings"
 	"os"
+	"github.com/gliderlabs/registrator/bridge"
+	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
 )
 
