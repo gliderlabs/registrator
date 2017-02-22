@@ -145,7 +145,6 @@ func buildServiceKey(service *bridge.Service, key string) string {
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	r.RemoveAttributes(service)
 	return r.client.Agent().ServiceDeregister(service.ID)
 }
 
