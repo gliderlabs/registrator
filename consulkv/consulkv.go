@@ -91,3 +91,9 @@ func (r *ConsulKVAdapter) Refresh(service *bridge.Service) error {
 func (r *ConsulKVAdapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
 }
+
+//This method queries for all distributed services, not just those managed locally
+func (r *ConsulKVAdapter) DistributedServices() (map[string][]string, error) {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil, nil
+}

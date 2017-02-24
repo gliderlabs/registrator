@@ -19,6 +19,7 @@ type RegistryAdapter interface {
 	Services() ([]*Service, error)
 	RemoveAttributes(service *Service) error
 	PostAttributes(service *Service) error
+	DistributedServices() (map[string][]string, error)
 }
 
 type Config struct {

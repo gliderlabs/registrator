@@ -183,3 +183,21 @@ func (r *ConsulAdapter) Services() ([]*bridge.Service, error) {
 	}
 	return out, nil
 }
+
+//This method queries for all distributed services, not just those managed locally
+func (r *ConsulAdapter) GetDistributedLockHandler() (map[string][]string, error) {
+	services, _, err := r.client.Catalog().Services(&consulapi.QueryOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+}
+
+//This method queries for all distributed services, not just those managed locally
+func (r *ConsulAdapter) DistributedServices() (map[string][]string, error) {
+	services, _, err := r.client.Catalog().Services(&consulapi.QueryOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+}

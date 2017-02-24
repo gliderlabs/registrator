@@ -350,24 +350,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 func (b *Bridge) remove(containerId string, deregister bool) {
 	b.Lock()
 	defer b.Unlock()
-	log.Println("Removing container with ID ", containerId)
-	does_service_exist_elsewhere := make(map[string]bool)
-	for service_container_id, services := range b.services {
-		for _, service := range services {
-		    if (service_container_id!=containerId){
-                does_service_exist_elsewhere[service.Name]=true
-			}
-		}
-	}
 	if deregister {
 		deregisterAll := func(services []*Service) {
 			for _, service := range services {
-				if _, ok := does_service_exist_elsewhere[service.Name]; ok {
-                    log.Println("Service exists in another container... Attrs will be kept:", service.Name)
-                } else {
-                    b.registry.RemoveAttributes(service)
-                    log.Println("Service was not found elsewhere... Attrs will be removed:", service.Name)
-                }
 				err := b.registry.Deregister(service)
 				if err != nil {
 					log.Println("deregister failed:", service.ID, err)
@@ -376,9 +361,25 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 				log.Println("removed:", containerId[:12], service.ID)
 			}
 		}
+		cleanUpAttrs := func(services []*Service) {
+            distServices, err := b.registry.DistributedServices()
+            if err != nil {
+                log.Println("Failed to list distributed services: ", err)
+            }
+			for _, service := range services {
+				if _, ok := distServices[service.Name]; ok {
+                    log.Println("Service exists in another container... Attrs will be kept:", service.Name)
+                } else {
+                    b.registry.RemoveAttributes(service)
+                    log.Println("Service was not found elsewhere... Attrs will be removed:", service.Name)
+                }
+			}
+		}
 		deregisterAll(b.services[containerId])
+		cleanUpAttrs(b.services[containerId])
 		if d := b.deadContainers[containerId]; d != nil {
 			deregisterAll(d.Services)
+			cleanUpAttrs(d.Services)
 			delete(b.deadContainers, containerId)
 		}
 	} else if b.config.RefreshTtl != 0 && b.services[containerId] != nil {

@@ -79,6 +79,12 @@ func (r *Skydns2Adapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
 }
 
+//This method queries for all distributed services, not just those managed locally
+func (r *Skydns2Adapter) DistributedServices() (map[string][]string, error) {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil, nil
+}
+
 func (r *Skydns2Adapter) servicePath(service *bridge.Service) string {
 	return r.path + "/" + service.Name + "/" + service.ID
 }
@@ -90,3 +96,4 @@ func domainPath(domain string) string {
 	}
 	return "/skydns/" + strings.Join(components, "/")
 }
+
