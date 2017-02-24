@@ -20,6 +20,8 @@ type RegistryAdapter interface {
 	RemoveAttributes(service *Service) error
 	PostAttributes(service *Service) error
 	DistributedServices() (map[string][]string, error)
+	AcquireDistributedLock() error
+	ReleaseDistributedLock() error
 }
 
 type Config struct {

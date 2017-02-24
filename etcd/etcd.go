@@ -138,6 +138,16 @@ func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
 }
 
+func (r *EtcdAdapter) AcquireDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
+func (r *EtcdAdapter) ReleaseDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
 //This method queries for all distributed services, not just those managed locally
 func (r *EtcdAdapter) DistributedServices() (map[string][]string, error) {
     // PLACEHOLDER: This method is yet to be implemented

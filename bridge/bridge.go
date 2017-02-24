@@ -347,6 +347,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	return service
 }
 
+
 func (b *Bridge) remove(containerId string, deregister bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -362,6 +363,7 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 			}
 		}
 		cleanUpAttrs := func(services []*Service) {
+		    b.registry.AcquireDistributedLock()
             distServices, err := b.registry.DistributedServices()
             if err != nil {
                 log.Println("Failed to list distributed services: ", err)
@@ -374,6 +376,7 @@ func (b *Bridge) remove(containerId string, deregister bool) {
                     log.Println("Service was not found elsewhere... Attrs will be removed:", service.Name)
                 }
 			}
+			b.registry.ReleaseDistributedLock()
 		}
 		deregisterAll(b.services[containerId])
 		cleanUpAttrs(b.services[containerId])

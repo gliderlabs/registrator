@@ -92,6 +92,16 @@ func (r *ConsulKVAdapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
 }
 
+func (r *ConsulKVAdapter) AcquireDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
+func (r *ConsulKVAdapter) ReleaseDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
 //This method queries for all distributed services, not just those managed locally
 func (r *ConsulKVAdapter) DistributedServices() (map[string][]string, error) {
     // PLACEHOLDER: This method is yet to be implemented

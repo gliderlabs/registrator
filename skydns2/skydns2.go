@@ -79,6 +79,16 @@ func (r *Skydns2Adapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
 }
 
+func (r *Skydns2Adapter) AcquireDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
+func (r *Skydns2Adapter) ReleaseDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
 //This method queries for all distributed services, not just those managed locally
 func (r *Skydns2Adapter) DistributedServices() (map[string][]string, error) {
     // PLACEHOLDER: This method is yet to be implemented
