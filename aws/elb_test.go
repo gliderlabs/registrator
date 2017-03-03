@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"log"
+
 	"github.com/gliderlabs/registrator/bridge"
 	eureka "github.com/hudl/fargo"
 )
@@ -414,4 +416,126 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 		})
 	}
 
+}
+
+// Test_setRegInfoELBv2Only - Test that certain metadata is stripped out when using an ELBv2 only registration setting
+func Test_setRegInfoELBv2Only(t *testing.T) {
+	initMetadata() // Used from metadata_test.go
+
+	svc := bridge.Service{
+		Attrs: map[string]string{
+			"eureka_elbv2_only_registration": "true",
+			"eureka_lookup_elbv2_endpoint":   "false",
+			"eureka_datacenterinfo_name":     "AMAZON",
+		},
+		Name: "app",
+		Origin: bridge.ServicePort{
+			ContainerID: "123123412",
+		},
+	}
+
+	awsInfo := eureka.AmazonMetadataType{
+		PublicHostname: "i-should-be-changed",
+		HostName:       "i-should-be-changed",
+		InstanceID:     "i-should-be-changed",
+	}
+
+	dcInfo := eureka.DataCenterInfo{
+		Name:     eureka.Amazon,
+		Metadata: awsInfo,
+	}
+
+	rawMdInput := []byte(`<is-container>true</is-container>
+		<container-id>container-id-goes-here</container-id>
+		<container-name>container-name-goes-here</container-name>
+		<hudl.version>1.0.0-testingDeployment48</hudl.version>
+		<hudl.routes>route/.*|foo/bar/.*|api/special.*</hudl.routes>
+		<branch>testingDeployment</branch>
+		<aws-instance-id>i-000d95143d83f4ab2</aws-instance-id>
+		<elbv2-endpoint>endpoint-goes-here_5051</elbv2-endpoint>`)
+
+	reg := eureka.Instance{
+		DataCenterInfo: dcInfo,
+		Port:           5001,
+		IPAddr:         "4.3.2.1",
+		App:            "app",
+		VipAddress:     "4.3.2.1",
+		HostName:       "hostname_identifier",
+		Status:         eureka.UP,
+		Metadata: eureka.InstanceMetadata{
+			Raw: rawMdInput,
+		},
+	}
+	// Force parsing of metadata
+	err, val := reg.Metadata.GetString("is-container")
+	log.Printf("container-id is %v\n", val)
+	if err != "" {
+		t.Errorf("Unable to parse metadata")
+	}
+	// Init LB info cache
+	// if things are working correctly, this won't be used for this test
+	lbCache["123123412"] = &LBInfo{
+		DNSName: "correct-hostname",
+		Port:    12345,
+	}
+
+	wantedAwsInfo := eureka.AmazonMetadataType{
+		PublicHostname: lbCache["123123412"].DNSName,
+		HostName:       lbCache["123123412"].DNSName,
+		InstanceID:     lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port)),
+	}
+	wantedDCInfo := eureka.DataCenterInfo{
+		Name:     eureka.Amazon,
+		Metadata: wantedAwsInfo,
+	}
+
+	wanted := eureka.Instance{
+		DataCenterInfo: wantedDCInfo,
+		Port:           int(lbCache["123123412"].Port),
+		App:            svc.Name,
+		IPAddr:         "",
+		VipAddress:     "",
+		HostName:       lbCache["123123412"].DNSName,
+		Status:         eureka.UP,
+	}
+
+	type args struct {
+		service      *bridge.Service
+		registration *eureka.Instance
+	}
+	tests := []struct {
+		name string
+		args args
+		want *eureka.Instance
+	}{
+		{
+			name: "Should match data",
+			args: args{service: &svc, registration: &reg},
+			want: &wanted,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := setRegInfo(tt.args.service, tt.args.registration, true)
+			CheckMetadata(t, got.Metadata, "has-elbv2", "true")
+			wantVal := lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port))
+			CheckMetadata(t, got.Metadata, "elbv2-endpoint", wantVal)
+			CheckMetadata(t, got.Metadata, "container-id", "")
+			CheckMetadata(t, got.Metadata, "container-name", "")
+			CheckMetadata(t, got.Metadata, "aws-instance-id", "")
+			//Overwrite metadata before comparing data structure - we've directly checked the flag we are looking for
+			got.Metadata = eureka.InstanceMetadata{}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("setRegInfo() = %+v, \nwant %+v\n", got, tt.want)
+			}
+		})
+	}
+}
+
+// Check a metadata string against a wanted value
+func CheckMetadata(t *testing.T, md eureka.InstanceMetadata, key string, want string) {
+	val := md.GetMap()[key]
+	if val != want {
+		t.Errorf("Wanted %s=%s in metadata, was %+v", key, want, val)
+	}
 }

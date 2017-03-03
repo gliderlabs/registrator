@@ -284,6 +284,9 @@ func setRegInfo(service *bridge.Service, registration *fargo.Instance, useCache 
 			PublicHostname: registration.HostName,
 			HostName:       registration.HostName,
 		}
+		registration.SetMetadataString("container-id", "")
+		registration.SetMetadataString("container-name", "")
+		registration.SetMetadataString("aws-instance-id", "")
 	}
 
 	registration.SetMetadataString("has-elbv2", "true")
