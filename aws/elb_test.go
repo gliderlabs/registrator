@@ -9,6 +9,58 @@ import (
 	eureka "github.com/hudl/fargo"
 )
 
+// TestCheckELBOnlyReg - Test that ELBv2 only flag is evaulated correctly - default true
+func TestCheckELBOnlyReg(t *testing.T) {
+
+	svcFalse := bridge.Service{
+		Attrs: map[string]string{
+			"eureka_elbv2_only_registration": "false",
+		},
+	}
+
+	svcTrue := bridge.Service{
+		Attrs: map[string]string{
+			"eureka_elbv2_only_registration": "true",
+		},
+	}
+
+	svcTrue2 := bridge.Service{
+		Attrs: map[string]string{},
+	}
+
+	type args struct {
+		service *bridge.Service
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "set to false",
+			args: args{service: &svcFalse},
+			want: false,
+		},
+		{
+			name: "set to true",
+			args: args{service: &svcTrue},
+			want: true,
+		},
+		{
+			name: "not set",
+			args: args{service: &svcTrue2},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CheckELBOnlyReg(tt.args.service); got != tt.want {
+				t.Errorf("CheckELBOnlyReg() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // Test_GetELBV2ForContainer - Test expected values are returned
 func Test_GetELBV2ForContainer(t *testing.T) {
 
@@ -168,7 +220,7 @@ func Test_setRegInfo(t *testing.T) {
 
 	svc := bridge.Service{
 		Attrs: map[string]string{
-			"eureka_lookup_elbv2_endpoint": "false",
+			"eureka_lookup_elbv2_endpoint": "true",
 			"eureka_datacenterinfo_name":   "AMAZON",
 		},
 		Name: "app",
@@ -178,9 +230,9 @@ func Test_setRegInfo(t *testing.T) {
 	}
 
 	awsInfo := eureka.AmazonMetadataType{
-		PublicHostname: "dns-name",
-		HostName:       "dns-name",
-		InstanceID:     "endpoint",
+		PublicHostname: "i-should-not-be-used",
+		HostName:       "i-should-not-be-used",
+		InstanceID:     "i-should-not-be-used",
 	}
 
 	dcInfo := eureka.DataCenterInfo{
@@ -200,14 +252,14 @@ func Test_setRegInfo(t *testing.T) {
 
 	// Init LB info cache
 	lbCache["123123412"] = &LBInfo{
-		DNSName: "lb-dnsname",
+		DNSName: "correct-lb-dnsname",
 		Port:    9001,
 	}
 
 	wantedAwsInfo := eureka.AmazonMetadataType{
-		PublicHostname: "dns-name",
-		HostName:       "dns-name",
-		InstanceID:     "endpoint",
+		PublicHostname: lbCache["123123412"].DNSName,
+		HostName:       lbCache["123123412"].DNSName,
+		InstanceID:     lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port)),
 	}
 	wantedDCInfo := eureka.DataCenterInfo{
 		Name:     eureka.Amazon,
@@ -218,9 +270,9 @@ func Test_setRegInfo(t *testing.T) {
 		DataCenterInfo: wantedDCInfo,
 		Port:           int(lbCache["123123412"].Port),
 		App:            svc.Name,
-		IPAddr:         lbCache["123123412"].DNSName,
-		VipAddress:     lbCache["123123412"].DNSName,
-		HostName:       reg.HostName,
+		IPAddr:         "",
+		VipAddress:     "",
+		HostName:       lbCache["123123412"].DNSName,
 		Status:         eureka.UP,
 	}
 
@@ -279,9 +331,9 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 	}
 
 	awsInfo := eureka.AmazonMetadataType{
-		PublicHostname: "dns-name",
-		HostName:       "dns-name",
-		InstanceID:     "endpoint",
+		PublicHostname: "i-should-be-changed",
+		HostName:       "i-should-be-changed",
+		InstanceID:     "i-should-be-changed",
 	}
 
 	dcInfo := eureka.DataCenterInfo{
@@ -302,14 +354,14 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 	// Init LB info cache
 	// if things are working correctly, this won't be used for this test
 	lbCache["123123412"] = &LBInfo{
-		DNSName: "lb-dnsname",
-		Port:    9001,
+		DNSName: "i-should-not-be-used",
+		Port:    666,
 	}
 
 	wantedAwsInfo := eureka.AmazonMetadataType{
-		PublicHostname: "dns-name",
-		HostName:       "dns-name",
-		InstanceID:     "endpoint",
+		PublicHostname: svc.Attrs["eureka_elbv2_hostname"],
+		HostName:       svc.Attrs["eureka_elbv2_hostname"],
+		InstanceID:     svc.Attrs["eureka_elbv2_hostname"] + "_" + svc.Attrs["eureka_elbv2_port"],
 	}
 	wantedDCInfo := eureka.DataCenterInfo{
 		Name:     eureka.Amazon,
@@ -321,9 +373,9 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 		DataCenterInfo: wantedDCInfo,
 		Port:           expectedPort,
 		App:            svc.Name,
-		IPAddr:         svc.Attrs["eureka_elbv2_hostname"],
-		VipAddress:     svc.Attrs["eureka_elbv2_hostname"],
-		HostName:       reg.HostName,
+		IPAddr:         "",
+		VipAddress:     "",
+		HostName:       svc.Attrs["eureka_elbv2_hostname"],
 		Status:         eureka.UP,
 	}
 

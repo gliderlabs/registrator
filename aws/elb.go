@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	"github.com/gliderlabs/registrator/bridge"
-	eureka "github.com/hudl/fargo"
+	fargo "github.com/hudl/fargo"
 )
 
 // LBInfo represents a ELBv2 endpoint
@@ -197,7 +197,7 @@ func RemoveLBCache(containerID string) {
 // to avoid the 10-20s wait for lookups
 func CheckELBFlags(service *bridge.Service) bool {
 
-	isAws := service.Attrs["eureka_datacenterinfo_name"] != eureka.MyOwn
+	isAws := service.Attrs["eureka_datacenterinfo_name"] != fargo.MyOwn
 	var hasExplicit bool
 	var useLookup bool
 
@@ -226,9 +226,28 @@ func CheckELBFlags(service *bridge.Service) bool {
 	return false
 }
 
+// CheckELBOnly - Helper function to check if only the ELB should be registered (no containers)
+func CheckELBOnlyReg(service *bridge.Service) bool {
+
+	if service.Attrs["eureka_elbv2_only_registration"] != "" {
+		v, err := strconv.ParseBool(service.Attrs["eureka_elbv2_only_registration"])
+		if err != nil {
+			log.Printf("eureka: eureka_elbv2_only_registration must be valid boolean, was %v : %s", v, err)
+			return true
+		}
+		return v
+	}
+	return true
+}
+
+// Note: Helper function reimplemented here to avoid segfault calling it on fargo.Instance struct
+func GetUniqueID(instance fargo.Instance) string {
+	return instance.HostName + "_" + strconv.Itoa(instance.Port)
+}
+
 // Helper function to alter registration info and add the ELBv2 endpoint
 // useCache parameter is passed to getELBV2ForContainer
-func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache bool) *eureka.Instance {
+func setRegInfo(service *bridge.Service, registration *fargo.Instance, useCache bool) *fargo.Instance {
 
 	awsMetadata := GetMetadata()
 	var elbEndpoint string
@@ -258,6 +277,15 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 		registration.HostName = elbMetadata.DNSName
 	}
 
+	if CheckELBOnlyReg(service) {
+		// Remove irrelevant metadata from an ELB only registration
+		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
+			InstanceID:     GetUniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
+			PublicHostname: registration.HostName,
+			HostName:       registration.HostName,
+		}
+	}
+
 	registration.SetMetadataString("has-elbv2", "true")
 	registration.SetMetadataString("elbv2-endpoint", elbEndpoint)
 	registration.VipAddress = registration.IPAddr
@@ -266,9 +294,9 @@ func setRegInfo(service *bridge.Service, registration *eureka.Instance, useCache
 
 // RegisterWithELBv2 - If called, and flags are active, register an ELBv2 endpoint instead of the container directly
 // This will mean traffic is directed to the ALB rather than directly to containers
-func RegisterWithELBv2(service *bridge.Service, registration *eureka.Instance, client eureka.EurekaConnection) error {
+func RegisterWithELBv2(service *bridge.Service, registration *fargo.Instance, client fargo.EurekaConnection) error {
 	if CheckELBFlags(service) {
-		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", registration.HostName)
+		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", GetUniqueID(*registration))
 		elbReg := setRegInfo(service, registration, false)
 		if elbReg != nil {
 			err := client.RegisterInstance(elbReg)
@@ -278,5 +306,18 @@ func RegisterWithELBv2(service *bridge.Service, registration *eureka.Instance, c
 			return nil
 		}
 	}
-	return fmt.Errorf("unable to register ELBv2")
+	return fmt.Errorf("unable to register ELBv2 - flags are not set")
+}
+
+// HeartbeatELBv2 - Heartbeat an ELB registration
+func HeartbeatELBv2(service *bridge.Service, registration *fargo.Instance, client fargo.EurekaConnection) error {
+	if CheckELBFlags(service) {
+		log.Printf("Heartbeating ELBv2: %s\n", GetUniqueID(*registration))
+		elbReg := setRegInfo(service, registration, false)
+		if elbReg != nil {
+			err := client.HeartBeatInstance(elbReg)
+			return err
+		}
+	}
+	return fmt.Errorf("unable to heartbeat ELBv2 - flags are not set")
 }
