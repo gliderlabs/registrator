@@ -299,7 +299,7 @@ func RegisterWithELBv2(service *bridge.Service, registration *fargo.Instance, cl
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", GetUniqueID(*registration))
 		elbReg := setRegInfo(service, registration, false)
 		if elbReg != nil {
-			err := client.RegisterInstance(elbReg)
+			err := client.ReregisterInstance(elbReg)
 			if err == nil {
 				registrations[service.Origin.ContainerID] = true
 			}
@@ -313,7 +313,7 @@ func RegisterWithELBv2(service *bridge.Service, registration *fargo.Instance, cl
 func HeartbeatELBv2(service *bridge.Service, registration *fargo.Instance, client fargo.EurekaConnection) error {
 	if CheckELBFlags(service) {
 		log.Printf("Heartbeating ELBv2: %s\n", GetUniqueID(*registration))
-		elbReg := setRegInfo(service, registration, false)
+		elbReg := setRegInfo(service, registration, true)
 		if elbReg != nil {
 			err := client.HeartBeatInstance(elbReg)
 			return err
