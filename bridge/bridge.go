@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"log"
 	"net"
