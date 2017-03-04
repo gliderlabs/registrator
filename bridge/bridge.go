@@ -358,6 +358,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	delete(metadata, "name")
 	service.Attrs = metadata
 	service.TTL = b.config.RefreshTtl
+	service.Tags = mappedTags
 
 	return service
 }
