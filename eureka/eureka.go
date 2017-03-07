@@ -194,7 +194,11 @@ func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 		return nil
 	} else {
 		err := r.client.HeartBeatInstance(registration)
-		log.Println("Done heartbeating for:", GetUniqueID(*registration))
+		if err != nil {
+			log.Println("Error occurred when heartbeating:", GetUniqueID(*registration))
+		} else {
+			log.Println("Done heartbeating for:", GetUniqueID(*registration))
+		}
 		return err
 	}
 }
