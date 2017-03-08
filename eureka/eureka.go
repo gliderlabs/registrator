@@ -46,7 +46,7 @@ func (r *EurekaAdapter) Ping() error {
 }
 
 // Note: This is a function that is passed to the fargo library to determine how each registration is identified in eureka
-func uniqueID(instance fargo.Instance) string {
+func GetUniqueID(instance fargo.Instance) string {
 	return instance.HostName + "_" + strconv.Itoa(instance.Port)
 }
 
@@ -68,7 +68,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 	registration := new(fargo.Instance)
 	var awsMetadata *aws.Metadata
 
-	registration.UniqueID = uniqueID
+	registration.UniqueID = GetUniqueID
 	registration.App = service.Name
 	registration.Port = service.Port
 
@@ -126,7 +126,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 			AvailabilityZone: awsMetadata.AvailabilityZone,
 			PublicHostname:   awsMetadata.PublicHostname,
 			PublicIpv4:       awsMetadata.PublicIP,
-			InstanceID:       uniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
+			InstanceID:       GetUniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
 			LocalHostname:    awsMetadata.PrivateHostname,
 			HostName:         awsMetadata.PrivateHostname,
 			LocalIpv4:        awsMetadata.PrivateIP,
@@ -136,7 +136,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 		registration.DataCenterInfo.Name = fargo.Amazon
 		registration.HostName = ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP)
 		registration.DataCenterInfo.Metadata = fargo.AmazonMetadataType{
-			InstanceID:     uniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
+			InstanceID:     GetUniqueID(*registration), // This is deliberate - due to limitations in uniqueIDs
 			PublicHostname: ShortHandTernary(service.Attrs["eureka_datacenterinfo_publichostname"], service.Origin.HostIP),
 			PublicIpv4:     ShortHandTernary(service.Attrs["eureka_datacenterinfo_publicipv4"], service.Origin.HostIP),
 			LocalHostname:  ShortHandTernary(service.Attrs["eureka_datacenterinfo_localhostname"], service.IP),
@@ -147,7 +147,7 @@ func instanceInformation(service *bridge.Service) *fargo.Instance {
 		registration.DataCenterInfo.Name = fargo.MyOwn
 		// We don't have a uniqueID, so manipulate hostname to provide it there.
 		registration.HostName = service.IP
-		registration.HostName = uniqueID(*registration)
+		registration.HostName = GetUniqueID(*registration)
 	}
 
 	// If flag is set, register the AWS public IP as the endpoint instead of the private one
@@ -178,16 +178,29 @@ func (r *EurekaAdapter) Deregister(service *bridge.Service) error {
 	if aws.CheckELBFlags(service) {
 		aws.RemoveLBCache(service.Origin.ContainerID)
 	}
-	log.Println("Deregistering", uniqueID(*registration))
-	instance := r.client.DeregisterInstance(registration)
-	return instance
+	// Don't deregister ALB registrations.  Just leave them to expire if there are no heartbeats
+	if !aws.CheckELBOnlyReg(service) {
+		log.Println("Deregistering", GetUniqueID(*registration))
+		err := r.client.DeregisterInstance(registration)
+		return err
+	}
+	return nil
 }
 
 func (r *EurekaAdapter) Refresh(service *bridge.Service) error {
 	registration := instanceInformation(service)
-	err := r.client.HeartBeatInstance(registration)
-	log.Println("Done heartbeating for:", uniqueID(*registration))
-	return err
+	if aws.CheckELBFlags(service) {
+		aws.HeartbeatELBv2(service, registration, r.client)
+		return nil
+	} else {
+		err := r.client.HeartBeatInstance(registration)
+		if err != nil {
+			log.Println("Error occurred when heartbeating:", GetUniqueID(*registration))
+		} else {
+			log.Println("Done heartbeating for:", GetUniqueID(*registration))
+		}
+		return err
+	}
 }
 
 func (r *EurekaAdapter) Services() ([]*bridge.Service, error) {
