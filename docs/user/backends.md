@@ -163,17 +163,16 @@ The JSON will contain all infromation about the published container service. As 
 Will result in the zookeeper path and JSON znode body:
 
     /basepath/www/80 = {"Name":"www","IP":"192.168.1.123","PublicPort":49153,"PrivatePort":80,"ContainerID":"9124853ff0d1","Tags":[],"Attrs":{}}
-    
 
 ## Eureka
 
-The Eureka backend (based on uses a few conventions that can be overridden with container attributes.  
+The Eureka backend is based on uses a few conventions that can be overridden with container attributes.  
 By default, containers will be registered with a datacenter of Amazon, with a public 
 hostname and IP of the host IP address, and a local hostname and IP of either the
-docker-assigned internal IP address if the `-internal` flag is set or
-the host ip if not.
+docker-assigned internal IP address if the `-internal` flag is set or the host ip if not.
 
 The following defaults are set and can be overridden with service attributes:
+
 ```
 	SERVICE_EUREKA_STATUS = UP
 	SERVICE_EUREKA_VIP = Service IP (ignored if using SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP)
@@ -183,22 +182,20 @@ The following defaults are set and can be overridden with service attributes:
 	SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon
 ```
 
+To set custom eureka metadata for your own purposes, you can use service attributes prefixed with `SERVICE_EUREKA_METADATA_`, e.g.:
 
-To set custom eureka metadata for your own purposes, you can use service attributes prefixed with SERVICE_EUREKA_METADATA_, e.g.:
 ```
 	SERVICE_EUREKA_METADATA_MYROUTES=/route1*|/route2*
 	SERVICE_EUREKA_METADATA_BE_AWESOME=true
 ```
+
 These will appear in eureka inside a metadata tag.  See https://github.com/hudl/fargo/blob/master/metadata.go for some ideas on how to use them.
 
 
-
-### AWS Datacenter Metadata Population
-
-If the Amazon Datacenter type is used, the following additional values are supported:
-```	
+### AWS Datacenter Metadata Population	
 	
 If the Amazon Datacenter type is used, the following additional values are supported:
+
 ```	
 SERVICE_EUREKA_DATACENTERINFO_AUTO_POPULATE=false (if set to true, will attempt to populate datacenter info automatically)
 SERVICE_EUREKA_DATACENTERINFO_PUBLICHOSTNAME = Host IP (ignored if using automatic population)
@@ -209,8 +206,8 @@ SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP = false (if true, set VIP and IPADDR value
 SERVICE_EUREKA_LOOKUP_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
 SERVICE_EUREKA_ELBV2_HOSTNAME = If set, will explicitly be used as the ELBv2 hostname - see below section.
 SERVICE_EUREKA_ELBV2_PORT = If set, will be explicitly used as the ELBv2 Port - see below.
-
 ```
+
 AWS datacenter metadata will be automatically populated.  _However_, the `InstanceID` will instead match `hostName`, which is the unique identifier for the container (Host_Port).  This is due to limitations in the eureka server.  
 Instead, a new metadata tag, `aws_instanceID` has the underlying host instanceID.
 
@@ -230,7 +227,7 @@ balancer reference to eureka too.  It may work with custom EC2 instances behind 
 
 #### Automatic Lookups
 
-If you set the flag `SERVICE_EUREKA_LOOKUP_ELBV2_ENDPOINT=true` AND you have `SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon` then this feature is enabled.  
+If you set the flag `SERVICE_EUREKA_LOOKUP_ELBV2_ENDPOINT=true` AND you have `SERVICE_EUREKA_DATACENTERINFO_NAME=Amazon` then this feature is enabled.  
 
 It will attempt to connect to the AWS service using the IAM role of the container host.  In ECS, this should just work.  It will find the region associated with the container host, and connect using that region.
 
