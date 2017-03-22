@@ -1,0 +1,4 @@
+FROM scratch
+ENTRYPOINT ["/bin/registrator"]
+
+COPY ./registrator /bin/registrator
