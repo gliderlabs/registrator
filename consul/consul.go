@@ -5,9 +5,10 @@ import (
 	"log"
 	"net/url"
 	"strings"
-
+	"os"
 	"github.com/pipedrive/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
+	"github.com/hashicorp/go-cleanhttp"
 )
 
 const DefaultInterval = "10s"
@@ -15,6 +16,7 @@ const DefaultInterval = "10s"
 func init() {
 	f := new(Factory)
 	bridge.Register(f, "consul")
+	bridge.Register(f, "consul-tls")
 	bridge.Register(f, "consul-unix")
 }
 
@@ -30,6 +32,23 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	config := consulapi.DefaultConfig()
 	if uri.Scheme == "consul-unix" {
 		config.Address = strings.TrimPrefix(uri.String(), "consul-")
+	} else if uri.Scheme == "consul-tls" {
+	        tlsConfigDesc := &consulapi.TLSConfig {
+			  Address: uri.Host,
+			  CAFile: os.Getenv("CONSUL_CACERT"),
+  			  CertFile: os.Getenv("CONSUL_TLSCERT"),
+  			  KeyFile: os.Getenv("CONSUL_TLSKEY"),
+			  InsecureSkipVerify: false,
+		}
+		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
+		if err != nil {
+		   log.Fatal("Cannot set up Consul TLSConfig", err)
+		}
+		config.Scheme = "https"
+		transport := cleanhttp.DefaultPooledTransport()
+		transport.TLSClientConfig = tlsConfig
+		config.HttpClient.Transport = transport
+		config.Address = uri.Host
 	} else if uri.Host != "" {
 		config.Address = uri.Host
 	}
@@ -69,8 +88,16 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 
 func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
 	check := new(consulapi.AgentServiceCheck)
+	if status := service.Attrs["check_initial_status"]; status != "" {
+		check.Status = status
+	}
 	if path := service.Attrs["check_http"]; path != "" {
 		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
+		if timeout := service.Attrs["check_timeout"]; timeout != "" {
+			check.Timeout = timeout
+		}
+	} else if path := service.Attrs["check_https"]; path != "" {
+		check.HTTP = fmt.Sprintf("https://%s:%d%s", service.IP, service.Port, path)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}

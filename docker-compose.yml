@@ -1,7 +1,7 @@
 version: '2.1'
 services:
   registrator:
-    image: registrator:v7.3.3
+    image: registrator:v7.4
     restart: always
     network_mode: host
     hostname: ${HOSTNAME}

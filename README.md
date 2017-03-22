@@ -1,10 +1,9 @@
 # Registrator
 
-Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
+Service registry bridge for Docker.
 
 [![Circle CI](https://circleci.com/gh/gliderlabs/registrator.png?style=shield)](https://circleci.com/gh/gliderlabs/registrator)
-[![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
-[![ImageLayers Size](https://img.shields.io/imagelayers/image-size/gliderlabs/registrator/latest.svg)](https://imagelayers.io/?images=gliderlabs%2Fregistrator:latest)
+[![Docker pulls](https://img.shields.io/docker/pulls/gliderlabs/registrator.svg)](https://hub.docker.com/r/gliderlabs/registrator/)
 [![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
 <br /><br />
 
@@ -52,8 +51,8 @@ Releases](https://gliderlabs.com/registrator/latest/dev/releases).
 
 ## Sponsors and Thanks
 
-Ongoing support of this project is made possible by [Weave](http://weave.works), the easiest way to connect, observe and control your containers. Big thanks to Michael Crosby for
-[skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list
+Big thanks to Weave for sponsoring, Michael Crosby for
+[skydock](https://github.com/crosbymichael/skydock), and the Consul mailing list
 for inspiration.
 
 For a full list of sponsors, see
