@@ -8,6 +8,13 @@ dev:
 		-v /var/run/docker.sock:/tmp/docker.sock \
 		$(NAME):dev /bin/registrator $(DEV_RUN_OPTS)
 
+build-scratch:
+	mkdir -p build
+	docker build -t $(NAME):$(VERSION)_interim .
+	docker run --rm -v $(PWD):/opt --entrypoint=cp $(NAME):$(VERSION)_interim /bin/registrator /opt
+	docker build -f Dockerfile.release -t $(NAME):$(VERSION) .
+	docker rmi $(NAME):$(VERSION)_interim
+
 build:
 	mkdir -p build
 	docker build -t $(NAME):$(VERSION) .

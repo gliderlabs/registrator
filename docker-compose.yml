@@ -1,0 +1,14 @@
+version: '2.1'
+services:
+  registrator:
+    image: registrator:v7.3.3
+    restart: always
+    network_mode: host
+    hostname: ${HOSTNAME}
+    command: "-ip 192.168.46.100 -cleanup=true -retry-attempts -1 consul://172.17.0.1:8500"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    logging:
+      options:
+        max-size: 100k
+        max-file: '1'

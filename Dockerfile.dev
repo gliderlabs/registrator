@@ -1,9 +1,10 @@
-FROM gliderlabs/alpine:3.2
+FROM alpine:3.5
 CMD ["/bin/registrator"]
 
 ENV GOPATH /go
-RUN apk-install go git mercurial
+RUN apk --no-cache add build-base go git ca-certificates
 COPY . /go/src/github.com/pipedrive/registrator
 RUN cd /go/src/github.com/pipedrive/registrator \
+	&& git config --global http.https://gopkg.in.followRedirects true \
 	&& go get \
-	&& go build -ldflags "-X main.Version dev" -o /bin/registrator
+	&& go build -ldflags "-X main.Version=dev" -o /bin/registrator
