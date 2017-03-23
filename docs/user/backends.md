@@ -167,7 +167,7 @@ Will result in the zookeeper path and JSON znode body:
 ## Eureka
 
 The Eureka backend is based on uses a few conventions that can be overridden with container attributes.  
-By default, containers will be registered with a datacenter of Amazon, with a public 
+By default, containers will be registered with a datacenter of Amazon, with a public
 hostname and IP of the host IP address, and a local hostname and IP of either the
 docker-assigned internal IP address if the `-internal` flag is set or the host ip if not.
 
@@ -192,11 +192,11 @@ To set custom eureka metadata for your own purposes, you can use service attribu
 These will appear in eureka inside a metadata tag.  See https://github.com/hudl/fargo/blob/master/metadata.go for some ideas on how to use them.
 
 
-### AWS Datacenter Metadata Population	
-	
+### AWS Datacenter Metadata Population
+
 If the Amazon Datacenter type is used, the following additional values are supported:
 
-```	
+```
 SERVICE_EUREKA_DATACENTERINFO_AUTO_POPULATE=false (if set to true, will attempt to populate datacenter info automatically)
 SERVICE_EUREKA_DATACENTERINFO_PUBLICHOSTNAME = Host IP (ignored if using automatic population)
 SERVICE_EUREKA_DATACENTERINFO_PUBLICIPV4 = Host IP (ignored if using automatic population)
@@ -206,6 +206,7 @@ SERVICE_EUREKA_REGISTER_AWS_PUBLIC_IP = false (if true, set VIP and IPADDR value
 SERVICE_EUREKA_LOOKUP_ELBV2_ENDPOINT = false (if true, an entry will be added for an ELBv2 connected to a container target group in ECS - see below for more details)
 SERVICE_EUREKA_ELBV2_HOSTNAME = If set, will explicitly be used as the ELBv2 hostname - see below section.
 SERVICE_EUREKA_ELBV2_PORT = If set, will be explicitly used as the ELBv2 Port - see below.
+SERVICE_EUREKA_ELBV2_ONLY_REGISTRATION = true (if false then adding the ELB hostname and port to each individual container registration will happen).
 ```
 
 AWS datacenter metadata will be automatically populated.  _However_, the `InstanceID` will instead match `hostName`, which is the unique identifier for the container (Host_Port).  This is due to limitations in the eureka server.  
@@ -218,8 +219,7 @@ Have a look at this to help with that: https://github.com/jtblin/kube2iam - the 
 
 ### Using ELBv2
 
-If you are using ECS (EC2 Container Service) and run containers in target groups, with an Application Load Balancer in front of them (described by Amazon as ELBv2) then you can have registrator add the load 
-balancer reference to eureka too.  It may work with custom EC2 instances behind a target group too, but has not been tested.  This has the following properties at present:
+If you are using ECS (EC2 Container Service) and run containers in target groups, with an Application Load Balancer in front of them (described by Amazon as ELBv2) then you can have Registrator add the load balancer reference to eureka too.  It may work with custom EC2 instances behind a target group too, but has not been tested.  This has the following properties at present:
 
 - It alters the Port, ipAddr and vipAddr entries in eureka to match the ELBv2 endpoint instead of the container.
 - You will end up with multiple entries in eureka with the same endpoint, one for each container.  HostName is still set to the container IP and port combo
@@ -237,7 +237,15 @@ If you specify `SERVICE_EUREKA_ELBV2_HOSTNAME=` and `SERVICE_EUREKA_ELBV2_PORT=`
 
 If you specify the lookup flag, and also add these settings, the manual ones will take precedent.
 
+### AWS ELBv2 Only Registration
 
+If the Amazon Datacenter type is used, the default is for `SERVICE_EUREKA_ELBv2_ONLY_REGISTRATION` - to be true. This works in line with the other ELBv2 options, which also must be set appropriately.
+- If you override, and set it to _false_, then the behavior of adding the ELB hostname and port to each individual container registration will happen.
+- Each ELBv2 endpoint (DNS name and port combination) will be registered in eureka, but containers will not.
+- Each time a new container associated with the ELB endpoint is started, registrator will send a `Reregister` to eureka, updating the metadata.
+- During deploys, the metadata will be updated once for each new container to start. As such, the newest metadata always wins.
+- Heartbeats are still piggybacked onto container lifecycles. As such, heartbeats will be sent to a given ELB endpoint as many times as there are associated containers running. It would be possible to alter `--ttl` and `-ttl-refresh registrator` startup options to compensate and reduce the number of heartbeats if desired.
+- A ELBv2 will not be explicitly removed once registered with eureka. Heartbeats will simply stop, as and when associated containers die. Once all associated containers stop heartbeating (that would be all within an ECS target group), the record would expire based on the `--ttl` registrator startup value.
 
 #### IAM Policy
 In order for this to work (you will receive a log error if not) the IAM role attached to the ECS host must have something like the following additional policy:
@@ -269,4 +277,3 @@ In order for this to work (you will receive a log error if not) the IAM role att
     ]
 }
 ```
-
