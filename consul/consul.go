@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"os"
+	"strconv"
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
@@ -101,6 +102,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
+		if tls_skip_verify := service.Attrs["check_tls_skip_verify"]; tls_skip_verify != "" {
+			check.TLSSkipVerify = strconv.parseBool(tls_skip_verify)
+		}     
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
 		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
