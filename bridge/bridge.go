@@ -198,17 +198,25 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
+	if b.config.Network != "" {
+		_, ok := container.NetworkSettings.Networks[b.config.Network]
+		if !ok {
+			log.Println("container ", containerId[:12], " is not in network ", b.config.Network)
+			return
+		}
+	}
+
 	ports := make(map[string]ServicePort)
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
 		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
-		ports[string(port)] = servicePort(container, port, published)
+		ports[string(port)] = servicePort(container, port, published, b.config.Network)
 	}
 
 	// Extract runtime port mappings, relevant when using --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = servicePort(container, port, published)
+		ports[string(port)] = servicePort(container, port, published, b.config.Network)
 	}
 
 	if len(ports) == 0 && !quiet {
