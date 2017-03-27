@@ -23,6 +23,7 @@ type Config struct {
 	HostIp          string
 	Internal        bool
 	Explicit        bool
+	ServicePrefix	string
 	UseIpFromLabel  string
 	ForceTags       string
 	RefreshTtl      int
