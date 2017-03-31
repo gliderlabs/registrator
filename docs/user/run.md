@@ -34,7 +34,7 @@ hostname (`-h $HOSTNAME`) and using the `-ip` Registrator option below.
 Option                           | Since | Description
 ------                           | ----- | -----------
 `-cleanup`                       | v7    | Cleanup dangling services
-`-deregister <mode>`             | v6    | Deregister existed services "always" or "on-success". Default: always
+`-deregister <mode>`             | v6    | Deregister exited services "always" or "on-success". Default: always
 `-internal`                      |       | Use exposed ports instead of published ports
 `-ip <ip address>`               |       | Force IP address used for registering services
 `-resync <seconds>`              | v6    | Frequency all services are resynchronized. Default: 0, never
