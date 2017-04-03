@@ -113,6 +113,10 @@ func (r *ZkAdapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
+func (r *ZkAdapter) SetupHealthCheck (service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
+	return nil
+}
+
 func (r *ZkAdapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }

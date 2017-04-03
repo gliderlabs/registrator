@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"syscall"
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
@@ -54,6 +55,25 @@ func (b *Bridge) Add(containerId string) {
 	b.Lock()
 	defer b.Unlock()
 	b.add(containerId, false)
+}
+
+func (b *Bridge) SetupSigtermBehavior(behavior string, msg *dockerapi.APIEvents, ttl int, checkStatus string) {
+	signal := -1
+	i, err := strconv.Atoi(msg.Actor.Attributes["signal"])
+	if err == nil {
+		signal = i
+	}
+
+	if syscall.Signal(signal) != syscall.SIGTERM {
+		return
+	}
+
+	switch behavior {
+	case "deregister":
+		b.remove(msg.ID, true)
+	case "register-health-check":
+		b.setupTtlHealthCheck(msg.ID, &TtlHealthCheck{ttl, checkStatus})
+	}
 }
 
 func (b *Bridge) Remove(containerId string) {
@@ -201,7 +221,8 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	ports := make(map[string]ServicePort)
 
 	// Extract configured host port mappings, relevant when using --net=host
-	for port, published := range container.HostConfig.PortBindings {
+	for port, _ := range container.Config.ExposedPorts {
+		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -215,14 +236,20 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-	for _, port := range ports {
+	servicePorts := make(map[string]ServicePort)
+	for key, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
 			}
 			continue
 		}
-		service := b.newService(port, len(ports) > 1)
+		servicePorts[key] = port
+	}
+
+	isGroup := len(servicePorts) > 1
+	for _, port := range servicePorts {
+		service := b.newService(port, isGroup)
 		if service == nil {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
@@ -242,9 +269,6 @@ func (b *Bridge) add(containerId string, quiet bool) {
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-	if isgroup {
-		defaultName = defaultName + "-" + port.ExposedPort
-	}
 
 	// not sure about this logic. kind of want to remove it.
 	hostname := Hostname
@@ -262,7 +286,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		port.HostIP = b.config.HostIp
 	}
 
-	metadata := serviceMetaData(container.Config, port.ExposedPort)
+	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
 
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {
@@ -273,6 +297,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
 	service.Name = mapDefault(metadata, "name", defaultName)
+	if isgroup && !metadataFromPort["name"] {
+		service.Name += "-" + port.ExposedPort
+	}
 	var p int
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
@@ -293,7 +320,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
@@ -318,11 +345,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp", hostname + "-" + container.Config.Hostname)
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp", hostname+"-"+container.Config.Hostname)
 		service.ID = service.ID + ":udp"
 	} else {
 		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, hostname + "-" + container.Config.Hostname)
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, hostname+"-"+container.Config.Hostname)
 	}
 
 	id := mapDefault(metadata, "id", "")
@@ -337,6 +364,22 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.TTL = b.config.RefreshTtl
 
 	return service
+}
+
+func (b *Bridge) setupTtlHealthCheck(containerId string, ttlHealthCheck *TtlHealthCheck) {
+	b.Lock()
+	defer b.Unlock()
+	setupAllHealthChecks := func(services []*Service) {
+		for _, service := range services {
+			err := b.registry.SetupHealthCheck(service, ttlHealthCheck)
+			if err != nil {
+				log.Println("Health check setup failed:", service.ID, err)
+				continue
+			}
+			log.Printf("health-check-setup: %s %s status \"%s\" for %d seconds", containerId[:12], service.ID, ttlHealthCheck.CheckStatus, ttlHealthCheck.TTL)
+		}
+	}
+	setupAllHealthChecks(b.services[containerId])
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {

@@ -1,6 +1,14 @@
+ORGANIZATION ?= 'pipedrive/'
 NAME=registrator
 VERSION=$(shell cat VERSION)
+DOCKER_ORG = $(ORGANIZATION)$(NAME)
+DOCKER_TAG = $(DOCKER_ORG):$(VERSION)
 DEV_RUN_OPTS ?= consul:
+
+dev-local:
+	docker-compose down
+	go build -ldflags "-extldflags '-static'" -o registrator
+	docker-compose up --build -d
 
 dev:
 	docker build -f Dockerfile.dev -t $(NAME):dev .
@@ -10,10 +18,22 @@ dev:
 
 build-scratch:
 	mkdir -p build
-	docker build -t $(NAME):$(VERSION)_interim .
-	docker run --rm -v $(PWD):/opt --entrypoint=cp $(NAME):$(VERSION)_interim /bin/registrator /opt
-	docker build -f Dockerfile.release -t $(NAME):$(VERSION) .
-	docker rmi $(NAME):$(VERSION)_interim
+	docker build -t $(DOCKER_TAG)_interim .
+	docker run --rm -v $(PWD):/opt --entrypoint=cp $(DOCKER_TAG)_interim /bin/registrator /opt
+	docker build -f Dockerfile.release -t $(DOCKER_TAG) .
+	docker rmi $(DOCKER_TAG)_interim
+
+tag-beta:
+	docker tag $(DOCKER_TAG) $(DOCKER_ORG):beta
+
+push-beta:
+	docker push $(DOCKER_ORG):beta
+
+push-release:
+	docker push $(DOCKER_TAG)
+
+make-beta: build-scratch tag-beta push-beta
+make-release: build-scratch push-release
 
 build:
 	mkdir -p build

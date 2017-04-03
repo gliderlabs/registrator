@@ -61,6 +61,10 @@ func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
+func (r *Skydns2Adapter) SetupHealthCheck (service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
+	return nil
+}
+
 func (r *Skydns2Adapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }

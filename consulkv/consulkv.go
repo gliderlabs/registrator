@@ -74,6 +74,10 @@ func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
+func (r *ConsulKVAdapter) SetupHealthCheck (service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
+	return nil
+}
+
 func (r *ConsulKVAdapter) Refresh(service *bridge.Service) error {
 	return nil
 }

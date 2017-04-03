@@ -5,6 +5,7 @@ As you can see by either the Consul or etcd source files, writing a new registry
 	type RegistryAdapter interface {
 		Ping() error
 		Register(service *Service) error
+		SetupHealthCheck(service *Service, healthCheck *TtlHealthCheck) error
 		Deregister(service *Service) error
 		Refresh(service *Service) error
 	}
@@ -20,6 +21,13 @@ type Service struct {
 	Attrs map[string]string
 	TTL   int
 	...
+}
+```
+The `TtlHealthCheck` struct looks like this:
+```
+type TtlHealthCheck struct {
+	TTL int
+	CheckStatus string
 }
 ```
 Then add a factory which accepts a uri and returns the registry adapter, and register that factory with the bridge like `bridge.Register(new(Factory), "<backend_name>")`.

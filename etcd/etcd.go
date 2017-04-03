@@ -120,6 +120,10 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
+func (r *EtcdAdapter) SetupHealthCheck (service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
+	return nil
+}
+
 func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 	return r.Register(service)
 }

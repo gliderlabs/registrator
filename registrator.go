@@ -29,6 +29,9 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
+var sigtermBehaviour = flag.String("sigterm-behavior", "none", "Behavior when SIGTERM recieved by service - \"none\", \"deregister\" or \"register-health-check\".")
+var ttlHealthCheckTTL = flag.Int("sigterm-health-check-ttl", 60, "TTL-type health-check TTL (in case sigterm-behavior set to \"register-health-check\").")
+var ttlHealthCheckStatus = flag.String("sigterm-health-check-status", "warning", "TTL-type health-check TTL (in case sigterm-behavior set to \"register-health-check\").")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -94,6 +97,10 @@ func main() {
 
 	if *deregister != "always" && *deregister != "on-success" {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
+	}
+
+	if *sigtermBehaviour != "none" {
+		log.Printf("Registrator will use \"%s\" for services on SIGTERM", *sigtermBehaviour)
 	}
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
@@ -172,7 +179,9 @@ func main() {
 		switch msg.Status {
 		case "start":
 			go b.Add(msg.ID)
-		case "kill", "die":
+		case "kill":
+			go b.SetupSigtermBehavior(*sigtermBehaviour, msg, *ttlHealthCheckTTL, *ttlHealthCheckStatus)
+		case "die":
 			go b.RemoveOnExit(msg.ID)
 		}
 	}

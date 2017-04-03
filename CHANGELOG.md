@@ -10,6 +10,26 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+## [v7.5] - 2017-03-31
+### Fixed
+
+### Added
+
+#### SIGTERM Handling
+Now its possible to set behavior once container receives SIGTERM by using `sigterm-behavior` run parameter with:
+- `none` *default*
+- `deregister`
+- `register-health-check`
+
+`register-health-check` can be tuned additionaly with the following parameters:
+- `sigterm-health-check-ttl` (defaults to 60) - TTL for health check to be set up
+- `sigterm-health-check-status` (defaults to *warning*) - status for check to be set up
+
+
+### Removed
+
+### Changed
+
 ## [v7] - 2016-03-05
 ### Fixed
 - Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other
@@ -83,6 +103,7 @@ All notable changes to this project will be documented in this file.
 
 
 [unreleased]: https://github.com/gliderlabs/registrator/compare/v7...HEAD
+[v7.5]: https://github.com/gliderlabs/registrator/compare/v7...v7.5
 [v7]: https://github.com/gliderlabs/registrator/compare/v6...v7
 [v6]: https://github.com/gliderlabs/registrator/compare/v5...v6
 [v5]: https://github.com/gliderlabs/registrator/compare/v0.4.0...v5

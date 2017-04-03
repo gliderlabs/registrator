@@ -1,11 +1,13 @@
 version: '2.1'
 services:
   registrator:
-    image: registrator:v7.4
+    build:
+      context: .
+      dockerfile: Dockerfile.release
     restart: always
     network_mode: host
     hostname: ${HOSTNAME}
-    command: "-ip 192.168.46.100 -cleanup=true -retry-attempts -1 consul://172.17.0.1:8500"
+    command: "-ip 192.168.46.100 -sigterm-behavior register-health-check -cleanup=true -retry-attempts -1 consul://172.17.0.1:8500"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock
     logging:

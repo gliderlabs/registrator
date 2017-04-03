@@ -15,6 +15,7 @@ type RegistryAdapter interface {
 	Ping() error
 	Register(service *Service) error
 	Deregister(service *Service) error
+	SetupHealthCheck(service *Service, healthCheck *TtlHealthCheck) error
 	Refresh(service *Service) error
 	Services() ([]*Service, error)
 }
@@ -57,4 +58,9 @@ type ServicePort struct {
 	ContainerID       string
 	ContainerName     string
 	container         *dockerapi.Container
+}
+
+type TtlHealthCheck struct {
+	TTL int
+	CheckStatus string
 }
