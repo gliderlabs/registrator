@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -20,12 +21,12 @@ type Metadata struct {
 }
 
 var metadataCache *Metadata
-var inited = false
+var once sync.Once
 
 // SetMetadata - Set the metadata and init - mainly for testing
 func SetMetadata(md *Metadata) {
 	metadataCache = md
-	inited = true
+	once.Do(func() { return })
 }
 
 // Test retrieval of metadata key and print an error if not, returning empty string
@@ -41,20 +42,15 @@ func getDataOrFail(svc interfaces.EC2MetadataGetter, key string) string {
 // GetMetadata - retrieve metadata from AWS about the current host, using IAM role
 func GetMetadata() *Metadata {
 
-	if inited {
-		log.Println("Returning cached metadata.")
-		return metadataCache
-	}
-
-	sess, err := session.NewSession()
-	if err != nil {
-		fmt.Printf("Unable to connect to the EC2 metadata service: %s\n", err)
-	}
-	svc := ec2metadata.New(sess)
-
-	metadataCache = retrieveMetadata(svc)
-	inited = true
-
+	// Initialize metadata exactly once for thread safety
+	once.Do(func() {
+		sess, err := session.NewSession()
+		if err != nil {
+			log.Fatalf("Unable to connect to the EC2 metadata service: %s\n", err)
+		}
+		svc := ec2metadata.New(sess)
+		metadataCache = retrieveMetadata(svc)
+	})
 	return metadataCache
 }
 

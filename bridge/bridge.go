@@ -123,7 +123,7 @@ func (b *Bridge) Sync(quiet bool) {
 	for _, listing := range containers {
 		services := servicesSnapshot[listing.ID]
 		if services == nil {
-			b.add(listing.ID, quiet)
+			go b.add(listing.ID, quiet)
 		} else {
 			for _, service := range services {
 				err := b.registry.Register(service)

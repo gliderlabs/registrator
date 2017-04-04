@@ -137,8 +137,6 @@ func main() {
 	assert(docker.AddEventListener(events))
 	log.Println("Listening for Docker events ...")
 
-	b.Sync(false)
-
 	quit := make(chan struct{})
 
 	// Start a dead container pruning timer to allow refresh to work independently
@@ -188,6 +186,8 @@ func main() {
 			}
 		}()
 	}
+
+	b.Sync(false)
 
 	// Process Docker events
 	for msg := range events {
