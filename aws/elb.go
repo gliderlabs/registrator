@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -21,7 +22,63 @@ type LBInfo struct {
 	Port    int64
 }
 
-var lbCache = make(map[string]*LBInfo)
+type lookupValues struct {
+	InstanceID string
+	Port       int64
+}
+
+type cacheEntry struct {
+	lb *LBInfo
+	sync.Mutex
+}
+
+type lbCache struct {
+	m map[string]cacheEntry
+	sync.Mutex
+}
+
+var cache lbCache
+
+type fn func(lookupValues) (*LBInfo, error)
+
+//
+// Return a *LBInfo cache entry if it exists, or run the provided function to return data to add to cache
+// The complexity is purely to make the cache thread safe.
+//
+func getOrAddCacheEntry(key string, f fn, i lookupValues) (*LBInfo, error) {
+	cache.Lock()
+	if cache.m == nil {
+		cache.m = make(map[string]cacheEntry)
+	}
+	var populated = true
+	if _, ok := cache.m[key]; !ok {
+		cache.m[key] = cacheEntry{lb: &LBInfo{}}
+		populated = false
+	}
+	entry := cache.m[key]
+	entry.Lock()
+	defer entry.Unlock()
+	cache.Unlock()
+	var err error
+	if !populated {
+		var o *LBInfo
+		o, err = f(i)
+		if err != nil {
+			log.Print("An error occurred trying to add data to the cache:", err)
+		}
+		entry.lb = o
+	}
+	value := entry.lb
+	return value, err
+}
+
+// RemoveLBCache : Delete any cache of load balancer for this containerID
+func RemoveLBCache(key string) {
+	cache.Lock()
+	delete(cache.m, key)
+	cache.Unlock()
+}
+
 var registrations = make(map[string]bool)
 
 // Helper function to retrieve all target groups
@@ -68,18 +125,19 @@ func getTargetGroupsPage(svc *elbv2.ELBV2, marker *string) (*elbv2.DescribeTarge
 
 // GetELBV2ForContainer returns an LBInfo struct with the load balancer DNS name and listener port for a given instanceId and port
 // if an error occurs, or the target is not found, an empty LBInfo is returned.
-// Return the DNS:port pair as an identifier to put in the container's registration metadata
 // Pass it the instanceID for the docker host, and the the host port to lookup the associated ELB.
-// useCache parameter, if true, will retrieve ELBv2 details from memory, rather than calling AWS.
-// this is only really safe to use for heartbeat calls, as details can change dynamically
-func GetELBV2ForContainer(containerID string, instanceID string, port int64, useCache bool) (lbinfo *LBInfo, err error) {
+//
+func GetELBV2ForContainer(containerID string, instanceID string, port int64) (lbinfo *LBInfo, err error) {
+	i := lookupValues{InstanceID: instanceID, Port: port}
+	return getOrAddCacheEntry(containerID, getLB, i)
+}
 
-	// Retrieve from basic cache (for heartbeats)
-	cacheKey := containerID
-	if val, ok := lbCache[cacheKey]; ok && useCache {
-		log.Println("Retrieving value from cache.")
-		return val, nil
-	}
+//
+// Does the real work of retrieving the load balancer details, given a lookupValues struct.
+//
+func getLB(l lookupValues) (lbinfo *LBInfo, err error) {
+	instanceID := l.InstanceID
+	port := l.Port
 
 	// We need to have small random wait here, because it takes a little while for new containers to appear in target groups
 	// to avoid any wait, the endpoints can be specified manually as eureka_elbv2_hostname and eureka_elbv2_port vars
@@ -179,16 +237,7 @@ func GetELBV2ForContainer(containerID string, instanceID string, port int64, use
 
 	info.DNSName = *lbData.LoadBalancers[0].DNSName
 	info.Port = *lbPort
-
-	// Add to a basic cache for heartbeats
-	lbCache[cacheKey] = info
-
 	return info, nil
-}
-
-// RemoveLBCache : Delete any cache of load balancer for this containerID
-func RemoveLBCache(containerID string) {
-	delete(lbCache, containerID)
 }
 
 // CheckELBFlags - Helper function to check if the correct config flags are set to use ELBs
@@ -226,7 +275,7 @@ func CheckELBFlags(service *bridge.Service) bool {
 	return false
 }
 
-// CheckELBOnly - Helper function to check if only the ELB should be registered (no containers)
+// CheckELBOnlyReg - Helper function to check if only the ELB should be registered (no containers)
 func CheckELBOnlyReg(service *bridge.Service) bool {
 
 	if service.Attrs["eureka_elbv2_only_registration"] != "" {
@@ -240,14 +289,14 @@ func CheckELBOnlyReg(service *bridge.Service) bool {
 	return true
 }
 
-// Note: Helper function reimplemented here to avoid segfault calling it on fargo.Instance struct
+// GetUniqueID Note: Helper function reimplemented here to avoid segfault calling it on fargo.Instance struct
 func GetUniqueID(instance fargo.Instance) string {
 	return instance.HostName + "_" + strconv.Itoa(instance.Port)
 }
 
 // Helper function to alter registration info and add the ELBv2 endpoint
 // useCache parameter is passed to getELBV2ForContainer
-func setRegInfo(service *bridge.Service, registration *fargo.Instance, useCache bool) *fargo.Instance {
+func setRegInfo(service *bridge.Service, registration *fargo.Instance) *fargo.Instance {
 
 	awsMetadata := GetMetadata()
 	var elbEndpoint string
@@ -263,7 +312,7 @@ func setRegInfo(service *bridge.Service, registration *fargo.Instance, useCache 
 
 	} else {
 		// We don't have the ELB endpoint, so look it up.
-		elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port), useCache)
+		elbMetadata, err := GetELBV2ForContainer(service.Origin.ContainerID, awsMetadata.InstanceID, int64(registration.Port))
 
 		if err != nil {
 			log.Printf("Unable to find associated ELBv2 for: %s, Error: %s\n", registration.HostName, err)
@@ -300,7 +349,7 @@ func setRegInfo(service *bridge.Service, registration *fargo.Instance, useCache 
 func RegisterWithELBv2(service *bridge.Service, registration *fargo.Instance, client fargo.EurekaConnection) error {
 	if CheckELBFlags(service) {
 		log.Printf("Found ELBv2 flags, will attempt to register LB for: %s\n", GetUniqueID(*registration))
-		elbReg := setRegInfo(service, registration, false)
+		elbReg := setRegInfo(service, registration)
 		if elbReg != nil {
 			err := client.ReregisterInstance(elbReg)
 			if err == nil {
@@ -316,7 +365,7 @@ func RegisterWithELBv2(service *bridge.Service, registration *fargo.Instance, cl
 func HeartbeatELBv2(service *bridge.Service, registration *fargo.Instance, client fargo.EurekaConnection) error {
 	if CheckELBFlags(service) {
 		log.Printf("Heartbeating ELBv2: %s\n", GetUniqueID(*registration))
-		elbReg := setRegInfo(service, registration, true)
+		elbReg := setRegInfo(service, registration)
 		if elbReg != nil {
 			err := client.HeartBeatInstance(elbReg)
 			return err

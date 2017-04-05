@@ -63,6 +63,12 @@ func TestCheckELBOnlyReg(t *testing.T) {
 	}
 }
 
+// Set up the cache
+func setupCache(key string, lb LBInfo) {
+	cache.m = make(map[string]cacheEntry)
+	cache.m[key] = cacheEntry{lb: &lb}
+}
+
 // Test_GetELBV2ForContainer - Test expected values are returned
 func Test_GetELBV2ForContainer(t *testing.T) {
 
@@ -71,7 +77,8 @@ func Test_GetELBV2ForContainer(t *testing.T) {
 		DNSName: "",
 		Port:    int64(1234),
 	}
-	lbCache["123123412"] = &lbWant
+
+	setupCache("123123412", lbWant)
 
 	type args struct {
 		containerID string
@@ -94,7 +101,7 @@ func Test_GetELBV2ForContainer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLbinfo, err := GetELBV2ForContainer(tt.args.containerID, tt.args.instanceID, tt.args.port, true)
+			gotLbinfo, err := GetELBV2ForContainer(tt.args.containerID, tt.args.instanceID, tt.args.port)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetELBV2ForContainer() error = %+v, wantErr %+v", err, tt.wantErr)
 				return
@@ -253,15 +260,16 @@ func Test_setRegInfo(t *testing.T) {
 	}
 
 	// Init LB info cache
-	lbCache["123123412"] = &LBInfo{
+	lb := LBInfo{
 		DNSName: "correct-lb-dnsname",
 		Port:    9001,
 	}
+	setupCache("123123412", lb)
 
 	wantedAwsInfo := eureka.AmazonMetadataType{
-		PublicHostname: lbCache["123123412"].DNSName,
-		HostName:       lbCache["123123412"].DNSName,
-		InstanceID:     lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port)),
+		PublicHostname: cache.m["123123412"].lb.DNSName,
+		HostName:       cache.m["123123412"].lb.DNSName,
+		InstanceID:     cache.m["123123412"].lb.DNSName + "_" + strconv.Itoa(int(cache.m["123123412"].lb.Port)),
 	}
 	wantedDCInfo := eureka.DataCenterInfo{
 		Name:     eureka.Amazon,
@@ -270,11 +278,11 @@ func Test_setRegInfo(t *testing.T) {
 
 	wanted := eureka.Instance{
 		DataCenterInfo: wantedDCInfo,
-		Port:           int(lbCache["123123412"].Port),
+		Port:           int(cache.m["123123412"].lb.Port),
 		App:            svc.Name,
 		IPAddr:         "",
 		VipAddress:     "",
-		HostName:       lbCache["123123412"].DNSName,
+		HostName:       cache.m["123123412"].lb.DNSName,
 		Status:         eureka.UP,
 	}
 
@@ -295,13 +303,13 @@ func Test_setRegInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := setRegInfo(tt.args.service, tt.args.registration, true)
+			got := setRegInfo(tt.args.service, tt.args.registration)
 			val := got.Metadata.GetMap()["has-elbv2"]
 			if val != "true" {
 				t.Errorf("setRegInfo() = %+v, \n Wanted has-elbv2=true in metadata, was %+v", got, val)
 			}
 			val2 := got.Metadata.GetMap()["elbv2-endpoint"]
-			wantVal := lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port))
+			wantVal := cache.m["123123412"].lb.DNSName + "_" + strconv.Itoa(int(cache.m["123123412"].lb.Port))
 			if val2 != wantVal {
 				t.Errorf("setRegInfo() = %+v, \n Wanted elbv2-endpoint=%v in metadata, was %+v", got, wantVal, val)
 			}
@@ -355,10 +363,11 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 
 	// Init LB info cache
 	// if things are working correctly, this won't be used for this test
-	lbCache["123123412"] = &LBInfo{
+	lb := LBInfo{
 		DNSName: "i-should-not-be-used",
 		Port:    666,
 	}
+	setupCache("123123412", lb)
 
 	wantedAwsInfo := eureka.AmazonMetadataType{
 		PublicHostname: svc.Attrs["eureka_elbv2_hostname"],
@@ -398,7 +407,7 @@ func Test_setRegInfoExplicitEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := setRegInfo(tt.args.service, tt.args.registration, true)
+			got := setRegInfo(tt.args.service, tt.args.registration)
 			val := got.Metadata.GetMap()["has-elbv2"]
 			if val != "true" {
 				t.Errorf("setRegInfo() = %+v, \n Wanted has-elbv2=true in metadata, was %+v", got, val)
@@ -474,15 +483,16 @@ func Test_setRegInfoELBv2Only(t *testing.T) {
 	}
 	// Init LB info cache
 	// if things are working correctly, this won't be used for this test
-	lbCache["123123412"] = &LBInfo{
+	lb := LBInfo{
 		DNSName: "correct-hostname",
 		Port:    12345,
 	}
+	setupCache("123123412", lb)
 
 	wantedAwsInfo := eureka.AmazonMetadataType{
-		PublicHostname: lbCache["123123412"].DNSName,
-		HostName:       lbCache["123123412"].DNSName,
-		InstanceID:     lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port)),
+		PublicHostname: cache.m["123123412"].lb.DNSName,
+		HostName:       cache.m["123123412"].lb.DNSName,
+		InstanceID:     cache.m["123123412"].lb.DNSName + "_" + strconv.Itoa(int(cache.m["123123412"].lb.Port)),
 	}
 	wantedDCInfo := eureka.DataCenterInfo{
 		Name:     eureka.Amazon,
@@ -491,11 +501,11 @@ func Test_setRegInfoELBv2Only(t *testing.T) {
 
 	wanted := eureka.Instance{
 		DataCenterInfo: wantedDCInfo,
-		Port:           int(lbCache["123123412"].Port),
+		Port:           int(cache.m["123123412"].lb.Port),
 		App:            svc.Name,
 		IPAddr:         "",
 		VipAddress:     "",
-		HostName:       lbCache["123123412"].DNSName,
+		HostName:       cache.m["123123412"].lb.DNSName,
 		Status:         eureka.UP,
 	}
 
@@ -516,9 +526,9 @@ func Test_setRegInfoELBv2Only(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := setRegInfo(tt.args.service, tt.args.registration, true)
+			got := setRegInfo(tt.args.service, tt.args.registration)
 			CheckMetadata(t, got.Metadata, "has-elbv2", "true")
-			wantVal := lbCache["123123412"].DNSName + "_" + strconv.Itoa(int(lbCache["123123412"].Port))
+			wantVal := cache.m["123123412"].lb.DNSName + "_" + strconv.Itoa(int(cache.m["123123412"].lb.Port))
 			CheckMetadata(t, got.Metadata, "elbv2-endpoint", wantVal)
 			CheckMetadata(t, got.Metadata, "container-id", "")
 			CheckMetadata(t, got.Metadata, "container-name", "")

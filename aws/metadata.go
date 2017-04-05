@@ -46,7 +46,7 @@ func GetMetadata() *Metadata {
 	once.Do(func() {
 		sess, err := session.NewSession()
 		if err != nil {
-			log.Fatalf("Unable to connect to the EC2 metadata service: %s\n", err)
+			log.Printf("Unable to connect to the EC2 metadata service: %s\n", err)
 		}
 		svc := ec2metadata.New(sess)
 		metadataCache = retrieveMetadata(svc)
