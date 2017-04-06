@@ -28,48 +28,42 @@ type lookupValues struct {
 }
 
 type cacheEntry struct {
+	*sync.Mutex
 	lb *LBInfo
-	sync.Mutex
 }
 
 type lbCache struct {
+	*sync.Mutex
 	m map[string]cacheEntry
-	sync.Mutex
 }
 
-var cache lbCache
+var cache = lbCache{&sync.Mutex{}, make(map[string]cacheEntry)}
 
 type fn func(lookupValues) (*LBInfo, error)
 
 //
 // Return a *LBInfo cache entry if it exists, or run the provided function to return data to add to cache
-// The complexity is purely to make the cache thread safe.
+// The locking complexity is purely to make the cache thread safe.
 //
 func getOrAddCacheEntry(key string, f fn, i lookupValues) (*LBInfo, error) {
 	cache.Lock()
-	if cache.m == nil {
-		cache.m = make(map[string]cacheEntry)
-	}
-	var populated = true
 	if _, ok := cache.m[key]; !ok {
-		cache.m[key] = cacheEntry{lb: &LBInfo{}}
-		populated = false
+		cache.m[key] = cacheEntry{&sync.Mutex{}, &LBInfo{Port: 0, DNSName: "should-have-been-set"}}
 	}
-	entry := cache.m[key]
-	entry.Lock()
-	defer entry.Unlock()
+	cache.m[key].Lock()
+	defer cache.m[key].Unlock()
 	cache.Unlock()
-	var err error
-	if !populated {
-		var o *LBInfo
-		o, err = f(i)
+	if cache.m[key].lb.Port == 0 {
+		o, err := f(i)
 		if err != nil {
 			log.Print("An error occurred trying to add data to the cache:", err)
+			return nil, err
 		}
-		entry.lb = o
+		tmp := cache.m[key]
+		tmp.lb = o
+		cache.m[key] = tmp
 	}
-	value := entry.lb
-	return value, err
+	return cache.m[key].lb, nil
 }
 
 // RemoveLBCache : Delete any cache of load balancer for this containerID

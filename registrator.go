@@ -139,6 +139,8 @@ func main() {
 
 	quit := make(chan struct{})
 
+	b.Sync(false)
+
 	// Start a dead container pruning timer to allow refresh to work independently
 	if *refreshInterval > 0 {
 		ticker := time.NewTicker(time.Duration(*refreshInterval) * time.Second)
@@ -186,8 +188,6 @@ func main() {
 			}
 		}()
 	}
-
-	b.Sync(false)
 
 	// Process Docker events
 	for msg := range events {
