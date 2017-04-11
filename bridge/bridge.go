@@ -281,11 +281,15 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		if err != nil {
 			log.Println("error listing swarm services, wont register VIP service", err)
 		} else if len(services) == 1 { // container cannot belong to no or more than one service
-			if services[0].Spec.EndpointSpec.Mode == swarm.ResolutionModeVIP { // endpoint should be VIP
-				if (len(services[0].Endpoint.VirtualIPs) > 0) {
-					b.registerSwarmVipServices(services[0])
+			if services[0].Spec.EndpointSpec != nil {
+				mode := services[0].Spec.EndpointSpec.Mode
+				if mode == swarm.ResolutionModeVIP { // endpoint should be VIP
+					if (len(services[0].Endpoint.VirtualIPs) > 0) {
+						b.registerSwarmVipServices(services[0])
+					}
 				}
 			}
+
 		}
 	}
 }
