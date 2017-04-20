@@ -12,6 +12,7 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/gliderlabs/registrator/consul"
 )
 
 var Version string
@@ -29,6 +30,7 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
+var consulRegMode = flag.String("consulRegMode", "agent", "Consul registration mode \"agent\" or \"catalog\"")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -95,6 +97,12 @@ func main() {
 	if *deregister != "always" && *deregister != "on-success" {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
+	
+	if *consulRegMode != "agent" && *consulRegMode != "catalog" {
+		assert(errors.New("-consulRegMode must be \"agent\" or \"catalog\""))
+	}
+	
+	consul.ConsulRegMode = *consulRegMode
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
