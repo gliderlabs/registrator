@@ -102,6 +102,16 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	return err
 }
 
+func (r *EtcdAdapter) RemoveAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *EtcdAdapter) PostAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
 func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	r.syncEtcdCluster()
 
@@ -126,4 +136,20 @@ func (r *EtcdAdapter) Refresh(service *bridge.Service) error {
 
 func (r *EtcdAdapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
+}
+
+func (r *EtcdAdapter) AcquireDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
+func (r *EtcdAdapter) ReleaseDistributedLock() error {
+    // PLACEHOLDER: This method is yet to be implemented
+    return nil
+}
+
+//This method queries for all distributed services, not just those managed locally
+func (r *EtcdAdapter) DistributedServices() (map[string][]string, error) {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil, nil
 }
