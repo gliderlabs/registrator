@@ -89,6 +89,10 @@ func main() {
 		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
 	}
 
+	LOGLEVEL := os.Getenv("LOGLEVEL")
+	if LOGLEVEL == "" {
+		os.Setenv("LOGLEVEL", "0")
+	}
 	docker, err := dockerapi.NewClientFromEnv()
 	assert(err)
 
