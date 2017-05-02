@@ -363,18 +363,18 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 			}
 		}
 		cleanUpAttrs := func(services []*Service) {
-		    b.registry.AcquireDistributedLock()
-            distServices, err := b.registry.DistributedServices()
-            if err != nil {
-                log.Println("Failed to list distributed services: ", err)
-            }
+			b.registry.AcquireDistributedLock()
+			distServices, err := b.registry.DistributedServices()
+			if err != nil {
+				log.Println("Failed to list distributed services: ", err)
+			}
 			for _, service := range services {
 				if _, ok := distServices[service.Name]; ok {
-                    log.Println("Service exists in another container... Attrs will be kept:", service.Name)
-                } else {
-                    b.registry.RemoveAttributes(service)
-                    log.Println("Service was not found elsewhere... Attrs will be removed:", service.Name)
-                }
+					log.Println("Service exists in another container... Attrs will be kept:", service.Name)
+				} else {
+					b.registry.RemoveAttributes(service)
+					log.Println("Service was not found elsewhere... Attrs will be removed:", service.Name)
+				}
 			}
 			b.registry.ReleaseDistributedLock()
 		}

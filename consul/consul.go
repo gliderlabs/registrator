@@ -33,11 +33,11 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if uri.Scheme == "consul-unix" {
 		config.Address = strings.TrimPrefix(uri.String(), "consul-")
 	} else if uri.Scheme == "consul-tls" {
-	        tlsConfigDesc := &consulapi.TLSConfig {
+			tlsConfigDesc := &consulapi.TLSConfig {
 			  Address: uri.Host,
 			  CAFile: os.Getenv("CONSUL_CACERT"),
-  			  CertFile: os.Getenv("CONSUL_TLSCERT"),
-  			  KeyFile: os.Getenv("CONSUL_TLSKEY"),
+			  CertFile: os.Getenv("CONSUL_TLSCERT"),
+			  KeyFile: os.Getenv("CONSUL_TLSKEY"),
 			  InsecureSkipVerify: false,
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
@@ -56,8 +56,8 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if err != nil {
 		log.Fatal("consul: ", uri.Scheme)
 	}
-    lock, err := client.LockKey("lock/adapter/distributedservices")
-    if err != nil {
+	lock, err := client.LockKey("lock/adapter/distributedservices")
+	if err != nil {
 		log.Fatal("Failed to create LockKey: ", uri.Scheme)
 	}
 	return &ConsulAdapter{client: client, distributedlock: lock}
@@ -190,19 +190,19 @@ func (r *ConsulAdapter) Services() ([]*bridge.Service, error) {
 }
 
 func (r *ConsulAdapter) AcquireDistributedLock() error {
-    _, err := r.distributedlock.Lock(nil)
-    if err != nil {
+	_, err := r.distributedlock.Lock(nil)
+	if err != nil {
 		return err
 	}
-    return nil
+	return nil
 }
 
 func (r *ConsulAdapter) ReleaseDistributedLock() error {
-    err := r.distributedlock.Unlock()
-    if err != nil {
+	err := r.distributedlock.Unlock()
+	if err != nil {
 		return err
 	}
-    return nil
+	return nil
 }
 
 //This method queries for all distributed services, not just those managed locally
