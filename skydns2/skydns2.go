@@ -53,6 +53,16 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	return err
 }
 
+func (r *Skydns2Adapter) RemoveAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *Skydns2Adapter) PostAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
 func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
 	if err != nil {

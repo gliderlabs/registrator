@@ -89,6 +89,16 @@ func (r *ZkAdapter) Ping() error {
 	return nil
 }
 
+func (r *ZkAdapter) RemoveAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *ZkAdapter) PostAttributes(service *bridge.Service) error {
+    // PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
 func (r *ZkAdapter) Deregister(service *bridge.Service) error {
 	basePath := r.path + "/" + service.Name
 	if (r.path == "/") {
