@@ -74,8 +74,8 @@ SERVICE_CHECK_SCRIPT=curl --silent --fail example.com
 ```
 
 The default interval for any non-TTL check is 10s, but you can set it with
-`_CHECK_INTERVAL`. The check command will be interpolated with the `$SERVICE_IP`
-and `$SERVICE_PORT` placeholders:
+`_CHECK_INTERVAL`. The check command will be interpolated with the `$SERVICE_IP`,
+`$SERVICE_PORT`, `$SERVICE_EXPOSED_IP` and `$SERVICE_EXPOSED_PORT` placeholders:
 
 ```bash
 SERVICE_CHECK_SCRIPT=nc $SERVICE_IP $SERVICE_PORT | grep OK
@@ -98,6 +98,34 @@ By default when a service is registered against Consul, the state is set to "cri
 ```bash
 SERVICE_CHECK_INITIAL_STATUS=passing
 ```
+
+### Consul Docker Check
+
+Consul also allows for checks to be run inside of Docker containers instead
+of directly by the Consul agent.  When specified registrator will instruct
+Consul to execute the given check inside of the tagged container.
+
+```bash
+SERVICE_CHECK_DOCKER=/path/inside/container/to/check
+``
+
+As with the script check, you can set the check interval with `_CHECK_INTERVAL`,
+and add tokens to be substituted in the check command:
+
+```bash
+SERVICE_CHECK_DOCKER=nc $SERVICE_EXPOSED_IP $SERVICE_EXPOSED_PORT | grep OK
+SERVICE_CHECK_INTERVAL=15s
+```
+
+You may also specify the shell that will be invoked within
+the Docker container:
+
+```bash
+SERVICE_CHECK_SHELL=/bin/bash    # Defaults to /bin/sh if not set
+```
+
+For more information on Consul checks, including Docker checks, please see
+[https://www.consul.io/docs/agent/checks.html](https://www.consul.io/docs/agent/checks.html).
 
 ## Consul KV
 
