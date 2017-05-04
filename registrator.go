@@ -18,9 +18,14 @@ var Version string
 
 var versionChecker = usage.NewChecker("registrator", Version)
 
-var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
-var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
-var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored in a label assigned to the container")
+var filter = flag.String("filter", "external:*", "Comma separated filter for \"IP\":\"Port\" pairs.\n" +
+	"        \"IP\" can be a single ip address or CIDR (ex. 192.168.1.1 192.168.1.0/24)\n" +
+	"        \"Port\" can be a single number or \"-\" separated range of ports\n" +
+	"          *       : Any ports\n" +
+	"          80-8080 : Ports range from 80 to 8080\n" +
+	"        Protocol can be appended ends of ports with \"/\" separated. (ex. 80/tcp 53/udp)\n" +
+	"        If container label \"REGISTRATOR_FILTER\" is defined, use it instead of this option")
+var intf = flag.String("interface", "eth0", "interface for get this host ip address")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
@@ -70,10 +75,6 @@ func main() {
 		os.Exit(2)
 	}
 
-	if *hostIp != "" {
-		log.Println("Forcing host IP to", *hostIp)
-	}
-
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
 		assert(errors.New("-ttl and -ttl-refresh must be specified together or not at all"))
 	} else if *refreshTtl > 0 && *refreshTtl <= *refreshInterval {
@@ -97,9 +98,8 @@ func main() {
 	}
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
-		HostIp:          *hostIp,
-		Internal:        *internal,
-		UseIpFromLabel:  *useIpFromLabel,
+		Filter:          *filter,
+		Intf:            *intf,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,

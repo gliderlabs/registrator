@@ -6,8 +6,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,18 +13,48 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
-
 type Bridge struct {
 	sync.Mutex
+	hostname       string
+	hostip         string
 	registry       RegistryAdapter
 	docker         *dockerapi.Client
-	services       map[string][]*Service
+	services       map[string](map[string]*Service)
 	deadContainers map[string]*DeadContainer
 	config         Config
 }
 
+func getHostIP(config Config) (string, error) {
+	// set host ip
+	intf, err := net.InterfaceByName(config.Intf)
+	if err != nil {
+		return "", err
+	}
+	addrs, err := intf.Addrs()
+	if err != nil {
+		return "", err
+	}
+	if len(addrs) == 0 {
+		return "", errors.New("interface " + intf.Name + " doesn't have any ip address")
+	}
+	if len(addrs[0].String()) == 0 {
+		return "", errors.New("interface " + intf.Name + " doesn't have valid ip address")
+	}
+	results := strings.Split(addrs[0].String(), "/")
+	return results[0], nil
+}
+
 func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
+	// set bridge's host ip
+	hostIP, err := getHostIP(config)
+	if err != nil {
+		return nil, err
+	}
+	// set bridge's host name
+	hostname, err := os.Hostname()
+	if err != nil || len(hostname) == 0 {
+		hostname = hostIP
+	}
 	uri, err := url.Parse(adapterUri)
 	if err != nil {
 		return nil, errors.New("bad adapter uri: " + adapterUri)
@@ -38,10 +66,12 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
+		hostname:       hostname,
+		hostip:         hostIP,
 		docker:         docker,
 		config:         config,
 		registry:       factory.New(uri),
-		services:       make(map[string][]*Service),
+		services:       make(map[string](map[string]*Service)),
 		deadContainers: make(map[string]*DeadContainer),
 	}, nil
 }
@@ -92,10 +122,11 @@ func (b *Bridge) Sync(quiet bool) {
 	defer b.Unlock()
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
-	if err != nil && quiet {
-		log.Println("error listing containers, skipping sync")
-		return
-	} else if err != nil && !quiet {
+	if err != nil {
+		if quiet {
+			log.Println("error listing containers, skipping sync")
+			return
+		}
 		log.Fatal(err)
 	}
 
@@ -106,12 +137,12 @@ func (b *Bridge) Sync(quiet bool) {
 		services := b.services[listing.ID]
 		if services == nil {
 			b.add(listing.ID, quiet)
-		} else {
-			for _, service := range services {
-				err := b.registry.Register(service)
-				if err != nil {
-					log.Println("sync register failed:", service, err)
-				}
+			continue
+		}
+		for _, service := range services {
+			err := b.registry.Register(service)
+			if err != nil {
+				log.Println("sync register failed:", service, err)
 			}
 		}
 	}
@@ -122,62 +153,56 @@ func (b *Bridge) Sync(quiet bool) {
 		// Remove services if its corresponding container is not running
 		log.Println("Listing non-exited containers")
 		filters := map[string][]string{"status": {"created", "restarting", "running", "paused"}}
-		nonExitedContainers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{Filters: filters})
+		nonExitedContainerList, err := b.docker.ListContainers(dockerapi.ListContainersOptions{Filters: filters})
 		if err != nil {
 			log.Println("error listing nonExitedContainers, skipping sync", err)
 			return
 		}
-		for listingId, _ := range b.services {
-			found := false
-			for _, container := range nonExitedContainers {
-				if listingId == container.ID {
-					found = true
-					break
-				}
-			}
-			// This is a container that does not exist
-			if !found {
-				log.Printf("stale: Removing service %s because it does not exist", listingId)
-				go b.RemoveOnExit(listingId)
+		nonExitedContainerMap := make(map[string]dockerapi.APIContainers)
+		for _, container := range nonExitedContainerList {
+			nonExitedContainerMap[container.ID] = container
+		}
+		// remove on exit when container not found (exited)
+		for containerID, _ := range b.services {
+			if _, ok := nonExitedContainerMap[containerID]; !ok {
+				log.Printf("stale: Removing service %s because it does not exist", containerID)
+				go b.RemoveOnExit(containerID)
 			}
 		}
-
-		log.Println("Cleaning up dangling services")
+		// get external services
+		log.Println("Listing external services")
 		extServices, err := b.registry.Services()
 		if err != nil {
-			log.Println("cleanup failed:", err)
+			log.Println("listing external services failed:", err)
 			return
 		}
 
-	Outer:
 		for _, extService := range extServices {
-			matches := serviceIDPattern.FindStringSubmatch(extService.ID)
-			if len(matches) != 3 {
-				// There's no way this was registered by us, so leave it
+			if strings.HasPrefix(extService.ID, b.hostname + ":") == false {
 				continue
 			}
-			serviceHostname := matches[1]
-			if serviceHostname != Hostname {
-				// ignore because registered on a different host
+			if b.getService(extService.ID) != nil {
 				continue
 			}
-			serviceContainerName := matches[2]
-			for _, listing := range b.services {
-				for _, service := range listing {
-					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
-						continue Outer
-					}
-				}
-			}
-			log.Println("dangling:", extService.ID)
+			log.Println("service not found (deregister):", extService.ID)
 			err := b.registry.Deregister(extService)
 			if err != nil {
 				log.Println("deregister failed:", extService.ID, err)
 				continue
 			}
-			log.Println(extService.ID, "removed")
 		}
 	}
+}
+
+func (b *Bridge) getService(extServiceID string) *Service {
+	for _, services := range b.services {
+		for serviceID, service := range services {
+			if serviceID == extServiceID {
+				return service
+			}
+		}
+	}
+	return nil
 }
 
 func (b *Bridge) add(containerId string, quiet bool) {
@@ -197,154 +222,97 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		log.Println("unable to inspect container:", containerId[:12], err)
 		return
 	}
-
-	ports := make(map[string]ServicePort)
-
-	// Extract configured host port mappings, relevant when using --net=host
-	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
-		ports[string(port)] = servicePort(container, port, published)
-	}
-
-	// Extract runtime port mappings, relevant when using --net=bridge
-	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = servicePort(container, port, published)
-	}
-
-	if len(ports) == 0 && !quiet {
-		log.Println("ignored:", container.ID[:12], "no published ports")
+	
+	// build filter from registrator option & labels
+	filters, err := NewFilter(container, b.config.Filter)
+	if err != nil {
+		log.Println("create filter error: " + err.Error())
 		return
 	}
 
-	servicePorts := make(map[string]ServicePort)
-	for key, port := range ports {
-		if b.config.Internal != true && port.HostPort == "" {
-			if !quiet {
-				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
-			}
-			continue
-		}
-		servicePorts[key] = port
-	}
-
-	isGroup := len(servicePorts) > 1
-	for _, port := range servicePorts {
-		service := b.newService(port, isGroup)
-		if service == nil {
-			if !quiet {
-				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
-			}
-			continue
-		}
-		err := b.registry.Register(service)
+	// create service from network settings
+	for _, containerNetwork := range container.NetworkSettings.Networks {
+		network, err := b.docker.NetworkInfo(containerNetwork.NetworkID)
 		if err != nil {
-			log.Println("register failed:", service, err)
 			continue
 		}
-		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
+		// rebuild port map from scattered port informations
+		servicePorts := make(map[dockerapi.Port][]dockerapi.PortBinding)
+		for port, bind := range container.HostConfig.PortBindings {
+			if _, ok := servicePorts[port]; !ok {
+				servicePorts[port] = bind
+			}
+		}
+		for port, bind := range container.NetworkSettings.Ports {
+			if _, ok := servicePorts[port]; !ok {
+				servicePorts[port] = bind
+			}
+		}
+		for port, _ := range container.Config.ExposedPorts {
+			if _, ok := servicePorts[port]; !ok {
+				servicePorts[port] = nil
+			}
+		}
+		// host mode network (consider external)
+		if network.Driver == "host" {
+			for port, _ := range servicePorts {
+				b.registerService(container, b.hostip, port.Port(), port.Proto(), false, filters)
+			}
+			continue
+		}
+		// internal network
+		if network.Driver == "bridge" || network.Driver == "overlay" {
+			for port, portBindings := range servicePorts {
+				b.registerService(container, containerNetwork.IPAddress, port.Port(), port.Proto(), true, filters)
+				if portBindings != nil {
+					for _, bindings := range portBindings {
+						if bindings.HostIP == "0.0.0.0" || bindings.HostIP == "" {
+							b.registerService(container, b.hostip, bindings.HostPort, port.Proto(), false, filters)
+						} else {
+							b.registerService(container, bindings.HostIP, bindings.HostPort, port.Proto(), false, filters)
+						}
+					}
+				}
+			}
+			continue
+		}
+		// external network
+		for port, _ := range servicePorts {
+			b.registerService(container, containerNetwork.IPAddress, port.Port(), port.Proto(), false, filters)
+		}
 	}
 }
 
-func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
-	container := port.container
-	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
-
-	// not sure about this logic. kind of want to remove it.
-	hostname := Hostname
-	if hostname == "" {
-		hostname = port.HostIP
+func (b *Bridge) registerService(container *dockerapi.Container, ip string, port string, proto string, internal bool, filters *Filters) {
+	result, _, err := filters.Match(ip, port, internal)
+	if err != nil || result == false {
+		return
 	}
-	if port.HostIP == "0.0.0.0" {
-		ip, err := net.ResolveIPAddr("ip", hostname)
-		if err == nil {
-			port.HostIP = ip.String()
-		}
+	// set container name (task name > container name)
+	containerName := container.Name[1:]
+	if name, ok := container.Config.Labels["com.docker.swarm.service.name"]; ok {
+		containerName = name
 	}
 
-	if b.config.HostIp != "" {
-		port.HostIP = b.config.HostIp
-	}
-
-	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
-
-	ignore := mapDefault(metadata, "ignore", "")
-	if ignore != "" {
-		return nil
-	}
-
+	// create service
 	service := new(Service)
-	service.Origin = port
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	service.Name = mapDefault(metadata, "name", defaultName)
-	if isgroup && !metadataFromPort["name"] {
-		service.Name += "-" + port.ExposedPort
-	}
-	var p int
-
-	if b.config.Internal == true {
-		service.IP = port.ExposedIP
-		p, _ = strconv.Atoi(port.ExposedPort)
-	} else {
-		service.IP = port.HostIP
-		p, _ = strconv.Atoi(port.HostPort)
-	}
-	service.Port = p
-
-	if b.config.UseIpFromLabel != "" {
-		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
-		if containerIp != "" {
-			slashIndex := strings.LastIndex(containerIp, "/")
-			if slashIndex > -1 {
-				service.IP = containerIp[:slashIndex]
-			} else {
-				service.IP = containerIp
-			}
-			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
-		} else {
-			log.Println("Label '" + b.config.UseIpFromLabel +
-				"' not found in container configuration")
-		}
-	}
-
-	// NetworkMode can point to another container (kuberenetes pods)
-	networkMode := container.HostConfig.NetworkMode
-	if networkMode != "" {
-		if strings.HasPrefix(networkMode, "container:") {
-			networkContainerId := strings.Split(networkMode, ":")[1]
-			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
-			networkContainer, err := b.docker.InspectContainer(networkContainerId)
-			if err != nil {
-				log.Println("unable to inspect network container:", networkContainerId[:12], err)
-			} else {
-				service.IP = networkContainer.NetworkSettings.IPAddress
-				log.Println(service.Name + ": using network container IP " + service.IP)
-			}
-		}
-	}
-
-	if port.PortType == "udp" {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
-		service.ID = service.ID + ":udp"
-	} else {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags)
-	}
-
-	id := mapDefault(metadata, "id", "")
-	if id != "" {
-		service.ID = id
-	}
-
-	delete(metadata, "id")
-	delete(metadata, "tags")
-	delete(metadata, "name")
-	service.Attrs = metadata
+	service.ID = b.hostname + ":" + ip + ":" + containerName + ":" + port
+	service.Name = containerName
+	service.Port, _ = strconv.Atoi(port)
+	service.IP = ip
 	service.TTL = b.config.RefreshTtl
-
-	return service
+	// register service
+	err = b.registry.Register(service)
+	if err != nil {
+		log.Println("register failed:", service, err)
+		return
+	}
+	// update local service list
+	if _, ok := b.services[container.ID]; !ok {
+		b.services[container.ID] = make(map[string]*Service)
+	}
+	b.services[container.ID][service.ID] = service
+	log.Println("added:", container.ID[:12], service.ID)
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {
@@ -352,7 +320,7 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 	defer b.Unlock()
 
 	if deregister {
-		deregisterAll := func(services []*Service) {
+		deregisterAll := func(services map[string]*Service) {
 			for _, service := range services {
 				err := b.registry.Deregister(service)
 				if err != nil {
@@ -405,10 +373,5 @@ func (b *Bridge) shouldRemove(containerId string) bool {
 	return false
 }
 
-var Hostname string
-
 func init() {
-	// It's ok for Hostname to ultimately be an empty string
-	// An empty string will fall back to trying to make a best guess
-	Hostname, _ = os.Hostname()
 }
