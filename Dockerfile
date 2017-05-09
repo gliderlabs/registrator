@@ -10,4 +10,4 @@ RUN apk --no-cache add -t build-deps build-base go git \
 	&& go get \
 	&& go build -ldflags "-X main.Version=$(cat VERSION)" -o /bin/registrator \
 	&& rm -rf /go \
-	&& apk del --purge build-deps
+	&& apk del --purge build-deps 

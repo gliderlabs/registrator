@@ -51,8 +51,6 @@ func (b *Bridge) Ping() error {
 }
 
 func (b *Bridge) Add(containerId string) {
-	b.Lock()
-	defer b.Unlock()
 	b.add(containerId, false)
 }
 
@@ -65,17 +63,7 @@ func (b *Bridge) RemoveOnExit(containerId string) {
 }
 
 func (b *Bridge) Refresh() {
-	b.Lock()
-	defer b.Unlock()
-
-	for containerId, deadContainer := range b.deadContainers {
-		deadContainer.TTL -= b.config.RefreshInterval
-		if deadContainer.TTL <= 0 {
-			delete(b.deadContainers, containerId)
-		}
-	}
-
-	for containerId, services := range b.services {
+	for containerId, services := range b.getServicesCopy() {
 		for _, service := range services {
 			err := b.registry.Refresh(service)
 			if err != nil {
@@ -87,9 +75,36 @@ func (b *Bridge) Refresh() {
 	}
 }
 
-func (b *Bridge) Sync(quiet bool) {
+func (b *Bridge) PruneDeadContainers() {
 	b.Lock()
 	defer b.Unlock()
+	for containerId, deadContainer := range b.deadContainers {
+		deadContainer.TTL -= b.config.RefreshInterval
+		if deadContainer.TTL <= 0 {
+			delete(b.deadContainers, containerId)
+		}
+	}
+}
+
+// Get a deep copy of the current services in a thread-safe way
+func (b *Bridge) getServicesCopy() map[string][]*Service {
+	b.Lock()
+	defer b.Unlock()
+	svcsCopy := make(map[string][]*Service)
+
+	for id, svc := range b.services {
+		var svcPointers []*Service
+		for _, s := range svc {
+			t := *s
+			z := &t
+			svcPointers = append(svcPointers, z)
+		}
+		svcsCopy[id] = svcPointers
+	}
+	return svcsCopy
+}
+
+func (b *Bridge) Sync(quiet bool) {
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
@@ -99,13 +114,16 @@ func (b *Bridge) Sync(quiet bool) {
 		log.Fatal(err)
 	}
 
+	// Take this to avoid having to use a mutex
+	servicesSnapshot := b.getServicesCopy()
+
 	log.Printf("Syncing services on %d containers", len(containers))
 
 	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
-		services := b.services[listing.ID]
+		services := servicesSnapshot[listing.ID]
 		if services == nil {
-			b.add(listing.ID, quiet)
+			go b.add(listing.ID, quiet)
 		} else {
 			for _, service := range services {
 				err := b.registry.Register(service)
@@ -127,7 +145,7 @@ func (b *Bridge) Sync(quiet bool) {
 			log.Println("error listing nonExitedContainers, skipping sync", err)
 			return
 		}
-		for listingId, _ := range b.services {
+		for listingId, _ := range servicesSnapshot {
 			found := false
 			for _, container := range nonExitedContainers {
 				if listingId == container.ID {
@@ -162,7 +180,7 @@ func (b *Bridge) Sync(quiet bool) {
 				continue
 			}
 			serviceContainerName := matches[2]
-			for _, listing := range b.services {
+			for _, listing := range servicesSnapshot {
 				for _, service := range listing {
 					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
 						continue Outer
@@ -180,13 +198,27 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 }
 
-func (b *Bridge) add(containerId string, quiet bool) {
+func (b *Bridge) deleteDeadContainer(containerId string) {
+	b.Lock()
+	defer b.Unlock()
+
 	if d := b.deadContainers[containerId]; d != nil {
 		b.services[containerId] = d.Services
 		delete(b.deadContainers, containerId)
 	}
+}
 
-	if b.services[containerId] != nil {
+func (b *Bridge) appendService(containerId string, service *Service) {
+	b.Lock()
+	defer b.Unlock()
+	b.services[containerId] = append(b.services[containerId], service)
+	log.Println("added:", containerId[:12], service.ID)
+}
+
+func (b *Bridge) add(containerId string, quiet bool) {
+	b.deleteDeadContainer(containerId)
+
+	if b.getServicesCopy()[containerId] != nil {
 		log.Println("container, ", containerId[:12], ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
 		return
@@ -202,7 +234,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -241,8 +273,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			log.Println("register failed:", service, err)
 			continue
 		}
-		b.services[container.ID] = append(b.services[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
+		b.appendService(container.ID, service)
 	}
 }
 
@@ -273,6 +304,14 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		return nil
 	}
 
+	if b.config.RequireLabel {
+		log.Printf("Checking for label SERVICE_REGISTER")
+		if mapDefault(metadata, "register", "") == "" {
+			log.Printf("Did not find label SERVICE_REGISTER")
+			return nil
+		}
+	}
+
 	service := new(Service)
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
@@ -301,7 +340,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
