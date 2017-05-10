@@ -83,7 +83,28 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Tags = service.Tags
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
-	return r.client.Agent().ServiceRegister(registration)
+
+	agentService := new(consulapi.AgentService)
+	agentService.Service = service.Name
+	agentService.ID      = service.ID
+	agentService.Address = service.IP
+	agentService.Port    = service.Port
+	agentService.Tags    = service.Tags
+
+	hostname := strings.Split(service.ID, ":")[0]
+
+	catalogRegistration := new(consulapi.CatalogRegistration)
+	catalogRegistration.Node    = fmt.Sprintf("docker-%s", hostname)
+	catalogRegistration.ID      = service.ID
+	catalogRegistration.Address = hostname
+	catalogRegistration.Service = agentService
+
+	_, err := r.client.Catalog().Register(catalogRegistration, nil)
+	if err != nil {
+		log.Println("Error registering service:", err)
+	}
+	return err
+	//return r.client.Agent().ServiceRegister(registration)
 }
 
 func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
@@ -129,7 +150,20 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	return r.client.Agent().ServiceDeregister(service.ID)
+//	return r.client.Agent().ServiceDeregister(service.ID)
+	hostname := strings.Split(service.ID, ":")[0]
+
+	catalogDeregistration := new(consulapi.CatalogDeregistration)
+	catalogDeregistration.Node    = fmt.Sprintf("docker-%s", hostname)
+	catalogDeregistration.ServiceID = service.ID
+
+	wm, err := r.client.Catalog().Deregister(catalogDeregistration, nil)
+	if err != nil {
+		log.Println("Error deregistering catalog:", err)
+	} else {
+		log.Println(wm)
+	}
+	return err
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
