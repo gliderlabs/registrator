@@ -163,3 +163,36 @@ The JSON will contain all infromation about the published container service. As 
 Will result in the zookeeper path and JSON znode body:
 
     /basepath/www/80 = {"Name":"www","IP":"192.168.1.123","PublicPort":49153,"PrivatePort":80,"ContainerID":"9124853ff0d1","Tags":[],"Attrs":{}}
+    
+
+## Eureka
+
+The Eureka backend (based on uses a few conventions that can be overridden with container attributes.  
+By default, containers will be registered with a datacenter of Amazon, with a public 
+hostname and IP of the host IP address, and a local hostname and IP of either the
+docker-assigned internal IP address if the `-internal` flag is set or
+the host ip if not.
+
+The following defaults are set and can be overridden with service attributes:
+```
+	SERVICE_EUREKA_STATUS = UP
+	SERVICE_EUREKA_VIP = Service Name
+	SERVICE_EUREKA_LEASEINFO_RENEWALINTERVALINSECS = 30
+	SERVICE_EUREKA_LEASEINFO_DURATIONINSECS = 90
+	SERVICE_EUREKA_DATACENTERINFO_NAME = Amazon
+```
+	
+If the Amazon Datacenter type is used, the following additional values are supported:
+```	
+	SERVICE_EUREKA_DATACENTERINFO_PUBLICHOSTNAME = Host IP
+	SERVICE_EUREKA_DATACENTERINFO_PUBLICIPV4 = Host IP
+	SERVICE_EUREKA_DATACENTERINFO_LOCALIPV4 = Host or Container IP (depending on -internal flag)
+	SERVICE_EUREKA_DATACENTERINFO_LOCALHOSTNAME = Host or Container IP (depending on -internal flag)
+```
+
+To set custom eureka metadata for your own purposes, you can use service attributes prefixed with SERVICE_EUREKA_METADATA_, e.g.:
+```
+	SERVICE_EUREKA_METADATA_MYROUTES=/route1*|/route2*
+	SERVICE_EUREKA_METADATA_BE_AWESOME=true
+```
+These will appear in eureka inside a metadata tag.  See https://github.com/hudl/fargo/blob/master/metadata.go for some ideas on how to use them.
