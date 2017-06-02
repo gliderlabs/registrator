@@ -211,11 +211,6 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
-	if len(ports) == 0 && !quiet {
-		log.Println("ignored:", container.ID[:12], "no published ports")
-		return
-	}
-
 	servicePorts := make(map[string]ServicePort)
 	for key, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
@@ -225,6 +220,21 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			continue
 		}
 		servicePorts[key] = port
+	}
+
+	metadata, _ := serviceMetaData(container.Config, "")
+	if mapDefault(metadata, "force_register", "") != "" {
+		// Register service even if no ports are published
+		if len(servicePorts) == 0 {
+			published := []dockerapi.PortBinding{ {"0.0.0.0", "0"}, }
+			servicePorts["0"] = servicePort(container, "0", published)
+		}
+	} else {
+		//register only published ports
+		if len(servicePorts) == 0 && !quiet {
+			log.Println("ignored:", container.ID[:12], "no published ports")
+			return
+		}
 	}
 
 	isGroup := len(servicePorts) > 1
@@ -275,9 +285,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.Origin = port
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	service.ID = hostname + ":" + container.Name[1:]
+	if port.ExposedPort != "0" {
+		service.ID += ":" + port.ExposedPort
+	}
 	service.Name = mapDefault(metadata, "name", defaultName)
-	if isgroup && !metadataFromPort["name"] {
+	if isgroup && !metadataFromPort["name"] && port.ExposedPort != "0" {
 		service.Name += "-" + port.ExposedPort
 	}
 	var p int
