@@ -23,6 +23,7 @@ type Config struct {
 	HostIp          string
 	Internal        bool
 	UseIpFromLabel  string
+	IncludePort     bool
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int
