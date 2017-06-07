@@ -106,6 +106,13 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
 	} else if script := service.Attrs["check_script"]; script != "" {
 		check.Script = r.interpolateService(script, service)
+	} else if script := service.Attrs["check_docker_script"]; script != "" {
+		check.Script = r.interpolateService(script, service)
+		check.DockerContainerID = service.Origin.ContainerID
+		if shell := service.Attrs["check_docker_shell"]; shell != "" {
+			check.Shell = shell
+		}
+
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
