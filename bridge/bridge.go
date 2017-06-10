@@ -36,6 +36,18 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 		return nil, errors.New("unrecognized adapter: " + adapterUri)
 	}
 
+	config.LabelFilter = strings.SplitN(os.Getenv("LABEL_FILTER"), "=", 2)
+	if config.LabelFilter[0] == "" && os.Getenv("IGNORE_DOCKER_COMPOSE_PROJECT") != "true" {
+		container, err := docker.InspectContainer(os.Getenv("HOSTNAME"))
+		config.LabelFilter = []string{}
+		if err != nil {
+			log.Println("Could not inspect registrator container", os.Getenv("HOSTNAME"), ":", err)
+		} else if container.Config.Labels["com.docker.compose.project"] != "" {
+			config.LabelFilter = []string{"com.docker.compose.project", container.Config.Labels["com.docker.compose.project"]}
+		}
+	}
+	log.Println("config.LabelFilter", config.LabelFilter)
+
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
 		docker:         docker,
@@ -271,6 +283,17 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {
 		return nil
+	}
+
+	if len(b.config.LabelFilter) != 0 {
+		label := container.Config.Labels[b.config.LabelFilter[0]]
+		expectedLabel := ""
+		if len(b.config.LabelFilter) == 2 {
+			expectedLabel = b.config.LabelFilter[1]
+		}
+		if label != expectedLabel {
+			return nil
+		}
 	}
 
 	service := new(Service)
