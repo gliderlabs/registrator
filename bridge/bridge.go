@@ -264,6 +264,11 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	log.Println("len container.Config.ExposedPorts = ", len(container.Config.ExposedPorts))
 	log.Println("len container.NetworkSettings.Ports = ", len(container.NetworkSettings.Ports))
 	if b.config.RancherExternalPorts == true {
+		log.Println("Removing internal ports, ", ports)
+		for key, _ := range ports {
+			delete(ports, key)
+		}
+		log.Println("Removed internal ports, ", ports)
 		log.Println("Loading rancher external ports for  " + container.ID)
 
 		for _, portVal := range b.GetExternalPorts(container.ID, "") {
