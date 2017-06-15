@@ -39,6 +39,27 @@ Guide. Typically, running Registrator looks like this:
         gliderlabs/registrator:latest \
           consul://localhost:8500
 
+## Using Registrator with Rancher CNI
+
+A rancher-compose.yml for running registrator with rancher CNI looks like this:
+
+    version: '2'
+    services:
+      registrator:
+        image: <insert tag of local build of this patch of registrator>/registrator-patch:n
+        network_mode: host
+        volumes:
+        - /var/run/docker.sock:/tmp/docker.sock
+        command:
+        - -rancherExternalPorts
+        - -cleanup
+        - consul://0.0.0.0:8500
+        labels:
+          io.rancher.container.dns: 'true'
+          com.btfin.devops.name: registrator
+          io.rancher.scheduler.global: 'true'
+          io.rancher.container.network: 'false'
+
 ## Contributing
 
 Pull requests are welcome! We recommend getting feedback before starting by
