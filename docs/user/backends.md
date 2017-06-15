@@ -21,8 +21,8 @@ Consul supports tags but no arbitrary service attributes.
 
 When using the `consul-tls` scheme, registrator communicates with Consul through TLS. You must set the following environment variables:
  * `CONSUL_CACERT` : CA file location
- * `CONSUL_TLSCERT` : Certificate file location
- * `CONSUL_TLSKEY` : Key location
+ * `CONSUL_CLIENT_CERT` : Certificate file location
+ * `CONSUL_CLIENT_KEY` : Key location
 
 ### Consul HTTP Check
 
