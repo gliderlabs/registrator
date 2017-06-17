@@ -1,3 +1,5 @@
+Please see the patches for rancher-cni and registrator at the branch here: https://github.com/juliangamble/registrator/tree/rancher-metadata-link
+
 # Registrator
 
 Service registry bridge for Docker.
