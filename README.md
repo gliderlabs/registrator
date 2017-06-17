@@ -46,7 +46,7 @@ A rancher-compose.yml for running registrator with rancher CNI looks like this:
     version: '2'
     services:
       registrator:
-        image: <insert tag of local build of this patch of registrator>/registrator-patch:n
+        image: juliangamble/registrator
         network_mode: host
         volumes:
         - /var/run/docker.sock:/tmp/docker.sock
