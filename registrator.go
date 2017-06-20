@@ -20,6 +20,7 @@ var versionChecker = usage.NewChecker("registrator", Version)
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
+var explicit = flag.Bool("explicit", false, "Only register containers which have SERVICE_NAME label set")
 var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored in a label assigned to the container")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
@@ -99,6 +100,7 @@ func main() {
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
+		Explicit:        *explicit,
 		UseIpFromLabel:  *useIpFromLabel,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
