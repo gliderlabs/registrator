@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"strconv"
 	"os"
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
@@ -21,8 +22,8 @@ func init() {
 }
 
 func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
-	withIp := strings.Replace(script, "$SERVICE_IP", service.Origin.HostIP, -1)
-	withPort := strings.Replace(withIp, "$SERVICE_PORT", service.Origin.HostPort, -1)
+	withIp := strings.Replace(script, "$SERVICE_IP", service.IP, -1)
+	withPort := strings.Replace(withIp, "$SERVICE_PORT", strconv.Itoa(service.Port), -1)
 	return withPort
 }
 
@@ -121,6 +122,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		} else {
 			check.Interval = DefaultInterval
 		}
+	}
+	if deregister_after := service.Attrs["check_deregister_after"]; deregister_after != "" {
+		check.DeregisterCriticalServiceAfter = deregister_after
 	}
 	return check
 }
