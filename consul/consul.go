@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"strings"
-	"strconv"
 	"os"
+	"strconv"
+	"strings"
+
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
@@ -34,16 +35,16 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	if uri.Scheme == "consul-unix" {
 		config.Address = strings.TrimPrefix(uri.String(), "consul-")
 	} else if uri.Scheme == "consul-tls" {
-	        tlsConfigDesc := &consulapi.TLSConfig {
-			  Address: uri.Host,
-			  CAFile: os.Getenv("CONSUL_CACERT"),
-  			  CertFile: os.Getenv("CONSUL_TLSCERT"),
-  			  KeyFile: os.Getenv("CONSUL_TLSKEY"),
-			  InsecureSkipVerify: false,
+		tlsConfigDesc := &consulapi.TLSConfig{
+			Address:            uri.Host,
+			CAFile:             os.Getenv("CONSUL_CACERT"),
+			CertFile:           os.Getenv("CONSUL_TLSCERT"),
+			KeyFile:            os.Getenv("CONSUL_TLSKEY"),
+			InsecureSkipVerify: false,
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
 		if err != nil {
-		   log.Fatal("Cannot set up Consul TLSConfig", err)
+			log.Fatal("Cannot set up Consul TLSConfig", err)
 		}
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
@@ -92,13 +93,17 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	if status := service.Attrs["check_initial_status"]; status != "" {
 		check.Status = status
 	}
+	checkPort := fmt.Sprintf("%d", service.Port)
+	if port := service.Attrs["check_port"]; port != "" {
+		checkPort = service.Attrs["check_port"]
+	}
 	if path := service.Attrs["check_http"]; path != "" {
-		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
+		check.HTTP = fmt.Sprintf("http://%s:%s%s", service.IP, checkPort, path)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
 	} else if path := service.Attrs["check_https"]; path != "" {
-		check.HTTP = fmt.Sprintf("https://%s:%d%s", service.IP, service.Port, path)
+		check.HTTP = fmt.Sprintf("https://%s:%s%s", service.IP, checkPort, path)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
@@ -109,7 +114,7 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
-		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		check.TCP = fmt.Sprintf("%s:%s", service.IP, checkPort)
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
