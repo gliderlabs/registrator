@@ -85,7 +85,7 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 	return metadata, metadataFromPort
 }
 
-func swarmServiceMetaData(config swarm.ContainerSpec, port string) (map[string]string, map[string]bool) {
+func swarmServiceMetaData(config *swarm.ContainerSpec, port string) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
 		meta = append(meta, k+"="+v)

@@ -320,15 +320,15 @@ func (b *Bridge) SyncSwarmServices() {
 						founded = true
 					} else {
 						for _, env := range swarmService.Spec.TaskTemplate.ContainerSpec.Env {
-							split_string = strings.Split(env, "_")
+							split_string := strings.Split(env, "_")
 							if split_string[0] == "SERVICE" && len(split_string) >= 3 {
-								if string.Split(split_string[2], "=")[0] == "NAME" {
+								if strings.Split(split_string[2], "=")[0] == "NAME" {
 									if strings.Split(split_string[2], "=")[1] == myservice.Name {
 										founded = true
 									}
 								}
 							} else if split_string[0] == "SERVICE" && len(split_string) == 2 {
-								if string.Split(split_string[1], "=")[0] == "NAME" {
+								if strings.Split(split_string[1], "=")[0] == "NAME" {
 									if strings.Split(split_string[1], "=")[1] == myservice.Name {
 										founded = true
 									}
@@ -497,13 +497,13 @@ func (b *Bridge) registerSwarmVipServices(service swarm.Service) {
 // docker configuration there is no such events
 // registrations created here are unique, and not based on containers
 // so we will just create them and forget, i don't see proper way to cleanup them at the moment
-func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig, config swarm.ContainerSpec) {
+func (b *Bridge) registerSwarmVipServicePorts(serviceName string, inside bool, vip string, ports []swarm.PortConfig, config *swarm.ContainerSpec) {
 	for _, port := range ports {
 		b.registerSwarmVipService(serviceName, inside, vip, true, int(port.PublishedPort), port.Protocol, int(port.TargetPort), config)
 	}
 }
 
-func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol, targetPort int, config swarm.ContainerSpec) {
+func (b *Bridge) registerSwarmVipService(serviceName string, inside bool, vip string, isGroup bool, port int, protocol swarm.PortConfigProtocol, targetPort int, config *swarm.ContainerSpec) {
 
 	var tag string
 	if tag = "vip-outside"; inside {
