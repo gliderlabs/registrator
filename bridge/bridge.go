@@ -320,9 +320,16 @@ func (b *Bridge) SyncSwarmServices() {
 						founded = true
 					} else {
 						for _, env := range swarmService.Spec.TaskTemplate.ContainerSpec.Env {
-							if strings.Split(env, "_")[0] == "SERVICE" {
-								if strings.Split(strings.Split(env, "_")[2], "=")[0] == "NAME" {
-									if strings.Split(strings.Split(env, "_")[2], "=")[1] == myservice.Name {
+							split_string = strings.Split(env, "_")
+							if split_string[0] == "SERVICE" && len(split_string) >= 3 {
+								if string.Split(split_string[2], "=")[0] == "NAME" {
+									if strings.Split(split_string[2], "=")[1] == myservice.Name {
+										founded = true
+									}
+								}
+							} else if split_string[0] == "SERVICE" && len(split_string) == 2 {
+								if string.Split(split_string[1], "=")[0] == "NAME" {
+									if strings.Split(split_string[1], "=")[1] == myservice.Name {
 										founded = true
 									}
 								}
