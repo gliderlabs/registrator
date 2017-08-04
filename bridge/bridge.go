@@ -355,10 +355,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	return service
 }
 
+
 func (b *Bridge) remove(containerId string, deregister bool) {
 	b.Lock()
 	defer b.Unlock()
-
 	if deregister {
 		deregisterAll := func(services []*Service) {
 			for _, service := range services {
@@ -370,9 +370,27 @@ func (b *Bridge) remove(containerId string, deregister bool) {
 				log.Println("removed:", containerId[:12], service.ID)
 			}
 		}
+		cleanUpAttrs := func(services []*Service) {
+			b.registry.AcquireDistributedLock()
+			distServices, err := b.registry.DistributedServices()
+			if err != nil {
+				log.Println("Failed to list distributed services: ", err)
+			}
+			for _, service := range services {
+				if _, ok := distServices[service.Name]; ok {
+					log.Println("Service exists in another container... Attrs will be kept:", service.Name)
+				} else {
+					b.registry.RemoveAttributes(service)
+					log.Println("Service was not found elsewhere... Attrs will be removed:", service.Name)
+				}
+			}
+			b.registry.ReleaseDistributedLock()
+		}
 		deregisterAll(b.services[containerId])
+		cleanUpAttrs(b.services[containerId])
 		if d := b.deadContainers[containerId]; d != nil {
 			deregisterAll(d.Services)
+			cleanUpAttrs(d.Services)
 			delete(b.deadContainers, containerId)
 		}
 	} else if b.config.RefreshTtl != 0 && b.services[containerId] != nil {

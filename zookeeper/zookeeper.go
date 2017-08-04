@@ -89,6 +89,16 @@ func (r *ZkAdapter) Ping() error {
 	return nil
 }
 
+func (r *ZkAdapter) RemoveAttributes(service *bridge.Service) error {
+	// PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *ZkAdapter) PostAttributes(service *bridge.Service) error {
+	// PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
 func (r *ZkAdapter) Deregister(service *bridge.Service) error {
 	basePath := r.path + "/" + service.Name
 	if (r.path == "/") {
@@ -120,3 +130,20 @@ func (r *ZkAdapter) Refresh(service *bridge.Service) error {
 func (r *ZkAdapter) Services() ([]*bridge.Service, error) {
 	return []*bridge.Service{}, nil
 }
+
+func (r *ZkAdapter) AcquireDistributedLock() error {
+	// PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+func (r *ZkAdapter) ReleaseDistributedLock() error {
+	// PLACEHOLDER: This method is yet to be implemented
+	return nil
+}
+
+//This method queries for all distributed services, not just those managed locally
+func (r *ZkAdapter) DistributedServices() (map[string][]string, error) {
+	// PLACEHOLDER: This method is yet to be implemented
+	return nil, nil
+}
+
