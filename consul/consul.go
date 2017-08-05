@@ -53,15 +53,23 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	} else if uri.Host != "" {
 		config.Address = uri.Host
 	}
+	servicePrefix := uri.Query()["prefix"]
+
 	client, err := consulapi.NewClient(config)
 	if err != nil {
 		log.Fatal("consul: ", uri.Scheme)
 	}
-	return &ConsulAdapter{client: client}
+	if(len(servicePrefix)>0) {
+		return &ConsulAdapter{client: client, servicePrefix: servicePrefix[0]}
+	} else {
+		return &ConsulAdapter{client: client}
+
+	}
 }
 
 type ConsulAdapter struct {
-	client *consulapi.Client
+	client        *consulapi.Client
+	servicePrefix string
 }
 
 // Ping will try to connect to consul by attempting to retrieve the current leader.
@@ -84,6 +92,16 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Tags = service.Tags
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
+	if r.servicePrefix != "" {
+		kv := r.client.KV()
+		for k, v := range service.Attrs {
+                        pair := &consulapi.KVPair{Key: r.servicePrefix + "/" + service.ID + "/" + k, Value: []byte(v)}
+			_, err := kv.Put(pair, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 	return r.client.Agent().ServiceRegister(registration)
 }
 
@@ -130,7 +148,10 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	return r.client.Agent().ServiceDeregister(service.ID)
+	//	pair := &consulapi.KVPair{Key: "service_attribute" + "/" + service.Name + "/" + k, Value: []byte(v)}
+	success := r.client.Agent().ServiceDeregister(service.ID)
+	r.client.KV().DeleteTree("service_attribute"+"/attributes/"+service.ID, nil)
+	return success
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
