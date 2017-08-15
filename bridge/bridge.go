@@ -301,7 +301,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		service.Name += "-" + port.ExposedPort
 	}
 	var p int
-	if b.config.Internal == true {
+	var exposeExternalAddress = metadata["expose_external_address"] == "true"
+
+	if b.config.Internal == true && !exposeExternalAddress {
 		service.IP = port.ExposedIP
 		p, _ = strconv.Atoi(port.ExposedPort)
 	} else {
@@ -360,6 +362,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	delete(metadata, "id")
 	delete(metadata, "tags")
 	delete(metadata, "name")
+	delete(metadata, "expose_external_address")
 	service.Attrs = metadata
 	service.TTL = b.config.RefreshTtl
 
