@@ -506,12 +506,18 @@ func (b *Bridge) RegisterSwarmServiceById(aSwarmServiceId string) (*swarm.Servic
 	b.Lock()
 	defer b.Unlock()
 
+	return b.registerSwarmServiceById(aSwarmServiceId)
+}
+
+func (b *Bridge) registerSwarmServiceById(aSwarmServiceId string) (*swarm.Service, error) {
+
 	swarmService, err := b.docker.InspectService(aSwarmServiceId)
 
 	if err == nil {
 		b.registerSwarmService(*swarmService)
 		return swarmService, err
 	} else {
+		log.Printf("cant inspect service: ", aSwarmServiceId, err)
 		return swarmService, err
 	}
 }
@@ -519,6 +525,11 @@ func (b *Bridge) RegisterSwarmServiceById(aSwarmServiceId string) (*swarm.Servic
 func (b *Bridge) DeregisterSwarmServiceById(aSwarmServiceId string) {
 	b.Lock()
 	defer b.Unlock()
+
+	b.deregisterSwarmServiceById(aSwarmServiceId)
+}
+
+func (b *Bridge) deregisterSwarmServiceById(aSwarmServiceId string) {
 
 	deregisterCondition := func(swarmServiceId string, registeredService *Service) bool {
 		if swarmServiceId == aSwarmServiceId {
@@ -536,8 +547,10 @@ func (b *Bridge) UpdateSwarmServiceById(aSwarmServiceId string) {
 	b.Lock()
 	defer b.Unlock()
 
+	log.Printf(">UpdateSwarmServiceById: ", aSwarmServiceId)
+
 	// registers service eventually (because replicas>0) if currently not registered (because replicas=0)
-	swarmService, err := b.RegisterSwarmServiceById(aSwarmServiceId)
+	swarmService, err := b.registerSwarmServiceById(aSwarmServiceId)
 
 	if err != nil {
 		log.Printf("can't register swarm service by id: ", aSwarmServiceId)
@@ -574,6 +587,8 @@ func (b *Bridge) registerSwarmService(swarmService swarm.Service) {
 					b.registerSwarmVipServices(swarmService)
 				}
 			}
+		} else {
+			log.Printf("swarm DNSrr service will be handled as container service", swarmService.Spec.Name)
 		}
 	}
 }
