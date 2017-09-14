@@ -84,6 +84,26 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 	return metadata, metadataFromPort
 }
 
+func envToMap(lines []string) (map[string]string) {
+	result := make(map[string]string)
+	for _, line := range lines {
+		kvp := strings.SplitN(line, "=", 2)
+		if len(kvp) > 1 {
+			result[kvp[0]] = kvp[1]
+		}
+	}
+	return result
+}
+
+func joinMaps(src map[string]string, dst map[string]string, filter func(key string)bool) (map[string]string) {
+	for key, value := range src {
+		if filter(key) {
+			dst[key] = value
+		}
+	}
+	return dst
+}
+
 func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
 	var hp, hip, ep, ept, eip, nm string
 	if len(published) > 0 {
