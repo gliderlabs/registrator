@@ -12,6 +12,7 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/docker/docker/api/types/swarm"
 )
 
 var Version string
@@ -20,7 +21,6 @@ var versionChecker = usage.NewChecker("registrator", Version)
 
 var hostIp = flag.String("ip", "", "IP for ports mapped to the host")
 var internal = flag.Bool("internal", false, "Use internal ports instead of published ones")
-var explicit = flag.Bool("explicit", false, "Only register containers which have SERVICE_NAME label set")
 var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored in a label assigned to the container")
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
@@ -49,7 +49,7 @@ func main() {
 		versionChecker.PrintVersion()
 		os.Exit(0)
 	}
-	log.Printf("Starting registrator %s ...", Version)
+	log.Printf("Starting registratorv2 %s ...", Version)
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -97,16 +97,54 @@ func main() {
 		assert(errors.New("-deregister must be \"always\" or \"on-success\""))
 	}
 
+	// use docker info to determine node id that will be used as prefix to service id
+	dockerInfo, err := docker.Info()
+	assert(err)
+
+	nodeId := new(string)
+	// docker host name normally is hostname
+	*nodeId = dockerInfo.Name
+
+  swarmMode := false
+  swarmModeManager := false
+
+	if dockerInfo.Swarm.LocalNodeState != swarm.LocalNodeStateInactive {
+		swarmMode = true
+
+		for _, remoteManager := range dockerInfo.Swarm.RemoteManagers {
+			if dockerInfo.Swarm.NodeID == remoteManager.NodeID {
+				swarmModeManager = true
+			}
+		}
+
+		if *hostIp == "" {
+			// in case of swarm mode, docker host has information about ip
+			// although it won't be always useful, we can use it if not provided by user
+			*hostIp = dockerInfo.Swarm.NodeAddr
+		}
+
+		log.Printf("Docker host in Swarm Mode: %s (%s) isManager: %v", *nodeId, *hostIp, swarmModeManager)
+
+		if !swarmModeManager {
+			log.Printf("Syncing swarm mode vip/ingress routed services on worker node is not implemented yet")
+		}
+	} else {
+		log.Printf("Docker host: %s (%s)", *nodeId, *hostIp)
+	}
+
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
+		NodeId:          *nodeId,
 		HostIp:          *hostIp,
 		Internal:        *internal,
-		Explicit:        *explicit,
 		UseIpFromLabel:  *useIpFromLabel,
 		ForceTags:       *forceTags,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
 		Cleanup:         *cleanup,
+		SwarmMode:			 swarmMode,
+		SwarmModeManager: swarmModeManager,
+		ReplicasAware:   true,
 	})
 
 	assert(err)
@@ -171,11 +209,41 @@ func main() {
 
 	// Process Docker events
 	for msg := range events {
-		switch msg.Status {
-		case "start":
-			go b.Add(msg.ID)
-		case "die":
-			go b.RemoveOnExit(msg.ID)
+		switch msg.Type {
+			case "container": {
+				switch msg.Action {
+					case "start": {
+						log.Printf("event: container %s started", msg.Actor.ID)
+						go b.Add(msg.Actor.ID)
+					}
+					case "die": {
+						log.Printf("event: container %s died", msg.Actor.ID)
+						go b.RemoveOnExit(msg.Actor.ID)
+					}
+					default: {
+						log.Printf("event: %s %s %s", msg.Type, msg.Action, msg.Actor.ID)
+					}
+				}
+			}
+			case "service": {
+				switch msg.Action {
+					case "create": {
+						log.Printf("event: swarm service %s created", msg.Actor.ID)
+						go b.RegisterSwarmServiceById(msg.Actor.ID)
+					}
+					case "update": {
+						log.Printf("event: swarm service %s updated", msg.Actor.ID)
+						go b.UpdateSwarmServiceById(msg.Actor.ID)
+					}
+					case "remove": {
+						log.Printf("event: swarm service %s removed", msg.Actor.ID)
+						go b.DeregisterSwarmServiceById(msg.Actor.ID)
+					}
+					default: {
+						log.Printf("event: %s %s %s", msg.Type, msg.Action, msg.Actor.ID)
+					}
+				}
+			}
 		}
 	}
 

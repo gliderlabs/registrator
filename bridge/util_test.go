@@ -57,3 +57,21 @@ func TestEscapedComma(t *testing.T) {
 		assert.EqualValues(t, c.Expected, results)
 	}
 }
+
+func TestEnvToMap(t *testing.T) {
+	env := []string{
+		"",
+		"",
+	}
+	result := envToMap(env)
+	assert.Equal(t, len(result), 0)
+
+	env = []string{
+		"key1=value1",
+		"key2=value2",
+	}
+	result = envToMap(env)
+	assert.Equal(t, len(result), 2)
+	assert.Equal(t, result["key1"], "value1")
+	assert.Equal(t, result["key2"], "value2")
+}
