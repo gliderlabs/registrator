@@ -26,7 +26,7 @@ type Bridge struct {
 	docker             *dockerapi.Client
 	containerServices  map[string][]*Service
 	deadContainers     map[string]*DeadContainer
-	swarmServices 		 map[string][]*Service
+	swarmServices      map[string][]*Service
 	config             Config
 }
 
@@ -81,7 +81,7 @@ func (b *Bridge) Refresh() {
 	}
 
 	for containerId, services := range b.containerServices {
-		for _, service := range services{
+		for _, service := range services {
 			err := b.registry.Refresh(service)
 			if err != nil {
 				log.Println("refresh container service failed:", containerId[:12], service.ID, err)
@@ -92,7 +92,7 @@ func (b *Bridge) Refresh() {
 	}
 
 	for swarmServiceId, services := range b.swarmServices {
-		for _, service := range services{
+		for _, service := range services {
 			err := b.registry.Refresh(service)
 			if err != nil {
 				log.Println("refresh swarm service failed:", swarmServiceId[:12], service.ID, err)
@@ -238,7 +238,6 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
-  // >>>
 	for _, port := range ports {
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
@@ -261,7 +260,6 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		b.containerServices[container.ID] = append(b.containerServices[container.ID], service)
 		log.Println("added:", container.ID[:12], service.ID)
 	}
-	// <<<
 
 	servicePorts := make(map[string]ServicePort)
 	for key, port := range ports {
@@ -308,6 +306,15 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		return nil
 	}
 
+	serviceName := mapDefault(metadata, "name", "")
+	if serviceName == "" {
+		if b.config.Explicit {
+			log.Printf("ignored: container service without explicit naming %s", container.ID[:12])
+			return nil
+		}
+		serviceName = defaultName
+	}
+
 	service := new(Service)
 	service.Origin = port
 
@@ -316,13 +323,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		// swarm mode has concept of services
 		service.Name = mapDefault(metadata, "name", swarmServiceName)
 	} else {
-		// use node id, which is more reliable
 		service.Name = mapDefault(metadata, "name", defaultName)
 	}
 
-  // must match containerServiceIDPattern
+	// must match containerServiceIDPattern
 	service.ID = b.config.NodeId + ":" + container.Name[1:] + ":" + port.ExposedPort
-	service.Name = mapDefault(metadata, "name", defaultName)
+
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
 	}
@@ -400,7 +406,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
  */
 func (b *Bridge) findRegisteredSwarmServices(registeredServices []*Service) map[string][]*Service {
 	result := make(map[string][]*Service)
-  for _, registeredService := range registeredServices {
+	for _, registeredService := range registeredServices {
 
 		matches := swarmServiceIDPattern.FindStringSubmatch(registeredService.ID)
 
@@ -419,20 +425,20 @@ func (b *Bridge) findRegisteredSwarmServices(registeredServices []*Service) map[
 		swarmServiceId := matches[1]
 
 		if services, ok := result[swarmServiceId]; ok {
-    	services = append(services, registeredService)
+			services = append(services, registeredService)
 			result[swarmServiceId] = services
 		} else {
 			services := make([]*Service, 0)
 			services = append(services, registeredService)
 			result[swarmServiceId] = services
 		}
-  }
+	}
 
-  return result
+	return result
 }
 
 /*
- * Iterates over all registered swarm mode vip service from registration backend and calls the given condition function.
+ * Iterates over all registered swarm mode vip services from registration backend and calls the given condition function.
  * If condition returns true it deregisters the appropriate service from the registration backend.
  */
 func (b *Bridge) deregisterRegisteredSwarmServices(condition func(swarmServiceId string, registeredService *Service) bool) {
@@ -557,7 +563,7 @@ func (b *Bridge) UpdateSwarmServiceById(aSwarmServiceId string) {
 func (b *Bridge) registerSwarmService(swarmService swarm.Service) {
 	if swarmService.Spec.EndpointSpec != nil {
 		mode := swarmService.Spec.EndpointSpec.Mode
-		// DNSrr services will be handled by Sync()
+		// DNSrr service will be handled as container service (see Sync())
 		if mode == swarm.ResolutionModeVIP {
 			if (len(swarmService.Endpoint.VirtualIPs) > 0) {
 				if b.config.ReplicasAware {
@@ -596,8 +602,6 @@ func (b *Bridge) registerSwarmVipServices(swarmService swarm.Service) {
 					if len(swarmService.Endpoint.Ports) > 0 {
 						b.registerSwarmVipServicePorts(swarmService, true, vipAddr)
 					}
-					// publish VIP in with out ports in any case
-					//b.registerSwarmVipServicePort(swarmService, true, vipAddr, false, 0, "ip")
 				}
 			}
 		}
@@ -660,7 +664,7 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 			portNum = port.TargetPort
 		}
 
-		serviceName := swarmService.Spec.Name
+		serviceName := ""
 		targetPort := int(port.TargetPort)
 		portMeta, ok := portsMetadata[targetPort]
 
@@ -670,16 +674,21 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 				delete(portMeta, "name")
 			}
 		} else {
+			if b.config.Explicit {
+				log.Printf("ignored: swarm vip service has no explicit naming %s", swarmService.Spec.Name)
+				continue
+			}
+			serviceName = swarmService.Spec.Name
 			portMeta = make(map[string]string)
 		}
 
-    // must match swarmServiceIDPattern
+		// must match swarmServiceIDPattern
 		serviceID := "swarm:" + swarmService.ID + ":" + b.config.NodeId + ":" + strconv.Itoa(targetPort)
 
 		services = append(services, b.registerSwarmVipServicePort(serviceID, serviceName, portMeta, inside, vip, int(portNum), port.Protocol))
 	}
 
-  // cache registered swarm services
+	// cache registered swarm services
 	b.swarmServices[swarmService.ID] = services
 
   log.Printf("registered %d services for swarm service %s ", len(services), swarmService.ID)
