@@ -222,6 +222,14 @@ func main() {
 						log.Printf("event: container %s died", msg.Actor.ID)
 						go b.RemoveOnExit(msg.Actor.ID)
 					}
+					case "stop": {
+						log.Printf("event: container %s stopped", msg.Actor.ID)
+						go b.RemoveOnExit(msg.Actor.ID)
+					}
+					case "kill": {
+						log.Printf("event: container %s killed", msg.Actor.ID)
+						go b.RemoveOnExit(msg.Actor.ID)
+					}
 					default: {
 						log.Printf("event: %s %s %s", msg.Type, msg.Action, msg.Actor.ID)
 					}
