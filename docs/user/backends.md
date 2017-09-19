@@ -24,6 +24,8 @@ When using the `consul-tls` scheme, registrator communicates with Consul through
  * `CONSUL_TLSCERT` : Certificate file location
  * `CONSUL_TLSKEY` : Key location
 
+For more information on the Consul check parameters below, see the [API documentation](https://www.consul.io/api/agent/check.html#register-check).
+
 ### Consul HTTP Check
 
 This feature is only available when using Consul 0.5 or newer. Containers
