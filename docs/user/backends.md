@@ -101,6 +101,15 @@ By default when a service is registered against Consul, the state is set to "cri
 SERVICE_CHECK_INITIAL_STATUS=passing
 ```
 
+### Consul Critical Service Deregistration
+
+Consul can deregister a service if the check is in the critical state for more than a configurable amount of time.
+If enabled this should be much longer than any expected recoverable outage.
+
+```bash
+SERVICE_CHECK_DEREGISTER_AFTER=10m
+```
+
 ## Consul KV
 
 	consulkv://<address>:<port>/<prefix>
