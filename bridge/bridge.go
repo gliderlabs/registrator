@@ -258,8 +258,12 @@ func mapTags(metadata map[string]string, container *dockerapi.Container) []strin
 	err := tagTemplate.Execute(&tag, container)
 	if err != nil {
 		log.Println("executing template:", err)
+		if len(metadata_tags) != 0 {
+			tags = strings.Split(metadata_tags, ",")
+		}
+	} else {
+		tags = strings.Split(tag.String(), ",")
 	}
-	tags = strings.Split(tag.String(), ",")
 	return tags
 }
 
