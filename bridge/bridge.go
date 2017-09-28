@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"bytes"
 	"errors"
 	"log"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -202,7 +204,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -244,6 +246,31 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		b.services[container.ID] = append(b.services[container.ID], service)
 		log.Println("added:", container.ID[:12], service.ID)
 	}
+}
+
+func mapTags(metadata map[string]string, container *dockerapi.Container) []string {
+	// execute go-template on tags using containger description in docker-client
+	// !! the go structure is used not the docker json description
+	var tags []string
+	var tag bytes.Buffer
+	var metadata_tags = metadata["tags"]
+	if len(metadata_tags) == 0 {
+		return tags
+	}
+	tagTemplate, errParse := template.New("tags").Parse(metadata_tags)
+	if errParse != nil {
+		log.Println("executing template:", errParse)
+		tags = strings.Split(metadata_tags, ",")
+		return tags
+	}
+	err := tagTemplate.Execute(&tag, container)
+	if err != nil {
+		log.Println("executing template:", err)
+		tags = strings.Split(metadata_tags, ",")
+		return tags
+	}
+	tags = strings.Split(tag.String(), ",")
+	return tags
 }
 
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
@@ -309,7 +336,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
@@ -332,14 +359,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		}
 	}
 
+	var mappedTags []string = mapTags(metadata, container)
 	if port.PortType == "udp" {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
+		mappedTags = append(mappedTags, "udp")
 		service.ID = service.ID + ":udp"
-	} else {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags)
 	}
+	mappedTags = append(mappedTags, b.config.ForceTags)
 
 	id := mapDefault(metadata, "id", "")
 	if id != "" {
@@ -351,6 +376,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	delete(metadata, "name")
 	service.Attrs = metadata
 	service.TTL = b.config.RefreshTtl
+	service.Tags = mappedTags
 
 	return service
 }
