@@ -20,8 +20,6 @@ services:
         image: ubuntu:latest
         labels:
             com.delairtech.test.registrator: test_local
-        environment:
-            SERVICE_80_TAGS: 'test_label=test_value'
         ports:
             - "80:80"
         command:
