@@ -31,6 +31,8 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
+var swarmReplicasAware = flag.Bool("swarm-replicas-aware", true, "Remove registered swarm services without replicas")
+var swarmManagerSvcName = flag.String("swarm-manager-servicename", "", "Register swarm manager service when non-empty")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -106,47 +108,32 @@ func main() {
 	// docker host name normally is hostname
 	*nodeId = dockerInfo.Name
 
-	swarmMode := false
-	swarmModeManager := false
-
 	if dockerInfo.Swarm.LocalNodeState != swarm.LocalNodeStateInactive {
-		swarmMode = true
-
-		for _, remoteManager := range dockerInfo.Swarm.RemoteManagers {
-			if dockerInfo.Swarm.NodeID == remoteManager.NodeID {
-				swarmModeManager = true
-			}
-		}
-
 		if *hostIp == "" {
 			// in case of swarm mode, docker host has information about ip
 			// although it won't be always useful, we can use it if not provided by user
 			*hostIp = dockerInfo.Swarm.NodeAddr
 		}
 
-		log.Printf("Docker host in Swarm Mode: %s (%s) isManager: %v", *nodeId, *hostIp, swarmModeManager)
+		log.Printf("Docker host in Swarm Mode: %s (%s)", *nodeId, *hostIp)
 
-		if !swarmModeManager {
-			log.Printf("Syncing swarm mode vip/ingress routed services on worker node is not implemented yet")
-		}
 	} else {
 		log.Printf("Docker host: %s (%s)", *nodeId, *hostIp)
 	}
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
-		NodeId:           *nodeId,
-		HostIp:           *hostIp,
-		Internal:         *internal,
-		Explicit:         *explicit,
-		UseIpFromLabel:   *useIpFromLabel,
-		ForceTags:        *forceTags,
-		RefreshTtl:       *refreshTtl,
-		RefreshInterval:  *refreshInterval,
-		DeregisterCheck:  *deregister,
-		Cleanup:          *cleanup,
-		SwarmMode:        swarmMode,
-		SwarmModeManager: swarmModeManager,
-		ReplicasAware:    true,
+		NodeId:              *nodeId,
+		HostIp:              *hostIp,
+		Internal:            *internal,
+		Explicit:            *explicit,
+		UseIpFromLabel:      *useIpFromLabel,
+		ForceTags:           *forceTags,
+		RefreshTtl:          *refreshTtl,
+		RefreshInterval:     *refreshInterval,
+		DeregisterCheck:     *deregister,
+		Cleanup:             *cleanup,
+		SwarmReplicasAware:  *swarmReplicasAware,
+		SwarmManagerSvcName: *swarmManagerSvcName,
 	})
 
 	assert(err)
@@ -251,6 +238,14 @@ func main() {
 					}
 					default: {
 						log.Printf("event: %s %s %s", msg.Type, msg.Action, msg.Actor.ID)
+					}
+				}
+			}
+			case "node": {
+				switch msg.Action {
+					default: {
+						log.Printf("event: %s %s %s", msg.Type, msg.Action, msg.Actor.ID)
+						go b.SyncSwarmServices()
 					}
 				}
 			}

@@ -20,19 +20,18 @@ type RegistryAdapter interface {
 }
 
 type Config struct {
-	NodeId           string
-	HostIp           string
-	Internal         bool
-	Explicit         bool
-	UseIpFromLabel   string
-	ForceTags        string
-	RefreshTtl       int
-	RefreshInterval  int
-	DeregisterCheck  string
-	Cleanup          bool
-	SwarmMode        bool
-	SwarmModeManager bool
-	ReplicasAware    bool
+	NodeId              string
+	HostIp              string
+	Internal            bool
+	Explicit            bool
+	UseIpFromLabel      string
+	ForceTags           string
+	RefreshTtl          int
+	RefreshInterval     int
+	DeregisterCheck     string
+	Cleanup             bool
+	SwarmReplicasAware  bool
+	SwarmManagerSvcName string
 }
 
 type Service struct {
