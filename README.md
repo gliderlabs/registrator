@@ -56,6 +56,23 @@ Usage of /bin/registrator:
   -ttl-refresh=0: Frequency with which service TTLs are refreshed
 ```
 
+## Building registrator
+Assuming you have installed Go, clone the repository and run `go get` in the cloned repository directory. 
+
+At present this will break due to an upstream dependency problem. 
+
+Note that this is broken upstream, so you also need to do:
+ ```bash
+ #save current registrator directory
+ registratorDir=$(pwd)
+ #change to ugorji/go directory
+ cd ~/go/src/github.com/ugorji/go
+ #go back to working version
+ git checkout 8c0409fcbb70099c748d71f714529204975f6c3f
+ #go back to registrator directory
+ cd $registratorDir
+ go build
+
 ## Contributing
 
 Pull requests are welcome! We recommend getting feedback before starting by
