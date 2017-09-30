@@ -5,6 +5,11 @@ ENV GOPATH /go
 RUN apk --no-cache add build-base go git ca-certificates
 COPY . /go/src/github.com/gliderlabs/registrator
 RUN cd /go/src/github.com/gliderlabs/registrator \
+  && go get -u github.com/ugorji/go/codec/codecgen \
+  && mkdir /go/src/github.com/coreos \
+  && git clone https://github.com/coreos/go-etcd.git /go/src/github.com/coreos/go-etcd  \
+  && cd /go/src/github.com/coreos/go-etcd/etcd \
+  && /go/bin/codecgen -d 1978 -o response.generated.go response.go \
   && git config --global http.https://gopkg.in.followRedirects true \
 	&& go get \
 	&& go build -ldflags "-X main.Version=dev" -o /bin/registrator
