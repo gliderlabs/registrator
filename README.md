@@ -41,6 +41,7 @@ Guide. Typically, running Registrator looks like this:
         gliderlabs/registrator:latest \
           consul://localhost:8500
 
+
 ## CLI Options
 ```
 Usage of /bin/registrator:
@@ -57,6 +58,27 @@ Usage of /bin/registrator:
   -ttl=0: TTL for services (default is no expiry)
   -ttl-refresh=0: Frequency with which service TTLs are refreshed
 ```
+
+## Using Registrator with Rancher CNI
+
+A rancher-compose.yml for running registrator with rancher CNI looks like this:
+
+    version: '2'
+    services:
+      registrator:
+        image: juliangamble/registrator
+        network_mode: host
+        volumes:
+        - /var/run/docker.sock:/tmp/docker.sock
+        command:
+        - -rancherExternalPorts
+        - -cleanup
+        - consul://0.0.0.0:8500
+        labels:
+          io.rancher.container.dns: 'true'
+          com.btfin.devops.name: registrator
+          io.rancher.scheduler.global: 'true'
+          io.rancher.container.network: 'false'
 
 ## Contributing
 
