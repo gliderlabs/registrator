@@ -539,7 +539,7 @@ func (b *Bridge) syncSwarmVipServices() {
 	deregisterCondition := func(swarmServiceId string, registeredService *Service) bool {
 		if swarmService, ok := swarmServicesMap[swarmServiceId]; ok {
 			mode := swarmService.Spec.EndpointSpec.Mode
-			if b.config.SwarmReplicasAware && *swarmService.Spec.Mode.Replicated.Replicas < uint64(1) {
+			if swarmService.Spec.Mode.Replicated != nil && b.config.SwarmReplicasAware && *swarmService.Spec.Mode.Replicated.Replicas < uint64(1) {
 				log.Printf("removed: swarm vip service without replicas %s:%d ", registeredService.Name, registeredService.Port)
 				return true
 			} else if mode != swarm.ResolutionModeVIP {
@@ -617,7 +617,7 @@ func (b *Bridge) UpdateSwarmServiceById(aSwarmServiceId string) {
 
 	deregisterCondition := func(swarmServiceId string, registeredService *Service) bool {
 		mode := swarmService.Spec.EndpointSpec.Mode
-		if swarmServiceId == aSwarmServiceId && b.config.SwarmReplicasAware && *swarmService.Spec.Mode.Replicated.Replicas < uint64(1) {
+		if swarmServiceId == aSwarmServiceId && swarmService.Spec.Mode.Replicated != nil && b.config.SwarmReplicasAware && *swarmService.Spec.Mode.Replicated.Replicas < uint64(1) {
 			log.Printf("removed: swarm vip service without replicas %s:%d ", registeredService.Name, registeredService.Port)
 			return true
 		} else if mode != swarm.ResolutionModeVIP {
@@ -637,7 +637,7 @@ func (b *Bridge) registerSwarmService(swarmService swarm.Service) {
 		// DNSrr service will be handled as container service (see Sync())
 		if mode == swarm.ResolutionModeVIP {
 			if (len(swarmService.Endpoint.VirtualIPs) > 0) {
-				if b.config.SwarmReplicasAware {
+				if swarmService.Spec.Mode.Replicated != nil && b.config.SwarmReplicasAware {
 					if *swarmService.Spec.Mode.Replicated.Replicas > uint64(0) {
 						b.registerSwarmVipServices(swarmService)
 					}
@@ -751,7 +751,7 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 				log.Printf("ignored: swarm vip service has no explicit naming %s", swarmService.Spec.Name)
 				continue
 			}
-			serviceName = swarmService.Spec.Name
+			serviceName = swarmService.Spec.Name + "-" + strconv.Itoa(targetPort)
 			portMeta = make(map[string]string)
 		}
 
