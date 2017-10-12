@@ -273,14 +273,23 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		return nil
 	}
 
+	serviceName := mapDefault(metadata, "name", "")
+	if serviceName == "" {
+		if b.config.Explicit {
+			return nil
+		}
+		serviceName = defaultName
+	}
+
 	service := new(Service)
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	service.Name = mapDefault(metadata, "name", defaultName)
+	service.Name = serviceName
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
 	}
 	var p int
+
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
 		p, _ = strconv.Atoi(port.ExposedPort)
@@ -289,6 +298,39 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		p, _ = strconv.Atoi(port.HostPort)
 	}
 	service.Port = p
+
+	if b.config.UseIpFromLabel != "" {
+		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
+		if containerIp != "" {
+			slashIndex := strings.LastIndex(containerIp, "/")
+			if slashIndex > -1 {
+				service.IP = containerIp[:slashIndex]
+			} else {
+				service.IP = containerIp
+			}
+			log.Println("using container IP " + service.IP + " from label '" +
+				b.config.UseIpFromLabel  + "'")
+		} else {
+			log.Println("Label '" + b.config.UseIpFromLabel +
+				"' not found in container configuration")
+		}
+	}
+
+	// NetworkMode can point to another container (kuberenetes pods)
+	networkMode := container.HostConfig.NetworkMode
+	if networkMode != "" {
+		if strings.HasPrefix(networkMode, "container:") {
+			networkContainerId := strings.Split(networkMode, ":")[1]
+			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
+			networkContainer, err := b.docker.InspectContainer(networkContainerId)
+			if err != nil {
+				log.Println("unable to inspect network container:", networkContainerId[:12], err)
+			} else {
+				service.IP = networkContainer.NetworkSettings.IPAddress
+				log.Println(service.Name + ": using network container IP " + service.IP)
+			}
+		}
+	}
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(

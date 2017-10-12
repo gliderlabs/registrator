@@ -34,7 +34,7 @@ hostname (`-h $HOSTNAME`) and using the `-ip` Registrator option below.
 Option                           | Since | Description
 ------                           | ----- | -----------
 `-cleanup`                       | v7    | Cleanup dangling services
-`-deregister <mode>`             | v6    | Deregister existed services "always" or "on-success". Default: always
+`-deregister <mode>`             | v6    | Deregister exited services "always" or "on-success". Default: always
 `-internal`                      |       | Use exposed ports instead of published ports
 `-ip <ip address>`               |       | Force IP address used for registering services
 `-resync <seconds>`              | v6    | Frequency all services are resynchronized. Default: 0, never
@@ -43,6 +43,7 @@ Option                           | Since | Description
 `-tags <tags>`                   | v5    | Force comma-separated tags on all registered services
 `-ttl <seconds>`                 |       | TTL for services. Default: 0, no expiry (supported backends only)
 `-ttl-refresh <seconds>`         |       | Frequency service TTLs are refreshed (supported backends only)
+`-useIpFromLabel <label>`        |       | Uses the IP address stored in the given label, which is assigned to a container, for registration with Consul
 
 If the `-internal` option is used, Registrator will register the docker0
 internal IP and port instead of the host mapped ones.
@@ -60,8 +61,8 @@ If you want unlimited retry-attempts use `-retry-attempts -1`.
 The `-resync` options controls how often Registrator will query Docker for all
 containers and reregister all services.  This allows Registrator and the service
 registry to get back in sync if they fall out of sync. Use this option with caution
-as it will notify all the watches you may have registered on your services, and 
-may rapidly flood your system (e.g. consul-template makes extensive use of watches). 
+as it will notify all the watches you may have registered on your services, and
+may rapidly flood your system (e.g. consul-template makes extensive use of watches).
 
 ## Consul ACL token
 

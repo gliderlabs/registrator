@@ -1,10 +1,9 @@
 # Registrator
 
-Service registry bridge for Docker, sponsored by [Weave](http://weave.works).
+Service registry bridge for Docker.
 
 [![Circle CI](https://circleci.com/gh/gliderlabs/registrator.png?style=shield)](https://circleci.com/gh/gliderlabs/registrator)
-[![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://registry.hub.docker.com/u/gliderlabs/registrator/)
-[![ImageLayers Size](https://img.shields.io/imagelayers/image-size/gliderlabs/registrator/latest.svg)](https://imagelayers.io/?images=gliderlabs%2Fregistrator:latest)
+[![Docker pulls](https://img.shields.io/docker/pulls/gliderlabs/registrator.svg)](https://hub.docker.com/r/gliderlabs/registrator/)
 [![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
 <br /><br />
 
@@ -40,6 +39,23 @@ Guide. Typically, running Registrator looks like this:
         gliderlabs/registrator:latest \
           consul://localhost:8500
 
+## CLI Options
+```
+Usage of /bin/registrator:
+  /bin/registrator [options] <registry URI>
+
+  -cleanup=false: Remove dangling services
+  -deregister="always": Deregister exited services "always" or "on-success"
+  -internal=false: Use internal ports instead of published ones
+  -ip="": IP for ports mapped to the host
+  -resync=0: Frequency with which services are resynchronized
+  -retry-attempts=0: Max retry attempts to establish a connection with the backend. Use -1 for infinite retries
+  -retry-interval=2000: Interval (in millisecond) between retry-attempts.
+  -tags="": Append tags for all registered services
+  -ttl=0: TTL for services (default is no expiry)
+  -ttl-refresh=0: Frequency with which service TTLs are refreshed
+```
+
 ## Contributing
 
 Pull requests are welcome! We recommend getting feedback before starting by
@@ -52,8 +68,8 @@ Releases](https://gliderlabs.com/registrator/latest/dev/releases).
 
 ## Sponsors and Thanks
 
-Ongoing support of this project is made possible by [Weave](http://weave.works), the easiest way to connect, observe and control your containers. Big thanks to Michael Crosby for
-[skydock](https://github.com/crosbymichael/skydock) and the Consul mailing list
+Big thanks to Weave for sponsoring, Michael Crosby for
+[skydock](https://github.com/crosbymichael/skydock), and the Consul mailing list
 for inspiration.
 
 For a full list of sponsors, see
