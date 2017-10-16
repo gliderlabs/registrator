@@ -691,20 +691,25 @@ func (b *Bridge) registerSwarmVipServices(swarmService swarm.Service) {
  */
 func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside bool, vip string) {
 
-	envMap := envToMap(swarmService.Spec.TaskTemplate.ContainerSpec.Env)
-	labelsMap := swarmService.Spec.TaskTemplate.ContainerSpec.Labels
+	containerLabels := swarmService.Spec.TaskTemplate.ContainerSpec.Labels
+	containerEnv := envToMap(swarmService.Spec.TaskTemplate.ContainerSpec.Env)
+	serviceLabels := swarmService.Spec.Labels
 
-	f := func(key string) bool {
+	metadata := make(map[string]string)
+
+	metadataFilter := func(key string) bool {
+		// filter all registrator specific metadata
 		return strings.HasPrefix(key, "SERVICE_")
 	}
 
-	joinedMap := make(map[string]string)
-	joinMaps(labelsMap, joinedMap, f)
-	joinMaps(envMap, joinedMap, f)
+	// order is crucial here as service labels must override container settings
+	joinMaps(containerLabels, metadata, metadataFilter)
+	joinMaps(containerEnv, metadata, metadataFilter)
+	joinMaps(serviceLabels, metadata, metadataFilter)
 
 	portsMetadata := make(map[int]map[string]string)
 
-	for key, value := range joinedMap {
+	for key, value := range metadata {
 		key = strings.ToLower(strings.TrimPrefix(key, "SERVICE_"))
 		portkey := strings.SplitN(key, "_", 2)
 		p, err := strconv.Atoi(portkey[0])
@@ -715,6 +720,7 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 				portsMetadata[p] = make(map[string]string)
 				portsMetadata[p][portkey[1]] = value
 			}
+			delete(metadata, key)
 		}
 	}
 
@@ -737,8 +743,8 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 			portNum = port.TargetPort
 		}
 
-		serviceName := ""
 		targetPort := int(port.TargetPort)
+		serviceName := swarmService.Spec.Name + "-" + strconv.Itoa(targetPort)
 		portMeta, ok := portsMetadata[targetPort]
 
 		if ok {
@@ -751,7 +757,6 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 				log.Printf("ignored: swarm vip service has no explicit naming %s", swarmService.Spec.Name)
 				continue
 			}
-			serviceName = swarmService.Spec.Name + "-" + strconv.Itoa(targetPort)
 			portMeta = make(map[string]string)
 		}
 
@@ -782,13 +787,13 @@ func (b *Bridge) registerSwarmVipServicePort(serviceID string, serviceName strin
 	service.ID = serviceID
 	service.Name = serviceName
 
+	tags := mapDefault(metadata, "tags", "")
+
 	// tag it for convenience
 	if protocol != swarm.PortConfigProtocolTCP {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, tag, string(protocol))
+		service.Tags = combineTags(tags, b.config.ForceTags, tag, string(protocol))
 	} else {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, tag)
+		service.Tags = combineTags(tags, b.config.ForceTags, tag)
 	}
 
 	delete(metadata, "tags")
