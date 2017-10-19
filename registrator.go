@@ -108,7 +108,7 @@ func main() {
 	// docker host name normally is hostname
 	*nodeId = dockerInfo.Name
 
-	if dockerInfo.Swarm.LocalNodeState != swarm.LocalNodeStateInactive {
+	if dockerInfo.Swarm.LocalNodeState != "" && dockerInfo.Swarm.LocalNodeState != swarm.LocalNodeStateInactive {
 		if *hostIp == "" {
 			// in case of swarm mode, docker host has information about ip
 			// although it won't be always useful, we can use it if not provided by user
