@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"net"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/pkg/usage"
@@ -75,7 +76,18 @@ func main() {
 	}
 
 	if *hostIp != "" {
-		log.Println("Forcing host IP to", *hostIp)
+		addr := net.ParseIP(*hostIp)
+
+		// maybe -ip option references an interface name
+		if addr == nil {
+				ip := ipAddressForInterfaceName(*hostIp)
+				if ip != "" {
+						*hostIp = ip
+				} else {
+					log.Printf("Ignoring option -ip=%s as it references no valid ip address or interface name", *hostIp)
+					*hostIp = ""
+				}
+		}
 	}
 
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
@@ -118,7 +130,11 @@ func main() {
 		log.Printf("Docker host in Swarm Mode: %s (%s)", *nodeId, *hostIp)
 
 	} else {
-		log.Printf("Docker host: %s (%s)", *nodeId, *hostIp)
+		if *hostIp != "" {
+			log.Printf("Docker host: %s (%s)", *nodeId, *hostIp)
+		} else {
+			log.Printf("Docker host: %s", *nodeId)
+		}
 	}
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
@@ -254,4 +270,38 @@ func main() {
 
 	close(quit)
 	log.Fatal("Docker event loop closed") // todo: reconnect?
+}
+
+/**
+ * Get IPv4 address for the given interface name. Returns empty string when interface
+ * not found or no IPv4 address is assigned to that interface.
+ **/
+func ipAddressForInterfaceName(name string) string {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return ""
+	}
+
+	addrs, err := iface.Addrs()
+
+	if err != nil {
+		return ""
+	}
+
+	for _, a := range addrs {
+		switch v := a.(type) {
+		case *net.IPNet:
+				if v.IP.To4() != nil {
+					return v.IP.String()
+				}
+		case *net.IPAddr:
+			if v.IP.To4() != nil {
+				return v.IP.String()
+			}
+		default:
+				continue
+		}
+	}
+
+	return ""
 }
