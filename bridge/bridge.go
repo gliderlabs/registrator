@@ -231,12 +231,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
 		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
-		ports[string(port)] = servicePort(container, port, published)
+		ports[string(port)] = servicePort(b.config.Internal, container, port, published)
 	}
 
 	// Extract runtime port mappings, relevant when using --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = servicePort(container, port, published)
+		ports[string(port)] = servicePort(b.config.Internal, container, port, published)
 	}
 
 	if len(ports) == 0 && !quiet {
@@ -303,6 +303,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	if b.config.HostIp != "" {
 		port.HostIP = b.config.HostIp
+	}
+
+	if port.HostIP == "0.0.0.0" {
+		log.Printf("ignored: no valid ip address found %s", container.ID[:12])
+		return nil
 	}
 
 	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
