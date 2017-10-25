@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/docker/docker/api/types/swarm"
@@ -37,6 +38,8 @@ type Bridge struct {
 	swarmMgrServices      map[string][]*Service
 	config                Config
 	swarmControlAvailable bool
+	retries               int
+	retrySeconds          int
 }
 
 func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
@@ -58,6 +61,8 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 		containerServices:     make(map[string][]*Service),
 		deadContainers:        make(map[string]*DeadContainer),
 		swarmVipServices:      make(map[string][]*Service),
+		retries:               3,
+		retrySeconds:          2,
 	}, nil
 }
 
@@ -111,6 +116,11 @@ func (b *Bridge) Refresh() {
 func (b *Bridge) Sync(quiet bool) {
 	b.Lock()
 	defer b.Unlock()
+
+	b.sync(quiet)
+}
+
+func (b *Bridge) sync(quiet bool) {
 
 	containers, err := b.docker.ListContainers(dockerapi.ListContainersOptions{})
 	if err != nil && quiet {
@@ -562,11 +572,31 @@ func (b *Bridge) syncSwarmVipServices() {
 	b.deregisterRegisteredSwarmVipServices(deregisterCondition)
 }
 
-func (b *Bridge) RegisterSwarmServiceById(aSwarmServiceId string) (*swarm.Service, error) {
+func (b *Bridge) RegisterSwarmServiceById(aSwarmServiceId string) {
+	b.registerSwarmServiceByIdOrRetry(aSwarmServiceId, b.retries)
+}
+
+func (b *Bridge) registerSwarmServiceByIdOrRetry(aSwarmServiceId string, retriesLeft int) {
 	b.Lock()
 	defer b.Unlock()
 
-	return b.registerSwarmServiceById(aSwarmServiceId)
+	_, err := b.registerSwarmServiceById(aSwarmServiceId)
+
+	if err != nil {
+		log.Printf("WARN: can't register swarm service %s by id: %v (retries left: %v)", aSwarmServiceId, err, retriesLeft)
+		if retriesLeft > 0 {
+			log.Printf("retry register swarm service %s in %v seconds", aSwarmServiceId, b.retrySeconds)
+			retriesLeft -= 1
+			afterFunc := func() {
+				b.registerSwarmServiceByIdOrRetry(aSwarmServiceId, retriesLeft)
+			}
+			time.AfterFunc(time.Duration(b.retrySeconds) * time.Second, afterFunc)
+		} else {
+			log.Printf("no retries left. force full resync.")
+			b.sync(true)
+		}
+		return
+	}
 }
 
 func (b *Bridge) registerSwarmServiceById(aSwarmServiceId string) (*swarm.Service, error) {
@@ -577,6 +607,7 @@ func (b *Bridge) registerSwarmServiceById(aSwarmServiceId string) (*swarm.Servic
 		b.registerSwarmService(*swarmService)
 		return swarmService, err
 	} else {
+		log.Printf("can't register swarm service %s by id: %v", aSwarmServiceId, err)
 		return swarmService, err
 	}
 }
@@ -603,6 +634,10 @@ func (b *Bridge) deregisterSwarmServiceById(aSwarmServiceId string) {
 }
 
 func (b *Bridge) UpdateSwarmServiceById(aSwarmServiceId string) {
+	b.updateSwarmServiceByIdOrRetry(aSwarmServiceId, b.retries)
+}
+
+func (b *Bridge) updateSwarmServiceByIdOrRetry(aSwarmServiceId string, retriesLeft int) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -616,7 +651,18 @@ func (b *Bridge) UpdateSwarmServiceById(aSwarmServiceId string) {
 	swarmService, err := b.registerSwarmServiceById(aSwarmServiceId)
 
 	if err != nil {
-		log.Printf("can't register swarm service %s by id: %v", aSwarmServiceId, err)
+		log.Printf("WARN: can't update swarm service %s by id: %v (retries left: %v)", aSwarmServiceId, err, retriesLeft)
+		if retriesLeft > 0 {
+			log.Printf("retry update swarm service %s in %v seconds", aSwarmServiceId, b.retrySeconds)
+			retriesLeft -= 1
+			afterFunc := func() {
+				b.updateSwarmServiceByIdOrRetry(aSwarmServiceId, retriesLeft)
+			}
+			time.AfterFunc(time.Duration(b.retrySeconds) * time.Second, afterFunc)
+		} else {
+			log.Printf("no retries left. force full resync.")
+			b.sync(true)
+		}
 		return
 	}
 
