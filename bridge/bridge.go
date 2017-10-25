@@ -281,10 +281,18 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		return nil
 	}
 
+	serviceName := mapDefault(metadata, "name", "")
+	if serviceName == "" {
+		if b.config.Explicit {
+			return nil
+		}
+		serviceName = defaultName
+	}
+
 	service := new(Service)
 	service.Origin = port
 	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
-	service.Name = mapDefault(metadata, "name", defaultName)
+	service.Name = serviceName
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
 	}
