@@ -84,7 +84,7 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 	return metadata, metadataFromPort
 }
 
-func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding) ServicePort {
+func servicePort(container *dockerapi.Container, port dockerapi.Port, published []dockerapi.PortBinding, networkName string) ServicePort {
 	var hp, hip, ep, ept, eip, nm string
 	if len(published) > 0 {
 		hp = published[0].HostPort
@@ -110,11 +110,21 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		ept = "tcp" // default
 	}
 
-	// Nir: support docker NetworkSettings
-	eip = container.NetworkSettings.IPAddress
-	if eip == "" {
-		for _, network := range container.NetworkSettings.Networks {
+	eip = ""
+	if networkName != "" {
+		network, ok := container.NetworkSettings.Networks[networkName]
+		if ok {
 			eip = network.IPAddress
+		}
+	}
+
+	if eip == "" {
+		// Nir: support docker NetworkSettings
+		eip = container.NetworkSettings.IPAddress
+		if eip == "" {
+			for _, network := range container.NetworkSettings.Networks {
+				eip = network.IPAddress
+			}
 		}
 	}
 
