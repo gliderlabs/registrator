@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	dockerapi "github.com/fsouza/go-dockerclient"
 	"syscall"
+
+	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
@@ -210,6 +211,16 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		log.Println("container, ", containerId[:12], ", already exists, ignoring")
 		// Alternatively, remove and readd or resubmit.
 		return
+	}
+
+	if filtersLength := len(b.config.ContainersFilters); filtersLength > 0 {
+		filters := b.config.ContainersFilters.WithContainerId(containerId)
+		containersList, err := b.docker.ListContainers(dockerapi.ListContainersOptions{Filters: filters})
+		if err == nil && len(containersList) == 0 {
+			log.Printf("Ignoring container: %s as it doesn't match \"%s\" filters ", containerId[:12], b.config.ContainersFilters.String())
+
+			return
+		}
 	}
 
 	container, err := b.docker.InspectContainer(containerId)

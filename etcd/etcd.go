@@ -9,9 +9,11 @@ import (
 	"regexp"
 	"strconv"
 
-	etcd2 "github.com/coreos/go-etcd/etcd"
+	"github.com/coreos/etcd/client"
 	"github.com/pipedrive/registrator/bridge"
-	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
+	"gopkg.in/coreos/go-etcd.v0/etcd"
+	"time"
+	"context"
 )
 
 func init() {
@@ -41,12 +43,27 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
 	}
 
-	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}
+	etcd2Config := client.Config{
+		Endpoints:               urls,
+		Transport:               client.DefaultTransport,
+		HeaderTimeoutPerRequest: time.Second,
+	}
+
+	client2, err := client.New(etcd2Config)
+
+	if err != nil {
+		log.Fatal("etcd: can't initialize client", err)
+	}
+
+	keysAPI := client.NewKeysAPI(client2)
+
+	return &EtcdAdapter{client2: &client2, keysApi: &keysAPI, path: uri.Path}
 }
 
 type EtcdAdapter struct {
 	client  *etcd.Client
-	client2 *etcd2.Client
+	client2 *client.Client
+	keysApi *client.KeysAPI
 
 	path string
 }
@@ -59,8 +76,7 @@ func (r *EtcdAdapter) Ping() error {
 		rr := etcd.NewRawRequest("GET", "version", nil, nil)
 		_, err = r.client.SendRequest(rr)
 	} else {
-		rr := etcd2.NewRawRequest("GET", "version", nil, nil)
-		_, err = r.client2.SendRequest(rr)
+		_, err = (*r.client2).GetVersion(context.Background())
 	}
 
 	if err != nil {
@@ -74,7 +90,8 @@ func (r *EtcdAdapter) syncEtcdCluster() {
 	if r.client != nil {
 		result = r.client.SyncCluster()
 	} else {
-		result = r.client2.SyncCluster()
+		err := (*r.client2).Sync(context.Background())
+		result = err == nil
 	}
 
 	if !result {
@@ -93,7 +110,8 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	if r.client != nil {
 		_, err = r.client.Set(path, addr, uint64(service.TTL))
 	} else {
-		_, err = r.client2.Set(path, addr, uint64(service.TTL))
+
+		_, err = (*r.keysApi).Set(context.Background(), path, addr, &client.SetOptions{TTL: time.Duration(service.TTL)})
 	}
 
 	if err != nil {
@@ -111,7 +129,7 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	if r.client != nil {
 		_, err = r.client.Delete(path, false)
 	} else {
-		_, err = r.client2.Delete(path, false)
+		_, err = (*r.keysApi).Delete(context.Background(), path, &client.DeleteOptions{Recursive: false})
 	}
 
 	if err != nil {
@@ -120,7 +138,7 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	return err
 }
 
-func (r *EtcdAdapter) SetupHealthCheck (service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
+func (r *EtcdAdapter) SetupHealthCheck(service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
 	return nil
 }
 
