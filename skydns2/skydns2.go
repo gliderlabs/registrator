@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/coreos/go-etcd/etcd"
+	"github.com/coreos/etcd/client"
 	"github.com/pipedrive/registrator/bridge"
+	"time"
+	"context"
 )
 
 func init() {
@@ -26,17 +28,29 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
-	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+	etcd2Config := client.Config{
+		Endpoints:               urls,
+		Transport:               client.DefaultTransport,
+		HeaderTimeoutPerRequest: time.Second,
+	}
+
+	etcdClient, err := client.New(etcd2Config)
+
+	if err != nil {
+		log.Fatal("etcd: can't initialize client", err)
+	}
+
+	return &Skydns2Adapter{client: &etcdClient, path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
-	client *etcd.Client
-	path   string
+	client  *client.Client
+	keysApi *client.KeysAPI
+	path    string
 }
 
 func (r *Skydns2Adapter) Ping() error {
-	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := r.client.SendRequest(rr)
+	_, err := (*r.client).GetVersion(context.Background())
 	if err != nil {
 		return err
 	}
@@ -46,7 +60,7 @@ func (r *Skydns2Adapter) Ping() error {
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
-	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+	_, err := (*r.keysApi).Set(context.Background(), r.servicePath(service), record, &client.SetOptions{TTL: time.Duration(service.TTL)})
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
@@ -54,14 +68,14 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 }
 
 func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
-	_, err := r.client.Delete(r.servicePath(service), false)
+	_, err := (*r.keysApi).Delete(context.Background(), r.servicePath(service), &client.DeleteOptions{Recursive: false})
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
 	return err
 }
 
-func (r *Skydns2Adapter) SetupHealthCheck (service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
+func (r *Skydns2Adapter) SetupHealthCheck(service *bridge.Service, healthCheck *bridge.TtlHealthCheck) error {
 	return nil
 }
 

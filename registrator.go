@@ -32,6 +32,11 @@ var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
 var sigtermBehaviour = flag.String("sigterm-behavior", "none", "Behavior when SIGTERM recieved by service - \"none\", \"deregister\" or \"register-health-check\".")
 var ttlHealthCheckTTL = flag.Int("sigterm-health-check-ttl", 60, "TTL-type health-check TTL (in case sigterm-behavior set to \"register-health-check\").")
 var ttlHealthCheckStatus = flag.String("sigterm-health-check-status", "warning", "TTL-type health-check TTL (in case sigterm-behavior set to \"register-health-check\").")
+var containersFilters = make(bridge.ContainersFilters)
+
+func init() {
+	flag.Var(&containersFilters, "filter-containers", "Filter container to register. Based on docker-api filters (as in API /containers/json)")
+}
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -103,6 +108,10 @@ func main() {
 		log.Printf("Registrator will use \"%s\" for services on SIGTERM", *sigtermBehaviour)
 	}
 
+	if len(containersFilters) > 0 {
+		log.Printf("Using \"%s\" to filter container", containersFilters.String())
+	}
+
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
 		HostIp:          *hostIp,
 		Internal:        *internal,
@@ -112,6 +121,7 @@ func main() {
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,
 		Cleanup:         *cleanup,
+		ContainersFilters: containersFilters,
 	})
 
 	assert(err)

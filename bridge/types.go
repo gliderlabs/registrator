@@ -7,6 +7,8 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
+type ContainersFilters map[string][]string
+
 type AdapterFactory interface {
 	New(uri *url.URL) RegistryAdapter
 }
@@ -29,6 +31,7 @@ type Config struct {
 	RefreshInterval int
 	DeregisterCheck string
 	Cleanup         bool
+	ContainersFilters ContainersFilters
 }
 
 type Service struct {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"bytes"
 )
 
 func retry(fn func() error) error {
@@ -128,4 +129,59 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		ContainerHostname: container.Config.Hostname,
 		container:         container,
 	}
+}
+
+func (f *ContainersFilters) String() string {
+	var buffer bytes.Buffer
+	isFirst := true
+
+	for key, val := range *f {
+		if !isFirst {
+			buffer.WriteString("&")
+		}
+		buffer.WriteString("(")
+		buffer.WriteString(key)
+		buffer.WriteString("=")
+		buffer.WriteString(strings.Join(val, "|"))
+		buffer.WriteString(")")
+		isFirst = false
+	}
+
+	return buffer.String()
+}
+
+func (f *ContainersFilters) Set(value string) error {
+	split := strings.SplitN(value, "=", 2)
+
+	var key, val string
+
+	if splitSize := len(split); splitSize < 2 {
+		key = value
+		val = ""
+	} else {
+		key, val = split[0], split[1]
+	}
+
+	_, exists := (*f)[key]
+	if !exists {
+		(*f)[key] = []string{val}
+	} else {
+		(*f)[key] = append((*f)[key], val)
+	}
+
+	return nil
+}
+
+func (f *ContainersFilters) WithContainerId(containerId string) ContainersFilters {
+	filtersCopy := make(ContainersFilters)
+
+	for key, val := range *f {
+		valCopy := make([]string, len(val))
+		copy(valCopy, val)
+		filtersCopy[key] = valCopy
+	}
+
+	filtersCopy["id"] = []string{containerId}
+
+	return filtersCopy
 }
