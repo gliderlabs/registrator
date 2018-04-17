@@ -1,7 +1,10 @@
 package bridge
 
 import (
+	"crypto"
+	"encoding/hex"
 	"errors"
+	"hash"
 	"log"
 	"net"
 	"net/url"
@@ -164,7 +167,8 @@ func (b *Bridge) Sync(quiet bool) {
 			serviceContainerName := matches[2]
 			for _, listing := range b.services {
 				for _, service := range listing {
-					if service.Name == extService.Name && serviceContainerName == service.Origin.container.Name[1:] {
+					originName := generateName(b, service.Origin.container.Name[1:])
+					if service.Name == extService.Name && serviceContainerName == originName {
 						continue Outer
 					}
 				}
@@ -283,7 +287,8 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	service := new(Service)
 	service.Origin = port
-	service.ID = hostname + ":" + container.Name[1:] + ":" + port.ExposedPort
+	name := generateName(b, container.Name[1:])
+	service.ID = hostname + ":" + name + ":" + port.ExposedPort
 	service.Name = serviceName
 	if isgroup && !metadataFromPort["name"] {
 		service.Name += "-" + port.ExposedPort
@@ -309,7 +314,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
@@ -353,6 +358,18 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	service.TTL = b.config.RefreshTtl
 
 	return service
+}
+
+var hasher hash.Hash = crypto.SHA1.New()
+
+func generateName(b *Bridge, name string) string {
+	if !b.config.HashId {
+		return name
+	}
+
+	hasher.Reset()
+	hasher.Write([]byte(name))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (b *Bridge) remove(containerId string, deregister bool) {
