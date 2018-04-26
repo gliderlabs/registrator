@@ -92,13 +92,13 @@ func (r *AwsAdapter) Register(service *bridge.Service) error {
 	} else {
 		svcId = services[0].Id // there should be exactly one svc
 	}
-
+	instId := cleanId(service.ID)
 	instInp := &servicediscovery.RegisterInstanceInput{
 		Attributes: map[string]string{
 			"AWS_INSTANCE_IPV4": service.IP,
 			"AWS_INSTANCE_PORT": strconv.Itoa(service.Port),
 		},
-		InstanceId: &service.ID,
+		InstanceId: &instId,
 		ServiceId:  svcId,
 	}
 	instReq := r.client.RegisterInstanceRequest(instInp)
@@ -111,6 +111,14 @@ func (r *AwsAdapter) Register(service *bridge.Service) error {
 		return err
 	}
 	return nil
+}
+
+func cleanId(id string) string {
+	return strings.Replace(id, ":", "-", 2)
+}
+
+func dirtyId(id string) string {
+	return strings.Replace(id, "-", ":", 2)
 }
 
 func createService(service *bridge.Service, adapter *AwsAdapter) (*servicediscovery.CreateServiceOutput, error) {
@@ -182,8 +190,9 @@ func (r *AwsAdapter) Deregister(service *bridge.Service) error {
 		return errors.New(fmt.Sprintf("Found %d services for service \"%s\". Expected 1", len(services), service.Name))
 	}
 
+	instId := cleanId(service.ID)
 	inp := &servicediscovery.DeregisterInstanceInput{
-		InstanceId: &service.ID,
+		InstanceId: &instId,
 		ServiceId:  services[0].Id,
 	}
 	req := r.client.DeregisterInstanceRequest(inp)
@@ -291,9 +300,9 @@ func (r *AwsAdapter) Services() ([]*bridge.Service, error) {
 				if err != nil {
 					return nil, errors.New("failed to cast port to int")
 				}
-
+				instId := dirtyId(*inst.Id)
 				s := &bridge.Service{
-					ID:   *inst.Id,
+					ID:   instId,
 					Name: *service.Name,
 					Port: port,
 					IP:   inst.Attributes["AWS_INSTANCE_IPV4"],
