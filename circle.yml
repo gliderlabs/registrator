@@ -16,6 +16,7 @@ jobs:
           command: |
             if [[ "$CIRCLE_BRANCH" == "master" ]]; then
               mv .dockerignore .dockerignore-repo
+              ssh-keygen -R github.com
               eval $(docker run gliderlabs/pagebuilder circleci-cmd)
               mv .dockerignore-repo .dockerignore
             fi
