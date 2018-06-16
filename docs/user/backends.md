@@ -24,6 +24,8 @@ When using the `consul-tls` scheme, registrator communicates with Consul through
  * `CONSUL_TLSCERT` : Certificate file location
  * `CONSUL_TLSKEY` : Key location
 
+For more information on the Consul check parameters below, see the [API documentation](https://www.consul.io/api/agent/check.html#register-check).
+
 ### Consul HTTP Check
 
 This feature is only available when using Consul 0.5 or newer. Containers
@@ -97,6 +99,15 @@ By default when a service is registered against Consul, the state is set to "cri
 
 ```bash
 SERVICE_CHECK_INITIAL_STATUS=passing
+```
+
+### Consul Critical Service Deregistration
+
+Consul can deregister a service if the check is in the critical state for more than a configurable amount of time.
+If enabled this should be much longer than any expected recoverable outage.
+
+```bash
+SERVICE_CHECK_DEREGISTER_AFTER=10m
 ```
 
 ## Consul KV
