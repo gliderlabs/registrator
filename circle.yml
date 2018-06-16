@@ -19,7 +19,9 @@ jobs:
           name: Deploy website
           command: |
             if is-branch "master"; then
+              mv .dockerignore .dockerignore-repo
               eval $(docker run gliderlabs/pagebuilder circleci-cmd)
+              mv .dockerignore-repo .dockerignore
             fi
       - deploy:
           name: Deploy beta channel
