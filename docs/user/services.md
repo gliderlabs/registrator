@@ -97,8 +97,8 @@ support them. In fact, currently Consul supports tags and none support
 attributes.
 
 Attributes can also be used by backends for registry specific features, not just
-generic metadata. For example, Consul uses them for specifying HTTP health
-checks.
+generic metadata. For example, Consul uses them for [specifying HTTP health
+checks](./backends.md#consul).
 
 ## Unique ID
 
