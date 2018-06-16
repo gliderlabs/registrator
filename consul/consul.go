@@ -7,6 +7,7 @@ import (
 	"strings"
 	"strconv"
 	"os"
+	"time"
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
@@ -77,44 +78,95 @@ func (r *ConsulAdapter) Ping() error {
 }
 
 func (r *ConsulAdapter) Register(service *bridge.Service) error {
+	if err := r.registerService(service); err != nil {
+		return err
+	}
+	if err := r.registerChecks(service); err != nil {
+		r.Deregister(service)
+		return err
+	}
+	return nil
+}
+
+func (r *ConsulAdapter) registerService(service *bridge.Service) error {
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
 	registration.Port = service.Port
 	registration.Tags = service.Tags
 	registration.Address = service.IP
-	registration.Check = r.buildCheck(service)
 	return r.client.Agent().ServiceRegister(registration)
 }
 
-func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
-	check := new(consulapi.AgentServiceCheck)
-	if status := service.Attrs["check_initial_status"]; status != "" {
-		check.Status = status
+func (r *ConsulAdapter) registerChecks(service *bridge.Service) error {
+	if service.TTL > 0 {
+		check := r.newCheck(service, "service:%s:registrator_ttl", "Service '%s' Registrator TTL Check")
+		check.TTL = fmt.Sprintf("%ds", service.TTL)
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
+		}
 	}
 	if path := service.Attrs["check_http"]; path != "" {
+		check := r.newCheck(service, "service:%s:http", "Service '%s' HTTP Check")
 		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
 		}
-	} else if path := service.Attrs["check_https"]; path != "" {
+	}
+	if path := service.Attrs["check_https"]; path != "" {
+		check := r.newCheck(service, "service:%s:https", "Service '%s' HTTPS Check")
 		check.HTTP = fmt.Sprintf("https://%s:%d%s", service.IP, service.Port, path)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
 		}
-	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
+	}
+	if cmd := service.Attrs["check_cmd"]; cmd != "" {
+		check := r.newCheck(service, "service:%s:cmd", "Service '%s' CMD Check")
 		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
-	} else if script := service.Attrs["check_script"]; script != "" {
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
+		}
+	}
+	if script := service.Attrs["check_script"]; script != "" {
+		check := r.newCheck(service, "service:%s:script", "Service '%s' Script Check")
 		check.Script = r.interpolateService(script, service)
-	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
+		}
+	}
+	if ttl := service.Attrs["check_ttl"]; ttl != "" {
+		check := r.newCheck(service, "service:%s:ttl", "Service '%s' TTL Check")
 		check.TTL = ttl
-	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
+		}
+	}
+	if tcp := service.Attrs["check_tcp"]; tcp != "" {
+		check := r.newCheck(service, "service:%s:tcp", "Service '%s' TCP Check")
 		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		if err := r.configureAndRegisterCheck(service, check); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ConsulAdapter) newCheck(service *bridge.Service, idFormat string, nameFormat string) *consulapi.AgentCheckRegistration {
+	check := new(consulapi.AgentCheckRegistration)
+	check.ID = fmt.Sprintf(idFormat, service.ID)
+	check.Name = fmt.Sprintf(nameFormat, service.Name)
+	check.ServiceID = service.ID
+	return check
+}
+
+func (r *ConsulAdapter) configureAndRegisterCheck(service *bridge.Service, check *consulapi.AgentCheckRegistration) error {
+	if initialStatus := service.Attrs["check_initial_status"]; initialStatus != "" {
+		check.Status = initialStatus
+	}
+	if check.HTTP != "" || check.TCP != "" {
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
-	} else {
-		return nil
 	}
 	if check.Script != "" || check.HTTP != "" || check.TCP != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
@@ -123,10 +175,10 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			check.Interval = DefaultInterval
 		}
 	}
-	if deregister_after := service.Attrs["check_deregister_after"]; deregister_after != "" {
-		check.DeregisterCriticalServiceAfter = deregister_after
+	if deregisterAfter := service.Attrs["check_deregister_after"]; deregisterAfter != "" {
+		check.DeregisterCriticalServiceAfter = deregisterAfter
 	}
-	return check
+	return r.client.Agent().CheckRegister(check)
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
@@ -134,6 +186,12 @@ func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
+	if service.TTL > 0 {
+		checkID := fmt.Sprintf("service:%s:registrator_ttl", service.ID)
+		note := fmt.Sprintf("Pass TTL at %s", time.Now().Format(time.UnixDate))
+		log.Println(note, "for", checkID)
+		r.client.Agent().PassTTL(checkID, note)
+	}
 	return nil
 }
 
