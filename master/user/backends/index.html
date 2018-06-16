@@ -191,6 +191,7 @@ service discovery with health checks.</p>
  * <code>CONSUL_CACERT</code> : CA file location
  * <code>CONSUL_TLSCERT</code> : Certificate file location
  * <code>CONSUL_TLSKEY</code> : Key location</p>
+<p>For more information on the Consul check parameters below, see the <a href="https://www.consul.io/api/agent/check.html#register-check">API documentation</a>.</p>
 <h3 id="consul-http-check">Consul HTTP Check</h3>
 <p>This feature is only available when using Consul 0.5 or newer. Containers
 specifying these extra metadata in labels or environment will be used to
@@ -243,6 +244,12 @@ healthy.</p>
 <h3 id="consul-initial-health-check-status">Consul Initial Health Check Status</h3>
 <p>By default when a service is registered against Consul, the state is set to "critical". You can specify the initial health check status.</p>
 <pre><code class="bash">SERVICE_CHECK_INITIAL_STATUS=passing
+</code></pre>
+
+<h3 id="consul-critical-service-deregistration">Consul Critical Service Deregistration</h3>
+<p>Consul can deregister a service if the check is in the critical state for more than a configurable amount of time.
+If enabled this should be much longer than any expected recoverable outage.</p>
+<pre><code class="bash">SERVICE_CHECK_DEREGISTER_AFTER=10m
 </code></pre>
 
 <h2 id="consul-kv">Consul KV</h2>
