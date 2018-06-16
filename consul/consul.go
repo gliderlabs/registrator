@@ -14,6 +14,8 @@ import (
 
 const DefaultInterval = "10s"
 
+var ConsulRegMode string
+
 func init() {
 	f := new(Factory)
 	bridge.Register(f, "consul")
@@ -77,14 +79,38 @@ func (r *ConsulAdapter) Ping() error {
 }
 
 func (r *ConsulAdapter) Register(service *bridge.Service) error {
-	registration := new(consulapi.AgentServiceRegistration)
-	registration.ID = service.ID
-	registration.Name = service.Name
-	registration.Port = service.Port
-	registration.Tags = service.Tags
-	registration.Address = service.IP
-	registration.Check = r.buildCheck(service)
-	return r.client.Agent().ServiceRegister(registration)
+	if ConsulRegMode != "catalog" {
+		registration := new(consulapi.AgentServiceRegistration)
+		registration.ID = service.ID
+		registration.Name = service.Name
+		registration.Port = service.Port
+		registration.Tags = service.Tags
+		registration.Address = service.IP
+		registration.Check = r.buildCheck(service)
+
+		return r.client.Agent().ServiceRegister(registration)
+	} else {
+		agentService := new(consulapi.AgentService)
+		agentService.Service = service.Name
+		agentService.ID      = service.ID
+		agentService.Address = service.IP
+		agentService.Port    = service.Port
+		agentService.Tags    = service.Tags
+
+		hostname := strings.Split(service.ID, ":")[0]
+
+		catalogRegistration := new(consulapi.CatalogRegistration)
+		catalogRegistration.Node    = fmt.Sprintf("docker-%s", hostname)
+		catalogRegistration.ID      = service.ID
+		catalogRegistration.Address = hostname
+		catalogRegistration.Service = agentService
+
+		_, err := r.client.Catalog().Register(catalogRegistration, nil)
+		if err != nil {
+			log.Println("Error registering service:", err)
+		}
+		return err
+	}
 }
 
 func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServiceCheck {
@@ -130,7 +156,21 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 }
 
 func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
-	return r.client.Agent().ServiceDeregister(service.ID)
+	if ConsulRegMode != "catalog" {
+		return r.client.Agent().ServiceDeregister(service.ID)
+	} else {
+		hostname := strings.Split(service.ID, ":")[0]
+
+		catalogDeregistration := new(consulapi.CatalogDeregistration)
+		catalogDeregistration.Node    = fmt.Sprintf("docker-%s", hostname)
+		catalogDeregistration.ServiceID = service.ID
+
+		_, err := r.client.Catalog().Deregister(catalogDeregistration, nil)
+		if err != nil {
+			log.Println("Error deregistering catalog:", err)
+		}
+		return err
+	}
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
