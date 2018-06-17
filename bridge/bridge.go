@@ -332,6 +332,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		}
 	}
 
+	id := mapDefault(metadata, "id", "")
+	if id != "" {
+		service.ID = id
+	}
+
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
 			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
@@ -339,11 +344,6 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	} else {
 		service.Tags = combineTags(
 			mapDefault(metadata, "tags", ""), b.config.ForceTags)
-	}
-
-	id := mapDefault(metadata, "id", "")
-	if id != "" {
-		service.ID = id
 	}
 
 	delete(metadata, "id")
