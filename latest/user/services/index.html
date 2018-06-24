@@ -219,7 +219,7 @@ These can be implicitly set from the Dockerfile or explicitly set with <code>doc
 --expose=8080 ...</code>.</p>
 <p>You can also tell Registrator to ignore a container by setting a
 label or environment variable for <code>SERVICE_IGNORE</code>.</p>
-<p>If you need to ignore individual service on some container, you can use 
+<p>If you need to ignore individual service on some container, you can use
 <code>SERVICE_&lt;port&gt;_IGNORE=true</code>.</p>
 <h2 id="service-name">Service Name</h2>
 <p>Service names are what you use in service discovery lookups. By default, the
@@ -248,8 +248,10 @@ to use the <code>-ip</code> option to explicitly tell Registrator what IP to use
 Docker-assigned internal IP of the container</strong>.</p>
 <h2 id="tags-and-attributes">Tags and Attributes</h2>
 <p>Tags and attributes are extra metadata fields for services. Not all backends
-support them. In fact, currently Consul supports tags and none support
-attributes.</p>
+support them. In fact, currently Consul supports tags and more recently as of
+version 1.0.7, it added support for attributes as well in the form of
+<a href="https://www.consul.io/api/agent/service.html#meta">KV metadata</a> but no other
+backend supports attributes.</p>
 <p>Attributes can also be used by backends for registry specific features, not just
 generic metadata. For example, Consul uses them for <a href="../backends/#consul">specifying HTTP health
 checks</a>.</p>
