@@ -5,10 +5,39 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 ### Added
+- Populated Consul Meta for the service using service.Attrs
 
 ### Removed
 
 ### Changed
+
+## [v8] - 2018-06-25
+### Fixed
+- Remove stale/dangling services from registrator #339
+- Fix missing ServiceAddress (i.e. HostIP) in overlay networks #345
+- Fix specific port names not overriding port suffix #245
+- Fix multiple ports named service #194
+- Synchornize etcd cluster in registrator on service registration #221
+- Fix missing protocol when creating containers via Docker API #227
+
+### Added
+- Populated Consul Meta for the service using service.Attrs #620
+- CircleCI 2.0 support
+- Add windows runtime detection #571
+- Support to use exposed ports when in host networking mode #268
+- Consul initial check status #445
+- Support for Consul HTTPS health checks #338
+- Support for Consul TCP health checks #357
+- TLS support for Consul backend #394
+- Support for Consul unix sockets #336
+- Support for Docker multi host networking #303
+- Retries to backend at startup #235
+
+### Removed
+
+### Changed
+- Multistage Docke build with alpine:3.7 as base image
+
 
 ## [v7] - 2016-03-05
 ### Fixed
