@@ -6,7 +6,7 @@ RUN apk --no-cache add -t build-deps build-base go git curl \
 	&& curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
 	&& cd /go/src/github.com/gliderlabs/registrator \
 	&& export GOPATH=/go \
-  && git config --global http.https://gopkg.in.followRedirects true \
+	&& git config --global http.https://gopkg.in.followRedirects true \
 	&& dep ensure \
 	&& go build -ldflags "-X main.Version=$(cat VERSION)" -o /bin/registrator \
 	&& rm -rf /go \
