@@ -36,6 +36,7 @@ register an HTTP health check with the service.
 SERVICE_80_CHECK_HTTP=/health/endpoint/path
 SERVICE_80_CHECK_INTERVAL=15s
 SERVICE_80_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
+SERVICE_80_CHECK_PORT=81		# optional, if you want to do a check on different port than service one.
 ```
 
 It works for services on any port, not just 80. If its the only service,
@@ -51,6 +52,7 @@ register an HTTPS health check with the service.
 SERVICE_443_CHECK_HTTPS=/health/endpoint/path
 SERVICE_443_CHECK_INTERVAL=15s
 SERVICE_443_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
+SERVICE_443_CHECK_PORT=444		# optional, if you want to do a check on different port than service one.
 ```
 
 ### Consul TCP Check
@@ -60,9 +62,10 @@ specifying these extra metadata in labels or environment will be used to
 register an TCP health check with the service.
 
 ```bash
-SERVICE_443_CHECK_TCP=true
-SERVICE_443_CHECK_INTERVAL=15s
-SERVICE_443_CHECK_TIMEOUT=3s		# optional, Consul default used otherwise
+SERVICE_1234_CHECK_TCP=true
+SERVICE_1234_CHECK_INTERVAL=15s
+SERVICE_1234_CHECK_TIMEOUT=3s		# optional, Consul default used otherwise
+SERVICE_1234_CHECK_PORT=1235		# optional, if you want to do a check on different port than service one.
 ```
 
 ### Consul Script Check
