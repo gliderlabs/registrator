@@ -93,6 +93,20 @@ healthy.
 SERVICE_CHECK_TTL=30s
 ```
 
+### Consul gRPC Check
+
+This feature is only available when using Consul 1.0.5 or newer. Containers
+specifying these extra metadata in labels or environment will be used to
+register an gRPC health check with the service.
+
+```bash
+SERVICE_CHECK_GRPC=true
+SERVICE_CHECK_INTERVAL=5s
+SERVICE_CHECK_TIMEOUT=3s              # optional, Consul default uses 10s
+SERVICE_CHECK_GRPC_USE_TLS=true       # optional, Consul default uses false
+SERVICE_CHECK_TLS_SKIP_VERIFY=true    # optional, Consul default uses false
+```
+
 ### Consul Initial Health Check Status
 
 By default when a service is registered against Consul, the state is set to "critical". You can specify the initial health check status.
