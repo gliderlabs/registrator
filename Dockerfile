@@ -1,4 +1,4 @@
-FROM alpine:3.7 AS builder
+FROM alpine:3.8 AS builder
 COPY . /go/src/github.com/gliderlabs/registrator
 RUN apk --no-cache add -t build-deps build-base go git curl \
 	&& apk --no-cache add ca-certificates \
@@ -12,7 +12,7 @@ RUN apk --no-cache add -t build-deps build-base go git curl \
 	&& rm -rf /go \
 	&& apk del --purge build-deps
 
-FROM alpine:3.7
+FROM alpine:3.8
 COPY --from=builder /bin/registrator /bin/registrator
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ENTRYPOINT ["/bin/registrator"]

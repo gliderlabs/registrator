@@ -20,11 +20,11 @@
 
 [[constraint]]
   name = "github.com/hashicorp/consul"
-  version = "1.0.7"
+  version = "1.2.0"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/hashicorp/go-cleanhttp"
+  version = "0.5.0"
 
 [[constraint]]
   branch = "master"
