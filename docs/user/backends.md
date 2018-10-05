@@ -36,7 +36,7 @@ register an HTTP health check with the service.
 SERVICE_80_CHECK_HTTP=/health/endpoint/path
 SERVICE_80_CHECK_INTERVAL=15s
 SERVICE_80_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
-SERVICE_80_CHECK_METHOD=HEAD		# optional, Consul default used otherwise
+SERVICE_80_CHECK_HTTP_METHOD=HEAD	# optional, Consul default used otherwise
 ```
 
 It works for services on any port, not just 80. If its the only service,
@@ -52,7 +52,7 @@ register an HTTPS health check with the service.
 SERVICE_443_CHECK_HTTPS=/health/endpoint/path
 SERVICE_443_CHECK_INTERVAL=15s
 SERVICE_443_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
-SERVICE_443_CHECK_METHOD=HEAD		# optional, Consul default used otherwise
+SERVICE_443_CHECK_HTTPS_METHOD=HEAD	# optional, Consul default used otherwise
 ```
 
 ### Consul TCP Check
