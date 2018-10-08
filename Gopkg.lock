@@ -69,7 +69,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:49a2a779b1af8f02547b5a505eb1382f9d42299ec7215f34a32535e6af9a1c9e"
+  digest = "1:4ec8504b68b75f562efc4b291cba33194f88eaa4e68d9fc449e5b7ca68539329"
   name = "github.com/docker/docker"
   packages = [
     "api/types",
@@ -84,22 +84,18 @@
     "api/types/swarm/runtime",
     "api/types/versions",
     "opts",
-    "pkg/archive",
     "pkg/fileutils",
     "pkg/homedir",
     "pkg/idtools",
     "pkg/ioutils",
-    "pkg/jsonmessage",
     "pkg/longpath",
     "pkg/mount",
     "pkg/pools",
     "pkg/stdcopy",
     "pkg/system",
-    "pkg/term",
-    "pkg/term/windows",
   ]
   pruneopts = "UT"
-  revision = "a422774e593b33bd287d9890544ad9e09b380d8c"
+  revision = "3dfb26ab3cbf961298f8ce3f94659b5fe4146ceb"
 
 [[projects]]
   digest = "1:87dcb59127512b84097086504c16595cf8fef35b9e0bfca565dfc06e198158d7"
@@ -118,12 +114,24 @@
   version = "v0.3.3"
 
 [[projects]]
-  digest = "1:ef99b8925cb8a662a4cc98bb84cc3b431e45b8d8570957b9a2d053b467b9ec03"
-  name = "github.com/fsouza/go-dockerclient"
-  packages = ["."]
+  digest = "1:00d0d550a1f1d7ca03270ebc1e136f21f6b9dab37f0c37e9a90d56d2f7afcff9"
+  name = "github.com/docker/libnetwork"
+  packages = ["ipamutils"]
   pruneopts = "UT"
-  revision = "ca33ff277b527ce11b793e62f9ba244129b01caf"
-  version = "v1.2.0"
+  revision = "0ae9b6f38f24f65567d4b46602502b33c95cf57a"
+
+[[projects]]
+  digest = "1:027133e2c23fd4ff467e66d928ab4a64f7fd7cb2f77acdb580c483f7389d22d7"
+  name = "github.com/fsouza/go-dockerclient"
+  packages = [
+    ".",
+    "internal/archive",
+    "internal/jsonmessage",
+    "internal/term",
+  ]
+  pruneopts = "UT"
+  revision = "8842d40dbf5ee062d80f9dc429db31a0fe0cdc73"
+  version = "v1.2.2"
 
 [[projects]]
   branch = "master"
@@ -134,7 +142,8 @@
   revision = "36f28d47ec7aae4d25d3d2741ac5af91f7f18680"
 
 [[projects]]
-  digest = "1:1484079e06a08beb637d7424c9520d53ee18ba67ac81e40b8d903a34e179c61b"
+  branch = "master"
+  digest = "1:0d6861f6e5deb4b7c17a05a03522e76c7db45f14ac15eb4d4670738cea067fc0"
   name = "github.com/gliderlabs/registrator"
   packages = [
     "bridge",
@@ -145,8 +154,7 @@
     "zookeeper",
   ]
   pruneopts = "UT"
-  revision = "8bed3a616acb83b1d2145f90e338f9da3d0b42f2"
-  version = "v7"
+  revision = "cd981b2c59298593b94616a9fca2bb5566274ede"
 
 [[projects]]
   digest = "1:9a688317f3231e0175b3429033f44411906c0ce119361b7b5019d01375f8cff7"
@@ -247,12 +255,9 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:1869683e323ebff2bdf8adcb560f82bf6f8d94019d35099e3403f7df12e9c07e"
+  digest = "1:38ee335aedf4626620f3cf8f605661e71abdcce7b40b38921962beb3980f0a20"
   name = "github.com/opencontainers/runc"
-  packages = [
-    "libcontainer/system",
-    "libcontainer/user",
-  ]
+  packages = ["libcontainer/user"]
   pruneopts = "UT"
   revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
   version = "v0.1.1"
@@ -311,12 +316,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ebe951b4df51f83f0de0847319bb022f9c96a4649f1cf18a90aa4893ef2b82fd"
+  digest = "1:efa7281b594f7efa2f2c1adda314f45f1cb58d5ba2fa2f9f63c6b0ce50e040ac"
   name = "golang.org/x/net"
   packages = [
     "bpf",
     "context",
-    "context/ctxhttp",
     "internal/iana",
     "internal/socket",
     "ipv4",
