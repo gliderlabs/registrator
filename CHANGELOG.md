@@ -3,12 +3,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased][unreleased]
 ### Fixed
+- Updated Consul API to 1.2.0 to fix breaking change (removal of deprecated Script param)
 
 ### Added
 
 ### Removed
 
 ### Changed
+- Upgraded base Alpine to 3.8 and go 1.10
+- Upgraded go-dockerclient to 1.3.1
 
 ## [v7] - 2016-03-05
 ### Fixed

@@ -1,5 +1,6 @@
 NAME=registrator
 VERSION=$(shell cat VERSION)
+GITHASH=$(shell git rev-parse --short HEAD)
 DEV_RUN_OPTS ?= consul:
 
 dev:
@@ -10,8 +11,8 @@ dev:
 
 build:
 	mkdir -p build
-	docker build -t $(NAME):$(VERSION) .
-	docker save $(NAME):$(VERSION) | gzip -9 > build/$(NAME)_$(VERSION).tgz
+	docker build -t $(NAME):$(VERSION)-$(GITHASH) .
+	docker save $(NAME):$(VERSION)-$(GITHASH) | gzip -9 > build/$(NAME)_$(VERSION)-$(GITHASH).tgz
 
 release:
 	rm -rf release && mkdir release
