@@ -16,6 +16,7 @@ import (
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
+var ec2internalpattern = regexp.MustCompile(`ip-\S+\.ec2\.internal`)
 
 type Bridge struct {
 	sync.Mutex
@@ -202,7 +203,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -250,11 +251,21 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 
+	var hostname string
+	containerHostname := container.Config.Hostname
+	if b.config.Awsvpc == true && ec2internalpattern.MatchString(containerHostname) {
+		hostname = containerHostname
+	} else {
+		// not every container may be running in a task with awsvpc networking mode
+		// so fall back to the instance hostname for containers which are not
+		hostname = Hostname
+	}
+
 	// not sure about this logic. kind of want to remove it.
-	hostname := Hostname
 	if hostname == "" {
 		hostname = port.HostIP
 	}
+
 	if port.HostIP == "0.0.0.0" {
 		ip, err := net.ResolveIPAddr("ip", hostname)
 		if err == nil {
@@ -293,6 +304,12 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
 		p, _ = strconv.Atoi(port.ExposedPort)
+	} else if b.config.Awsvpc == true {
+		ip, err := net.ResolveIPAddr("ip", hostname)
+		if err == nil {
+			service.IP = ip.String()
+			p, _ = strconv.Atoi(port.HostPort)
+		}
 	} else {
 		service.IP = port.HostIP
 		p, _ = strconv.Atoi(port.HostPort)
@@ -309,7 +326,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
