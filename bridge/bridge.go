@@ -335,7 +335,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	// NetworkMode can point to another container (kuberenetes pods)
 	networkMode := container.HostConfig.NetworkMode
-	if networkMode != "" {
+	if b.config.Awsvpc == false && networkMode != "" {
 		if strings.HasPrefix(networkMode, "container:") {
 			networkContainerId := strings.Split(networkMode, ":")[1]
 			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
