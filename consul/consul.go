@@ -115,10 +115,15 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		if timeout := service.Attrs["check_timeout"]; timeout != "" {
 			check.Timeout = timeout
 		}
+	} else if grpc := service.Attrs["check_grpc"]; grpc != "" {
+		check.GRPC = fmt.Sprintf("%s:%d", service.IP, service.Port)
+		if useTLS := service.Attrs["check_grpc_tls"]; strings.ToLower(useTLS) == "true" {
+			check.GRPCUseTLS = true
+		}
 	} else {
 		return nil
 	}
-	if check.Script != "" || check.HTTP != "" || check.TCP != "" {
+	if check.Script != "" || check.HTTP != "" || check.TCP != "" || check.GRPC != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
 			check.Interval = interval
 		} else {
