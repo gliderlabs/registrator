@@ -12,7 +12,7 @@ import (
 	"net/url"
 
 	//"github.com/coreos/go-etcd/etcd"
-        "go.etcd.io/etcd/client"
+	"go.etcd.io/etcd/client"
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/gliderlabs/registrator/bridge"
 	"crypto/tls"
