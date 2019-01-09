@@ -63,8 +63,8 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 	metadataFromPort := make(map[string]bool)
 	for _, kv := range meta {
 		kvp := strings.SplitN(kv, "=", 2)
-		if strings.HasPrefix(kvp[0], "SERVICE_") && len(kvp) > 1 {
-			key := strings.ToLower(strings.TrimPrefix(kvp[0], "SERVICE_"))
+		if strings.HasPrefix(kvp[0], "sps.") && len(kvp) > 1 {
+			key := strings.ToLower(strings.TrimPrefix(kvp[0], "sps."))
 			if metadataFromPort[key] {
 				continue
 			}
