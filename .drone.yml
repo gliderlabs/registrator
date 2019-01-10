@@ -7,7 +7,7 @@ pipeline:
     environment:
       - VERSION=${DRONE_COMMIT}
     commands:
-      - apk --no-cache add -t build-deps build-base go git curl \
+      - apk add -U --no-cache build-deps build-base go git curl \
         && apk --no-cache add ca-certificates \
         && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin \
         && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
