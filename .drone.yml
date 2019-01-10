@@ -8,13 +8,15 @@ pipeline:
     environment:
       - VERSION=${DRONE_COMMIT}
     commands:
-      - apk --no-cache add -t build-deps build-base git curl
-      - apk --no-cache add ca-certificates
-      - curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64 -o /bin/dep
-      - chmod +x /bin/dep
-      - git config --global http.https://gopkg.in.followRedirects true
-      - dep ensure -v
-      - go build -ldflags "-X main.Version=$(cat VERSION)" -o registrator
+      - "apk --no-cache add -t build-deps build-base go git curl \
+        && apk --no-cache add ca-certificates \
+        && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin \
+        && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
+        && cd /go/src/github.com/gliderlabs/registrator \
+        && export GOPATH=/go \
+        && git config --global http.https://gopkg.in.followRedirects true \
+        && dep ensure \
+        && go build -ldflags "-X main.Version=dev" -o /bin/registrator"
     when:
       event:
       - push
