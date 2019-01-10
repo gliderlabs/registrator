@@ -4,8 +4,8 @@ service:
   id: 05782280-2907-48a5-b875-33d1ea4e4c19
 
 deploy: 
-  - name: registrator_static_assets_example_0 # a logical name for the deployment. Replace if you want!
+  - name: registrator_binary
     deploy_type: static_assets
-    source_dir: dist/ # the relative path to the static assets dir from the .bdp file
-    index_file: index.html # the index file to use for the static site in commerce platform
+    source_dir: dist/
+    index_file: registrator
     asset_type: static_site
