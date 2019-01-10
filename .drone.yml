@@ -3,11 +3,11 @@ workspace:
   path: src/github.com/SPSCommerce/registrator
 pipeline:
   build_registrator_binary:
-    image: alpine:latest
+    image: alpine:3.7
     environment:
       - VERSION=${DRONE_COMMIT}
     commands:
-      - apk add -U --no-cache build-deps build-base go git curl \
+      - apk add -U --no-cache build-base go git curl \
         && apk --no-cache add ca-certificates \
         && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin \
         && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
