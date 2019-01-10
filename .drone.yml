@@ -4,7 +4,6 @@ workspace:
 pipeline:
   build_registrator_binary:
     image: alpine:3.7
-    group: builders
     environment:
       - VERSION=${DRONE_COMMIT}
     commands:
@@ -16,7 +15,7 @@ pipeline:
         && export GOPATH=/go \
         && git config --global http.https://gopkg.in.followRedirects true \
         && dep ensure \
-        && go build -ldflags "-X main.Version=dev" -o registrator
+        && go build -ldflags "-X main.Version=$(cat VERSION)" -o registrator
     when:
       event:
       - push
