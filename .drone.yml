@@ -3,7 +3,7 @@ workspace:
   path: src/github.com/SPSCommerce/registrator
 pipeline:
   build_registrator_binary:
-    image: golang:1.11-alpine
+    image: alpine:3.7
     group: builders
     environment:
       - VERSION=${DRONE_COMMIT}
@@ -26,7 +26,7 @@ pipeline:
     image: python:3
     commands:
       - pip install awscli
-      - aws s3 cp registrator s3://sps-build-deploy/sre/registrator/registrator
+      - aws s3 cp /go/src/github.com/SPSCommerce/registrator/registrator s3://sps-build-deploy/sre/registrator/registrator
     when:
       event:
       - push
