@@ -25,7 +25,7 @@ pipeline:
     image: python:3
     commands:
       - pip install awscli
-      - aws s3 cp /go/src/github.com/gliderlabs/registrator/registrator s3://sps-build-deploy/sre/registrator/registrator
+      - aws s3 cp /go/src/github.com/gliderlabs/registrator/registrator s3://sps-build-deploy-056684691971-us-east-1/techops/cloudengineering/registrator/
     when:
       event:
       - push
