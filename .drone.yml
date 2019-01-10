@@ -1,0 +1,31 @@
+workspace:
+  base: /go
+  path: src/github.com/SPSCommerce/registrator
+pipeline:
+  build_registrator_binary:
+    image: golang:1.11-alpine
+    group: builders
+    environment:
+      - VERSION=${DRONE_COMMIT}
+    commands:
+      - apk --no-cache add -t build-deps build-base git curl
+      - apk --no-cache add ca-certificates
+      - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      - git config --global http.https://gopkg.in.followRedirects true
+      - dep ensure -v
+      - go build -ldflags "-X main.Version=$(cat VERSION)" -o registrator
+    when:
+      event:
+      - push
+      branch:
+      - master
+  copy_to_s3:
+    image: python:3
+    commands:
+      - pip install awscli
+      - aws s3 cp registrator s3://sps-build-deploy/sre/registrator/registrator
+    when:
+      event:
+      - push
+      branch:
+      - master
