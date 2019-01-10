@@ -10,7 +10,8 @@ pipeline:
     commands:
       - apk --no-cache add -t build-deps build-base git curl
       - apk --no-cache add ca-certificates
-      - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      - curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64 -o /bin/dep
+      - chmod +x /bin/dep
       - git config --global http.https://gopkg.in.followRedirects true
       - dep ensure -v
       - go build -ldflags "-X main.Version=$(cat VERSION)" -o registrator
