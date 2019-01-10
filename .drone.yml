@@ -3,7 +3,7 @@ workspace:
   path: src/github.com/SPSCommerce/registrator
 pipeline:
   build_registrator_binary:
-    image: alpine:3.7
+    image: alpine:latest
     environment:
       - VERSION=${DRONE_COMMIT}
     commands:
