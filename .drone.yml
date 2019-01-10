@@ -12,11 +12,11 @@ pipeline:
         && apk --no-cache add ca-certificates \
         && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin \
         && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
-        && cd /go/src/github.com/gliderlabs/registrator \
+        && cd /go/src/github.com/SPSCommerce/registrator \
         && export GOPATH=/go \
         && git config --global http.https://gopkg.in.followRedirects true \
         && dep ensure \
-        && go build -ldflags "-X main.Version=dev" -o /bin/registrator
+        && go build -ldflags "-X main.Version=dev" -o registrator
     when:
       event:
       - push
