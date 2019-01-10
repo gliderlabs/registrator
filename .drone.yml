@@ -1,6 +1,6 @@
 workspace:
   base: /go
-  path: src/github.com/SPSCommerce/registrator
+  path: src/github.com/gliderlabs/registrator
 pipeline:
   build_registrator_binary:
     image: alpine:3.7
@@ -11,7 +11,7 @@ pipeline:
         && apk --no-cache add ca-certificates
         && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin
         && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-        && cd /go/src/github.com/SPSCommerce/registrator
+        && cd /go/src/github.com/gliderlabs/registrator
         && export GOPATH=/go
         && git config --global http.https://gopkg.in.followRedirects true
         && dep ensure
