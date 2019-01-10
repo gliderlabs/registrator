@@ -5,17 +5,14 @@ pipeline:
   build_registrator_binary:
     image: alpine:3.7
     environment:
-      - VERSION=${DRONE_COMMIT}
+    - VERSION=${DRONE_COMMIT}
     commands:
-      - apk --no-cache add -t build-deps build-base go git curl
-        && apk --no-cache add ca-certificates
-        && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin
-        && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-        && cd /go/src/github.com/gliderlabs/registrator
-        && export GOPATH=/go
-        && git config --global http.https://gopkg.in.followRedirects true
-        && dep ensure
-        && go build -ldflags "-X main.Version=$(cat VERSION)" -o registrator
+    - apk --no-cache add -t build-deps build-base go git curl && apk --no-cache add
+      ca-certificates && export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin
+      && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      && cd /go/src/github.com/gliderlabs/registrator && export GOPATH=/go && git
+      config --global http.https://gopkg.in.followRedirects true && dep ensure &&
+      go build -ldflags "-X main.Version=$(cat VERSION)" -o registrator
     when:
       event:
       - push
@@ -24,8 +21,23 @@ pipeline:
   copy_to_s3:
     image: python:3
     commands:
-      - pip install awscli
-      - aws s3 cp /go/src/github.com/gliderlabs/registrator/registrator s3://sps-build-deploy-056684691971-us-east-1/techops/cloudengineering/registrator/
+    - pip install awscli
+    - aws s3 cp /go/src/github.com/gliderlabs/registrator/registrator s3://sps-build-deploy-056684691971-us-east-1/techops/cloudengineering/registrator/
+    when:
+      event:
+      - push
+      branch:
+      - master
+  bdp_core_deploy:
+    image: spscommerce/plugin-bdp-core
+    environment:
+    - VERSION=${DRONE_COMMIT}  # the version of your bdp-core deploy. Must match docker container tags
+    - REGION=us-east-1 # the region you are deploying to
+    - BDP_FILE=.bdp # the absolute path in the repo to the .bdp file that is being deployed
+    - ACTION=deploy # the bdp-core action
+    - ENVIRONMENT=dev # the environment to deploy to
+    commands:
+    - python -u /build/plug.py
     when:
       event:
       - push
