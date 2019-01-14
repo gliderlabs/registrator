@@ -7,8 +7,9 @@ pipeline:
     environment:
     - VERSION=${DRONE_TAG}
     commands:
-    - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-      && cd /go/src/github.com/gliderlabs/registrator && git
+    - curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64 -o /bin/dep
+    - chmod +x /bin/dep
+    - cd /go/src/github.com/gliderlabs/registrator && git
       config --global http.https://gopkg.in.followRedirects true && dep ensure &&
       go build -ldflags "-X main.Version=$(cat VERSION)" -o dist/registrator
     when:
