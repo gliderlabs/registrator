@@ -15,8 +15,8 @@ import (
 	"github.com/docker/docker/api/types/swarm"
 )
 
-// format: node_id:container_name:port(:"upd")
-var containerSvcIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
+// format: node_id:container_name:service_name:port(:"upd")
+var containerSvcIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
 
 // format: "swarm-vip-svc":swarm_service_id:node_id:port(:"upd")
 var swarmVipSvcIDPattern = regexp.MustCompile(`^swarm-vip-svc:(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
@@ -190,7 +190,7 @@ func (b *Bridge) sync(quiet bool) {
 		for _, extService := range extServices {
 			matches := containerSvcIDPattern.FindStringSubmatch(extService.ID)
 
-			if len(matches) != 3 {
+			if len(matches) != 4 {
 				// There's no way this was registered by us, so leave it
 				continue
 			}
@@ -261,20 +261,23 @@ func (b *Bridge) add(containerId string, quiet bool) {
 			}
 			continue
 		}
-		service := b.newService(port, len(ports) > 1)
-		if service == nil {
+		services := b.newService(port, len(ports) > 1)
+		if len(services) == 0 {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
 			}
 			continue
 		}
-		err := b.registry.Register(service)
-		if err != nil {
-			log.Println("register failed:", service, err)
-			continue
+
+		for _, service := range services {
+			err := b.registry.Register(service)
+			if err != nil {
+				log.Println("register failed:", service, err)
+				continue
+			}
+			b.containerServices[container.ID] = append(b.containerServices[container.ID], service)
+			log.Println("added:", container.ID[:12], service.ID, service.Name)
 		}
-		b.containerServices[container.ID] = append(b.containerServices[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
 	}
 
 	servicePorts := make(map[string]ServicePort)
@@ -290,24 +293,29 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	isGroup := len(servicePorts) > 1
 	for _, port := range servicePorts {
-		service := b.newService(port, isGroup)
-		if service == nil {
+		services := b.newService(port, isGroup)
+		if len(services) == 0 {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "service on port", port.ExposedPort)
 			}
 			continue
 		}
-		err := b.registry.Register(service)
-		if err != nil {
-			log.Println("register failed:", service, err)
-			continue
+
+		for _, service := range services {
+			err := b.registry.Register(service)
+			if err != nil {
+				log.Println("register failed:", service, err)
+				continue
+			}
+			b.containerServices[container.ID] = append(b.containerServices[container.ID], service)
+			log.Println("added:", container.ID[:12], service.ID, service.Name)
 		}
-		b.containerServices[container.ID] = append(b.containerServices[container.ID], service)
-		log.Println("added:", container.ID[:12], service.ID)
 	}
 }
 
-func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
+func (b *Bridge) newService(port ServicePort, isgroup bool) []*Service {
+	services := make([]*Service, 0)
+
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
 
@@ -317,107 +325,118 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	if port.HostIP == "0.0.0.0" {
 		log.Printf("ignored: no valid ip address found %s", container.ID[:12])
-		return nil
+		return services
 	}
 
 	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
 
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {
-		return nil
+		return services
 	}
 
 	serviceName := mapDefault(metadata, "name", "")
 	if serviceName == "" {
 		if b.config.Explicit {
 			log.Printf("ignored: container service without explicit naming %s", container.ID[:12])
-			return nil
+			return services
 		}
 		serviceName = defaultName
 	}
 
-	service := new(Service)
-	service.Origin = port
-
 	// consider swarm mode
 	if swarmServiceName, ok := port.container.Config.Labels["com.docker.swarm.service.name"]; ok {
 		// swarm mode has concept of services
-		service.Name = mapDefault(metadata, "name", swarmServiceName)
+		serviceName = mapDefault(metadata, "name", swarmServiceName)
 	} else {
-		service.Name = mapDefault(metadata, "name", defaultName)
+		serviceName = mapDefault(metadata, "name", defaultName)
 	}
-
-	// must match containerSvcIDPattern
-	service.ID = b.config.NodeId + ":" + container.Name[1:] + ":" + port.ExposedPort
 
 	if isgroup && !metadataFromPort["name"] {
-		service.Name += "-" + port.ExposedPort
+		serviceName += "-" + port.ExposedPort
 	}
-	var p int
 
-	if b.config.Internal == true {
-		service.IP = port.ExposedIP
-		p, _ = strconv.Atoi(port.ExposedPort)
-	} else {
-		service.IP = port.HostIP
-		p, _ = strconv.Atoi(port.HostPort)
-	}
-	service.Port = p
+	// maybe there are multiple service names configured
+	serviceNames := strings.SplitN(serviceName, ",", -1)
 
-	if b.config.UseIpFromLabel != "" {
-		containerIp := container.Config.Labels[b.config.UseIpFromLabel]
-		if containerIp != "" {
-			slashIndex := strings.LastIndex(containerIp, "/")
-			if slashIndex > -1 {
-				service.IP = containerIp[:slashIndex]
-			} else {
-				service.IP = containerIp
-			}
-			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+	for _, _serviceName := range serviceNames {
+
+		service := new(Service)
+		service.Origin = port
+
+		service.Name = strings.TrimSpace(_serviceName)
+
+		// must match containerSvcIDPattern
+		service.ID = b.config.NodeId + ":" + container.Name[1:] + ":" + service.Name + ":" + port.ExposedPort
+
+		var p int
+
+		if b.config.Internal == true {
+			service.IP = port.ExposedIP
+			p, _ = strconv.Atoi(port.ExposedPort)
 		} else {
-			log.Println("Label '" + b.config.UseIpFromLabel +
-				"' not found in container configuration")
+			service.IP = port.HostIP
+			p, _ = strconv.Atoi(port.HostPort)
 		}
-	}
+		service.Port = p
 
-	// NetworkMode can point to another container (kuberenetes pods)
-	networkMode := container.HostConfig.NetworkMode
-	if networkMode != "" {
-		if strings.HasPrefix(networkMode, "container:") {
-			networkContainerId := strings.Split(networkMode, ":")[1]
-			log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
-			networkContainer, err := b.docker.InspectContainer(networkContainerId)
-			if err != nil {
-				log.Println("unable to inspect network container:", networkContainerId[:12], err)
+		if b.config.UseIpFromLabel != "" {
+			containerIp := container.Config.Labels[b.config.UseIpFromLabel]
+			if containerIp != "" {
+				slashIndex := strings.LastIndex(containerIp, "/")
+				if slashIndex > -1 {
+					service.IP = containerIp[:slashIndex]
+				} else {
+					service.IP = containerIp
+				}
+				log.Println("using container IP " + service.IP + " from label '" +
+					b.config.UseIpFromLabel  + "'")
 			} else {
-				service.IP = networkContainer.NetworkSettings.IPAddress
-				log.Println(service.Name + ": using network container IP " + service.IP)
+				log.Println("Label '" + b.config.UseIpFromLabel +
+					"' not found in container configuration")
 			}
 		}
+
+		// NetworkMode can point to another container (kuberenetes pods)
+		networkMode := container.HostConfig.NetworkMode
+		if networkMode != "" {
+			if strings.HasPrefix(networkMode, "container:") {
+				networkContainerId := strings.Split(networkMode, ":")[1]
+				log.Println(service.Name + ": detected container NetworkMode, linked to: " + networkContainerId[:12])
+				networkContainer, err := b.docker.InspectContainer(networkContainerId)
+				if err != nil {
+					log.Println("unable to inspect network container:", networkContainerId[:12], err)
+				} else {
+					service.IP = networkContainer.NetworkSettings.IPAddress
+					log.Println(service.Name + ": using network container IP " + service.IP)
+				}
+			}
+		}
+
+		if port.PortType == "udp" {
+			service.Tags = combineTags(
+				mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
+			service.ID = service.ID + ":udp"
+		} else {
+			service.Tags = combineTags(
+				mapDefault(metadata, "tags", ""), b.config.ForceTags)
+		}
+
+		id := mapDefault(metadata, "id", "")
+		if id != "" {
+			service.ID = id
+		}
+
+		delete(metadata, "id")
+		delete(metadata, "tags")
+		delete(metadata, "name")
+		service.Attrs = metadata
+		service.TTL = b.config.RefreshTtl
+
+		services = append(services, service)
 	}
 
-	if port.PortType == "udp" {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
-		service.ID = service.ID + ":udp"
-	} else {
-		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags)
-	}
-
-	id := mapDefault(metadata, "id", "")
-	if id != "" {
-		service.ID = id
-	}
-
-	delete(metadata, "id")
-	delete(metadata, "tags")
-	delete(metadata, "name")
-	service.Attrs = metadata
-	service.TTL = b.config.RefreshTtl
-
-	return service
+	return services
 }
 
 /*
@@ -684,6 +703,8 @@ func (b *Bridge) updateSwarmServiceByIdOrRetry(aSwarmServiceId string, retriesLe
 
 func (b *Bridge) registerSwarmService(swarmService swarm.Service) {
 	if swarmService.Spec.EndpointSpec != nil {
+
+
 		mode := swarmService.Spec.EndpointSpec.Mode
 		// DNSrr service will be handled as container service (see Sync())
 		if mode == swarm.ResolutionModeVIP {
@@ -761,10 +782,10 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 	portsMetadata := make(map[int]map[string]string)
 
 	for key, value := range metadata {
-		key = strings.ToLower(strings.TrimPrefix(key, "SERVICE_"))
-		portkey := strings.SplitN(key, "_", 2)
-		p, err := strconv.Atoi(portkey[0])
-		if err == nil && len(portkey) > 1 {
+		key = strings.ToLower(strings.TrimPrefix(key, "SERVICE_")) // SERVICE_8080_NAME=foo
+		portkey := strings.SplitN(key, "_", 2) // 8080_NAME
+		p, err := strconv.Atoi(portkey[0]) // p=8080
+		if err == nil && len(portkey) > 1 { // [8080, NAME]
 			if portMeta, ok := portsMetadata[p]; ok {
 				portMeta[portkey[1]] = value
 			}	else {
@@ -784,7 +805,7 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 		// differ for each replica/host. So we can't register the service here.
 		// Instead the appropriate container has a published port defined and will be registered as normal
 		// non-swarm service then. See Sync() and Add().
-		if port.PublishMode == "host" && port.PublishedPort == 0 {
+		if port.PublishMode == "host" {
 			continue
 		}
 
@@ -814,7 +835,12 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 		// must match swarmVipSvcIDPattern
 		serviceID := "swarm-vip-svc:" + swarmService.ID + ":" + b.config.NodeId + ":" + strconv.Itoa(targetPort)
 
-		services = append(services, b.registerSwarmVipServicePort(serviceID, serviceName, portMeta, inside, vip, int(portNum), port.Protocol))
+		// comment ...
+		serviceNames := strings.SplitN(serviceName, ",", -1)
+
+		for _, _serviceName := range serviceNames {
+			services = append(services, b.registerSwarmVipServicePort(serviceID, strings.TrimSpace(_serviceName), portMeta, inside, vip, int(portNum), port.Protocol))
+		}
 	}
 
 	// cache registered swarm services
