@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 	"net"
@@ -102,7 +103,11 @@ func main() {
 
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
-		os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+		if runtime.GOOS != "windows" {
+			os.Setenv("DOCKER_HOST", "unix:///tmp/docker.sock")
+		} else {
+			os.Setenv("DOCKER_HOST", "npipe:////./pipe/docker_engine")
+		}
 	}
 
 	docker, err := dockerapi.NewClientFromEnv()
