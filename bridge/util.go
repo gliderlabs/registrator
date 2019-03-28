@@ -95,9 +95,10 @@ func envToMap(lines []string) (map[string]string) {
 	return result
 }
 
-func joinMaps(src map[string]string, dst map[string]string, filter func(key string)bool) (map[string]string) {
+func joinMaps(src map[string]string, dst map[string]string, keyFilter func(key string)string) (map[string]string) {
 	for key, value := range src {
-		if filter(key) {
+		key = keyFilter(key)
+		if key != "" {
 			dst[key] = value
 		}
 	}

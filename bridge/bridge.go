@@ -18,8 +18,8 @@ import (
 // format: node_id:container_name:service_name:port(:"upd")
 var containerSvcIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
 
-// format: "swarm-vip-svc":swarm_service_id:node_id:port(:"upd")
-var swarmVipSvcIDPattern = regexp.MustCompile(`^swarm-vip-svc:(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
+// format: "swarm-vip-svc":swarm_service_id:node_id:service_name:port(:"upd")
+var swarmVipSvcIDPattern = regexp.MustCompile(`^swarm-vip-svc:(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
 
 // format: "swarm-mgr-svc":node_id:port
 var swarmMgrSvcIDPattern = regexp.MustCompile(`^swarm-mgr-svc:(.+?):[0-9]+$`)
@@ -470,7 +470,7 @@ func (b *Bridge) filterSwarmVipServices(services []*Service) map[string][]*Servi
 	swarmVipServiceFilter := func(service *Service) *string {
 		matches := swarmVipSvcIDPattern.FindStringSubmatch(service.ID)
 
-		if len(matches) != 3 {
+		if len(matches) != 4 {
 			// this service wasn't registered as swarm mode service so we have to filter it here
 			return nil
 		}
@@ -769,20 +769,30 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 
 	metadata := make(map[string]string)
 
-	metadataFilter := func(key string) bool {
+	metadataKeyFilter := func(key string) string {
 		// filter all registrator specific metadata
-		return strings.HasPrefix(key, "SERVICE_")
+		if strings.HasPrefix(key, "SERVICE_") {
+			return strings.ToLower(strings.TrimPrefix(key, "SERVICE_"))
+		} else {
+			return ""
+		}
 	}
 
 	// order is crucial here as service labels must override container settings
-	joinMaps(containerLabels, metadata, metadataFilter)
-	joinMaps(containerEnv, metadata, metadataFilter)
-	joinMaps(serviceLabels, metadata, metadataFilter)
+	joinMaps(containerLabels, metadata, metadataKeyFilter)
+	joinMaps(containerEnv, metadata, metadataKeyFilter)
+	joinMaps(serviceLabels, metadata, metadataKeyFilter)
+
+	ignore := mapDefault(metadata, "ignore", "")
+	if ignore != "" {
+		log.Printf("ignore swarm vip service %s as configured", swarmService.Spec.Name)
+		return
+	}
 
 	portsMetadata := make(map[int]map[string]string)
 
 	for key, value := range metadata {
-		key = strings.ToLower(strings.TrimPrefix(key, "SERVICE_")) // SERVICE_8080_NAME=foo
+		//*key = strings.ToLower(strings.TrimPrefix(key, "SERVICE_")) // SERVICE_8080_NAME=foo
 		portkey := strings.SplitN(key, "_", 2) // 8080_NAME
 		p, err := strconv.Atoi(portkey[0]) // p=8080
 		if err == nil && len(portkey) > 1 { // [8080, NAME]
@@ -797,6 +807,8 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 	}
 
 	services := make([]*Service, 0)
+
+	serviceName := mapDefault(metadata, "name", "")
 
 	for _, port := range swarmService.Endpoint.Ports {
 
@@ -816,30 +828,37 @@ func (b *Bridge) registerSwarmVipServicePorts(swarmService swarm.Service, inside
 		}
 
 		targetPort := int(port.TargetPort)
-		serviceName := swarmService.Spec.Name + "-" + strconv.Itoa(targetPort)
+
 		portMeta, ok := portsMetadata[targetPort]
 
 		if ok {
-		  if portName, ok := portMeta["name"]; ok {
+			if portName, ok := portMeta["name"]; ok {
 			  serviceName = portName
 				delete(portMeta, "name")
 			}
 		} else {
+			portMeta = make(map[string]string)
+		}
+
+		if serviceName == "" {
 			if b.config.Explicit {
 				log.Printf("ignored: swarm vip service has no explicit naming %s", swarmService.Spec.Name)
 				continue
 			}
-			portMeta = make(map[string]string)
+
+			serviceName = swarmService.Spec.Name + "-" + strconv.Itoa(targetPort)
 		}
 
-		// must match swarmVipSvcIDPattern
-		serviceID := "swarm-vip-svc:" + swarmService.ID + ":" + b.config.NodeId + ":" + strconv.Itoa(targetPort)
-
-		// comment ...
+		// serviceName may contain comma separated service names
 		serviceNames := strings.SplitN(serviceName, ",", -1)
 
 		for _, _serviceName := range serviceNames {
-			services = append(services, b.registerSwarmVipServicePort(serviceID, strings.TrimSpace(_serviceName), portMeta, inside, vip, int(portNum), port.Protocol))
+			trimmedServiceName := strings.TrimSpace(_serviceName)
+
+			// must match swarmVipSvcIDPattern
+			serviceID := "swarm-vip-svc:" + swarmService.ID + ":" + b.config.NodeId + ":" + trimmedServiceName + ":" + strconv.Itoa(targetPort)
+
+			services = append(services, b.registerSwarmVipServicePort(serviceID, trimmedServiceName, portMeta, inside, vip, int(portNum), port.Protocol))
 		}
 	}
 
