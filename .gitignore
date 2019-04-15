@@ -1,3 +1,4 @@
-release
+.gvm_local
 build
+release
 vendor
