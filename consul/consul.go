@@ -38,8 +38,8 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		tlsConfigDesc := &consulapi.TLSConfig{
 			Address:            uri.Host,
 			CAFile:             os.Getenv("CONSUL_CACERT"),
-			CertFile:           os.Getenv("CONSUL_TLSCERT"),
-			KeyFile:            os.Getenv("CONSUL_TLSKEY"),
+			CertFile:           os.Getenv("CONSUL_CLIENT_CERT"),
+			KeyFile:            os.Getenv("CONSUL_CLIENT_KEY"),
 			InsecureSkipVerify: false,
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
@@ -49,7 +49,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
 		transport.TLSClientConfig = tlsConfig
-		config.HttpClient.Transport = transport
+		config.Transport = transport
 		config.Address = uri.Host
 	} else if uri.Host != "" {
 		config.Address = uri.Host
