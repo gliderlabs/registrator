@@ -29,6 +29,7 @@ type Config struct {
 	RefreshInterval int
 	DeregisterCheck string
 	Cleanup         bool
+	ServiceMesh     bool
 }
 
 type Service struct {
@@ -39,6 +40,7 @@ type Service struct {
 	Tags  []string
 	Attrs map[string]string
 	TTL   int
+	Mesh  bool
 
 	Origin ServicePort
 }
