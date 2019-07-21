@@ -22,10 +22,10 @@ func init() {
 	bridge.Register(f, "consul-unix")
 }
 
-func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
+func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) []string {
 	withIp := strings.Replace(script, "$SERVICE_IP", service.IP, -1)
 	withPort := strings.Replace(withIp, "$SERVICE_PORT", strconv.Itoa(service.Port), -1)
-	return withPort
+	return strings.Split(withPort, " ")
 }
 
 type Factory struct{}
@@ -105,9 +105,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			check.Timeout = timeout
 		}
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Script = fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd)
+		check.Args = []string{"check-cmd", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd}
 	} else if script := service.Attrs["check_script"]; script != "" {
-		check.Script = r.interpolateService(script, service)
+		check.Args = r.interpolateService(script, service)
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
@@ -118,7 +118,7 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else {
 		return nil
 	}
-	if check.Script != "" || check.HTTP != "" || check.TCP != "" {
+	if len(check.Args) > 0 || check.HTTP != "" || check.TCP != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
 			check.Interval = interval
 		} else {
