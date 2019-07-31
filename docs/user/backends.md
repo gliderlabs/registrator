@@ -57,7 +57,7 @@ SERVICE_443_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
 
 This feature is only available when using Consul 0.6 or newer. Containers
 specifying these extra metadata in labels or environment will be used to
-register an TCP health check with the service.
+register a TCP health check with the service.
 
 ```bash
 SERVICE_443_CHECK_TCP=true
@@ -91,6 +91,17 @@ healthy.
 
 ```bash
 SERVICE_CHECK_TTL=30s
+```
+
+### Consul gRPC Check
+
+This feature is only available when using Consul [1.0.5 or newer](https://github.com/hashicorp/consul/blob/master/CHANGELOG.md#105-february-7-2018). Containers specifying these extra metadata in labels or environment will be used to register a gRPC health check with the service.
+
+```bash
+SERVICE_12345_CHECK_GRPC=true
+SERVICE_12345_CHECK_GRPC_USE_TLS=true # optional, Consul default used otherwise
+SERVICE_12345_CHECK_INTERVAL=15s
+SERVICE_12345_CHECK_TIMEOUT=3s        # optional, Consul default used otherwise
 ```
 
 ### Consul Initial Health Check Status
