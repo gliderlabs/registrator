@@ -128,7 +128,7 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else {
 		return nil
 	}
-	if check.Script != "" || check.HTTP != "" || check.TCP != "" {
+	if check.Script != "" || check.HTTP != "" || check.TCP != "" || check.GRPC != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
 			check.Interval = interval
 		} else {
