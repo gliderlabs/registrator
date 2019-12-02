@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"os"
 	"strconv"
 	"strings"
 
@@ -128,4 +129,26 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		ContainerHostname: container.Config.Hostname,
 		container:         container,
 	}
+}
+
+func hostNameAsTag() string {
+	hostnamevar, exists := os.LookupEnv("ECS_CLUSTER")
+	if exists {
+		return hostnamevar
+	}
+	// Assuming the hostname can always be retrieved
+	adverthost, _ := os.Hostname()
+	hostslice := strings.Split(adverthost, "-")
+	if len(hostslice) > 1 {
+		var hostname string
+		for _, v := range hostslice[:len(hostslice)-1] {
+			if hostname == "" {
+				hostname = v
+			} else {
+				hostname = hostname + "-" + v
+			}
+		}
+		return hostname
+	}
+	return adverthost
 }

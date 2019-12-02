@@ -1,3 +1,5 @@
 release
 build
 vendor
+.idea
+.Makeimage

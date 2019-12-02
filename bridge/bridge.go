@@ -202,7 +202,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -211,7 +211,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
-	if len(ports) == 0 && !quiet {
+	if len(ports) == 0 && !strings.HasPrefix(container.HostConfig.NetworkMode, "container:") && !quiet {
 		log.Println("ignored:", container.ID[:12], "no published ports")
 		return
 	}
@@ -309,7 +309,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
@@ -326,7 +326,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 			if err != nil {
 				log.Println("unable to inspect network container:", networkContainerId[:12], err)
 			} else {
-				service.IP = networkContainer.NetworkSettings.IPAddress
+				if networkContainer.NetworkSettings.IPAddress != "" {
+					service.IP = networkContainer.NetworkSettings.IPAddress
+				} else {
+					service.IP = strings.Split(networkContainer.HostConfig.ExtraHosts[0], ":")[1]
+				}
 				log.Println(service.Name + ": using network container IP " + service.IP)
 			}
 		}
@@ -334,11 +338,11 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	if port.PortType == "udp" {
 		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp")
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, "udp", hostNameAsTag())
 		service.ID = service.ID + ":udp"
 	} else {
 		service.Tags = combineTags(
-			mapDefault(metadata, "tags", ""), b.config.ForceTags)
+			mapDefault(metadata, "tags", ""), b.config.ForceTags, hostNameAsTag())
 	}
 
 	id := mapDefault(metadata, "id", "")
