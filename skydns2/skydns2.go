@@ -1,8 +1,13 @@
 package skydns2
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -18,15 +23,47 @@ type Factory struct{}
 
 func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	urls := make([]string, 0)
-	if uri.Host != "" {
-		urls = append(urls, "http://"+uri.Host)
-	}
 
 	if len(uri.Path) < 2 {
 		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
-	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
+	tlskey := os.Getenv("ETCD_TLSKEY")
+	tlspem := os.Getenv("ETCD_TLSPEM")
+	cacert := os.Getenv("ETCD_CACERT")
+
+	var client *etcd.Client
+
+	// Assuming https
+	if cacert != "" {
+		urls = append(urls, "https://"+uri.Host)
+
+		// Assuming Client authentication if tlskey and tlspem is set
+		if tlskey != "" && tlspem != "" {
+			var err error
+			if client, err = etcd.NewTLSClient(urls, tlspem, tlskey, cacert); err != nil {
+				log.Fatalf("skydns2: failure to connect: %s", err)
+			}
+		} else {
+			client = etcd.NewClient(urls)
+			ca, err := ioutil.ReadFile(cacert)
+			if err != nil {
+				log.Fatal(err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(ca)
+			tr := &http.Transport{
+				TLSClientConfig:    &tls.Config{RootCAs: caCertPool},
+				DisableCompression: true,
+			}
+			client.SetTransport(tr)
+		}
+	} else {
+		urls = append(urls, "http://"+uri.Host)
+		client = etcd.NewClient(urls)
+	}
+
+	return &Skydns2Adapter{client: client, path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
