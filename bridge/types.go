@@ -23,6 +23,7 @@ type Config struct {
 	HostIp          string
 	Internal        bool
 	Explicit        bool
+	RancherExternalPorts bool
 	UseIpFromLabel  string
 	ForceTags       string
 	RefreshTtl      int

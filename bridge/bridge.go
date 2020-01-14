@@ -11,8 +11,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/rancher/go-rancher-metadata/metadata"
+)
+
+const (
+	metadataURL = "http://rancher-metadata/2015-12-19" 
+	multiplierForTwoMin = 6 // 3 sec
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
@@ -24,6 +31,7 @@ type Bridge struct {
 	services       map[string][]*Service
 	deadContainers map[string]*DeadContainer
 	config         Config
+	mdClient 	   metadata.Client
 }
 
 func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, error) {
@@ -36,6 +44,16 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 		return nil, errors.New("unrecognized adapter: " + adapterUri)
 	}
 
+	var mdClient metadata.Client
+
+	if config.RancherExternalPorts == true {
+		mdClient, err = metadata.NewClientAndWait(metadataURL)
+		if err != nil {
+			log.Println("loading mdclient failed: %v", err)
+			return nil, errors.New("loading mdclient failed: " + metadataURL)
+		}
+	}
+
 	log.Println("Using", uri.Scheme, "adapter:", uri)
 	return &Bridge{
 		docker:         docker,
@@ -43,6 +61,7 @@ func New(docker *dockerapi.Client, adapterUri string, config Config) (*Bridge, e
 		registry:       factory.New(uri),
 		services:       make(map[string][]*Service),
 		deadContainers: make(map[string]*DeadContainer),
+		mdClient:		mdClient,
 	}, nil
 }
 
@@ -180,6 +199,36 @@ func (b *Bridge) Sync(quiet bool) {
 	}
 }
 
+// GetExternalPort returns the External Port for the given container id, return an empty string
+// if not found
+func (b *Bridge) GetExternalPorts(cid, rancherid string) []string {
+	log.Println("GetExternalPorts " + cid + " , " + rancherid)
+	var emptyPort = []string{}
+	
+	for i := 0; i < multiplierForTwoMin; i++ {
+		containers, err := b.mdClient.GetContainers()
+		if err != nil {
+			log.Println("rancher-cni-ipam: Error getting metadata containers: ", err)
+			return emptyPort
+		}
+
+		for _, container := range containers {
+			if container.ExternalId == cid && len(container.Ports) != 0 {
+				log.Println("got ports: ", container.Ports)
+				return container.Ports
+			}
+			if rancherid != "" && container.UUID == rancherid && len(container.Ports) != 0 {
+				log.Println("got ports from rancherid: ", container.Ports)
+				return container.Ports
+			}
+		}
+		log.Println("Waiting to find Port for container:", cid, rancherid)
+		time.Sleep(500 * time.Millisecond)
+	}
+	log.Println("port not found for cid: ", cid)
+	return emptyPort
+}
+
 func (b *Bridge) add(containerId string, quiet bool) {
 	if d := b.deadContainers[containerId]; d != nil {
 		b.services[containerId] = d.Services
@@ -209,6 +258,30 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	// Extract runtime port mappings, relevant when using --net=bridge
 	for port, published := range container.NetworkSettings.Ports {
 		ports[string(port)] = servicePort(container, port, published)
+	}
+
+	//extract rancher port mappings
+	log.Println("len container.Config.ExposedPorts = ", len(container.Config.ExposedPorts))
+	log.Println("len container.NetworkSettings.Ports = ", len(container.NetworkSettings.Ports))
+	if b.config.RancherExternalPorts == true {
+		log.Println("Removing internal ports, ", ports)
+		for key, _ := range ports {
+			delete(ports, key)
+		}
+		log.Println("Removed internal ports, ", ports)
+		log.Println("Loading rancher external ports for  " + container.ID)
+
+		for _, portVal := range b.GetExternalPorts(container.ID, "") {
+			log.Println("externalPort result: ", portVal)
+			port := strings.Split(portVal, ":")[1]
+			log.Println("ExternalPort:  " + port)
+			published := []dockerapi.PortBinding{ {"0.0.0.0", port}, }
+
+			log.Println("Rancher port  ", port, " loaded and published: ", published)
+			var dockerPort dockerapi.Port
+			dockerPort = dockerapi.Port(port)
+			ports[string(port)] = servicePort(container, dockerPort, published)
+		}		
 	}
 
 	if len(ports) == 0 && !quiet {
@@ -292,6 +365,9 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 
 	if b.config.Internal == true {
 		service.IP = port.ExposedIP
+		p, _ = strconv.Atoi(port.ExposedPort)
+	} else if b.config.RancherExternalPorts == true {
+		service.IP = port.HostIP
 		p, _ = strconv.Atoi(port.ExposedPort)
 	} else {
 		service.IP = port.HostIP
