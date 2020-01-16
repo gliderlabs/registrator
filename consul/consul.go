@@ -111,9 +111,9 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			check.Method = method
 		}
 	} else if cmd := service.Attrs["check_cmd"]; cmd != "" {
-		check.Args = []string{"check-cmd", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd}
+		check.Args = strings.Split(fmt.Sprintf("check-cmd %s %s %s", service.Origin.ContainerID[:12], service.Origin.ExposedPort, cmd), " ")
 	} else if script := service.Attrs["check_script"]; script != "" {
-		check.Args = []string{r.interpolateService(script, service)}
+		check.Args = strings.Split(r.interpolateService(script, service), " ")
 	} else if ttl := service.Attrs["check_ttl"]; ttl != "" {
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
@@ -135,7 +135,8 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	} else {
 		return nil
 	}
-	if len(check.Args) != 0 || check.HTTP != "" || check.TCP != "" || check.GRPC != "" {
+
+	if len(check.Args) > 0 || check.HTTP != "" || check.TCP != "" || check.GRPC != "" {
 		if interval := service.Attrs["check_interval"]; interval != "" {
 			check.Interval = interval
 		} else {
