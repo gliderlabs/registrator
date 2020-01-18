@@ -5,7 +5,7 @@ Service registry bridge for Docker.
 [![Circle CI](https://circleci.com/gh/gliderlabs/registrator.png?style=shield)](https://circleci.com/gh/gliderlabs/registrator)
 [![Docker pulls](https://img.shields.io/docker/pulls/gliderlabs/registrator.svg)](https://hub.docker.com/r/gliderlabs/registrator/)
 [![IRC Channel](https://img.shields.io/badge/irc-%23gliderlabs-blue.svg)](https://kiwiirc.com/client/irc.freenode.net/#gliderlabs)
-<br /><br />
+
 
 Registrator automatically registers and deregisters services for any Docker
 container by inspecting containers as they come online. Registrator
@@ -38,6 +38,29 @@ Guide. Typically, running Registrator looks like this:
         --volume=/var/run/docker.sock:/tmp/docker.sock \
         gliderlabs/registrator:latest \
           consul://localhost:8500
+
+### Using Registrator with Golang sockaddr templates support
+
+You may want use go-sockaddr template for registering service's IP address .
+
+This allows registrator that can fetch its own address based on an interface name, network CIDR, 
+address family from an actual RFC number, and many other possible schemes.
+
+[go-sockaddr template reference](https://godoc.org/github.com/hashicorp/go-sockaddr/template).
+
+Example docker compose file:
+
+```yaml
+version: '2'
+services:
+  registrator-agent:
+    restart: always
+    image: 'dianplus/registrator:sockaddr-template'
+    network_mode: "host"
+    volumes:
+      - '/var/run/docker.sock:/tmp/docker.sock'
+    command: ["-ip", "{{GetInterfaceIP \"eth0\"}}", "consul://localhost:8500"]
+```
 
 ## CLI Options
 ```
