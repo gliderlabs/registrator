@@ -200,15 +200,32 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	ports := make(map[string]ServicePort)
 
-	// Extract configured host port mappings, relevant when using --net=host
-	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
-		ports[string(port)] = servicePort(container, port, published)
+	var customPort string
+	var overridePort bool = false
+
+	// Check if there is a "SERVICE_PORT" variable, which will override the port number (Only valid in the "internal" mode)
+	for i := range container.Config.Env {
+		if (strings.HasPrefix(container.Config.Env[i], "SERVICE_PORT=")) && (b.config.Internal == true) {
+			customPort = strings.SplitN(container.Config.Env[i], "=", 2)[1]
+			overridePort = true
+		}
 	}
 
-	// Extract runtime port mappings, relevant when using --net=bridge
-	for port, published := range container.NetworkSettings.Ports {
-		ports[string(port)] = servicePort(container, port, published)
+	// If override needed - use the servicePortOverride function to receive the ServicePort object with the overridden port,
+	// or else use the servicePort function to receive the regular ServicePort object.
+	if overridePort == true {
+		ports[string(customPort)] = servicePortOverride(container, customPort)
+	} else {
+		// Extract configured host port mappings, relevant when using --net=host
+		for port, _ := range container.Config.ExposedPorts {
+			published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}, }
+			ports[string(port)] = servicePort(container, port, published)
+		}
+
+		// Extract runtime port mappings, relevant when using --net=bridge
+		for port, published := range container.NetworkSettings.Ports {
+			ports[string(port)] = servicePort(container, port, published)
+		}
 	}
 
 	if len(ports) == 0 && !quiet {
