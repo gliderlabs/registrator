@@ -1,14 +1,35 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased][unreleased]
+## [v7.4.0]() - 2021-09-22
 ### Fixed
+- Minor code styling changes
 
 ### Added
+- Support Go template in -tags flag
+    - Custom Go template functions:
+        - `strSlice`
+        - `sIndex`
+        - `mIndex`
+        - `toUpper`
+        - `toLower`
+        - `replace`
+        - `join`
+        - `split`
+        - `splitIndex`
+        - `matchFirstElement`
+        - `matchAllElements`
+        - `httpGet`
+        - `jsonParse`
+- Prebuilt Docker images available on [DockerHub](https://hub.docker.com/r/psyhomb/registrator/tags)
 
 ### Removed
 
 ### Changed
+- [Migrated to Go modules for managing dependencies](https://go.dev/blog/migrating-to-go-modules)
+- Upgraded Docker base images:
+    - builder: `golang:1.9.4-alpine3.7` => `golang:1.17.1-alpine3.14`
+    - runtime: `alpine:3.7` => `alpine:3.14`
 
 ## [v7] - 2016-03-05
 ### Fixed
