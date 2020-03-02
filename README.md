@@ -54,6 +54,7 @@ Usage of /bin/registrator:
   -tags="": Append tags for all registered services
   -ttl=0: TTL for services (default is no expiry)
   -ttl-refresh=0: Frequency with which service TTLs are refreshed
+  -envFile="": Read envs from within container from specified file. Updates on each refresh
 ```
 
 ## Contributing

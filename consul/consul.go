@@ -153,7 +153,10 @@ func (r *ConsulAdapter) Deregister(service *bridge.Service) error {
 }
 
 func (r *ConsulAdapter) Refresh(service *bridge.Service) error {
-	return nil
+	// It is safe for consul to update(re-register) service with same ID. ID is an unique identifier across whole Consul cluster.
+	// So if our service description changes we can update it in Consul as long as ID stay same.... 
+	// We never change service ID anyway.
+	return r.Register(service)
 }
 
 func (r *ConsulAdapter) Services() ([]*bridge.Service, error) {
