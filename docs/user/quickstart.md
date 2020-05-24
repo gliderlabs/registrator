@@ -16,7 +16,7 @@ container that will automatically get added to Consul.
 ## Before Starting
 
 We're going to need a host running Docker, which could just be a local
-[boot2docker](http://boot2docker.io/) VM, and a shell with the `docker` client
+[boot2docker](https://github.com/boot2docker/boot2docker) VM, and a shell with the `docker` client
 pointed to that host.
 
 We'll also need to have Consul running, which can just be running in a
