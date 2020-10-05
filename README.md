@@ -46,7 +46,7 @@ Usage of /bin/registrator:
 
   -cleanup=false: Remove dangling services
   -deregister="always": Deregister exited services "always" or "on-success"
-  -internal=false: Use internal ports instead of published ones
+  -internal=false: Use published ports instead of internal ones
   -ip="": IP for ports mapped to the host
   -resync=0: Frequency with which services are resynchronized
   -retry-attempts=0: Max retry attempts to establish a connection with the backend. Use -1 for infinite retries
