@@ -1,0 +1,121 @@
+properties([
+    buildDiscarder(
+        logRotator(
+            artifactDaysToKeepStr: '',
+            artifactNumToKeepStr: '',
+            daysToKeepStr: '',
+            numToKeepStr: '25'
+        )
+    ),
+    parameters([
+        string(
+            defaultValue: '',
+            description: 'Provide a tag for this build',
+            name: 'BUILD_TAG',
+            trim: true
+        ),
+        [$class: 'ChoiceParameter', 
+            choiceType: 'PT_SINGLE_SELECT', 
+            description: 'Select the branch to build', 
+            filterLength: 1, 
+            filterable: true, 
+            name: 'BRANCH', 
+            randomName: 'choice-parameter-5631314456178619', 
+            script: [
+                $class: 'GroovyScript', 
+                fallbackScript: [
+                    classpath: [], 
+                    sandbox: false, 
+                    script: 
+                        'return[\'Could not get info from Git\']'
+                ], 
+                script: [
+                    classpath: [], 
+                    sandbox: false, 
+                    script: 
+                        '''
+        def command = \'git ls-remote --heads git@github.com:carousell/registrator.git | awk -F\\\'\\t\\\' \\\'{print $2}\\\' \'
+
+        def proc = ['bash', '-c', command].execute()
+        results = proc.in.text
+
+        def error = proc.err.text
+        if (error) {
+           println "Std Err: ${error}"
+            return [error]
+        }
+
+        return results.tokenize()
+                        '''
+                ]
+            ]
+        ],
+    ])
+])
+
+pipeline {
+    agent any
+
+    stages {
+        stage ("Build Image") {
+            steps {
+                // Cleans up workspace for current run
+                cleanWs()
+
+                wrap([$class: 'TimestamperBuildWrapper']) {
+                    wrap([$class: 'AnsiColorBuildWrapper', colorMapName: 'xterm']) {
+                        sshagent(credentials: ['45b26569-2c0c-409a-bd8b-8f448d37d854'], ignoreMissing: true) {
+
+                            script {
+                                echo "Set Metadata for Build"
+                                BRANCH_NAME = params.BRANCH.replaceFirst("^refs/heads/","")
+
+                                if params.BUILD_TAG.isEmpty() {
+                                    params.BUILD_TAG = ${env.BUILD_NUMBER}
+                                }
+                            }
+
+                            git branch: "${BRANCH_NAME}", credentialsId: '45b26569-2c0c-409a-bd8b-8f448d37d854', poll: false, url: 'git@github.com:carousell/registrator.git'
+
+                            dir("${WORKSPACE}") {
+                                sh returnStatus: true, script: """
+                                docker build -t asia.gcr.io/thecarousell.com/api-project-11554775814/registrator:${params.BUILD_TAG} .
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage ("Push Image") {
+            steps {
+
+                wrap([$class: 'TimestamperBuildWrapper']) {
+                    wrap([$class: 'AnsiColorBuildWrapper', colorMapName: 'xterm']) {
+                        sshagent(credentials: ['45b26569-2c0c-409a-bd8b-8f448d37d854'], ignoreMissing: true) {
+
+                            script {
+                                echo "Set Metadata for Build"
+                                BRANCH_NAME = params.BRANCH.replaceFirst("^refs/heads/","")
+                                if params.BUILD_TAG.isEmpty() {
+                                    params.BUILD_TAG = ${env.BUILD_NUMBER}
+                                }
+                            }
+
+                            git branch: "${BRANCH_NAME}", credentialsId: '45b26569-2c0c-409a-bd8b-8f448d37d854', poll: false, url: 'git@github.com:carousell/registrator.git'
+
+                            dir("${WORKSPACE}") {
+                                sh returnStatus: true, script: """
+                                docker push asia.gcr.io/thecarousell.com/api-project-11554775814/registrator:${params.BUILD_TAG}
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+}
+
