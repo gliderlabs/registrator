@@ -21,8 +21,10 @@ Consul supports tags but no arbitrary service attributes.
 
 When using the `consul-tls` scheme, registrator communicates with Consul through TLS. You must set the following environment variables:
  * `CONSUL_CACERT` : CA file location
- * `CONSUL_TLSCERT` : Certificate file location
- * `CONSUL_TLSKEY` : Key location
+ * `CONSUL_CLIENT_CERT` : Certificate file location
+ * `CONSUL_CLIENT_KEY` : Key location
+
+For more information on the Consul check parameters below, see the [API documentation](https://www.consul.io/api/agent/check.html#register-check).
 
 ### Consul HTTP Check
 
@@ -34,6 +36,7 @@ register an HTTP health check with the service.
 SERVICE_80_CHECK_HTTP=/health/endpoint/path
 SERVICE_80_CHECK_INTERVAL=15s
 SERVICE_80_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
+SERVICE_80_CHECK_HTTP_METHOD=HEAD	# optional, Consul default used otherwise
 ```
 
 It works for services on any port, not just 80. If its the only service,
@@ -49,6 +52,7 @@ register an HTTPS health check with the service.
 SERVICE_443_CHECK_HTTPS=/health/endpoint/path
 SERVICE_443_CHECK_INTERVAL=15s
 SERVICE_443_CHECK_TIMEOUT=1s		# optional, Consul default used otherwise
+SERVICE_443_CHECK_HTTPS_METHOD=HEAD	# optional, Consul default used otherwise
 ```
 
 ### Consul TCP Check
@@ -91,12 +95,35 @@ healthy.
 SERVICE_CHECK_TTL=30s
 ```
 
+### Consul gRPC Check
+
+This feature is only available when using Consul 1.0.5 or newer. Containers
+specifying these extra metadata in labels or environment will be used to
+register an gRPC health check with the service.
+
+```bash
+SERVICE_CHECK_GRPC=true
+SERVICE_CHECK_INTERVAL=5s
+SERVICE_CHECK_TIMEOUT=3s              # optional, Consul default uses 10s
+SERVICE_CHECK_GRPC_USE_TLS=true       # optional, Consul default uses false
+SERVICE_CHECK_TLS_SKIP_VERIFY=true    # optional, Consul default uses false
+```
+
 ### Consul Initial Health Check Status
 
 By default when a service is registered against Consul, the state is set to "critical". You can specify the initial health check status.
 
 ```bash
 SERVICE_CHECK_INITIAL_STATUS=passing
+```
+
+### Consul Critical Service Deregistration
+
+Consul can deregister a service if the check is in the critical state for more than a configurable amount of time.
+If enabled this should be much longer than any expected recoverable outage.
+
+```bash
+SERVICE_CHECK_DEREGISTER_AFTER=10m
 ```
 
 ## Consul KV

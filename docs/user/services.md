@@ -53,7 +53,7 @@ These can be implicitly set from the Dockerfile or explicitly set with `docker r
 You can also tell Registrator to ignore a container by setting a
 label or environment variable for `SERVICE_IGNORE`.
 
-If you need to ignore individual service on some container, you can use 
+If you need to ignore individual service on some container, you can use
 `SERVICE_<port>_IGNORE=true`.
 
 ## Service Name
@@ -93,12 +93,14 @@ Docker-assigned internal IP of the container**.
 ## Tags and Attributes
 
 Tags and attributes are extra metadata fields for services. Not all backends
-support them. In fact, currently Consul supports tags and none support
-attributes.
+support them. In fact, currently Consul supports tags and more recently as of
+version 1.0.7, it added support for attributes as well in the form of
+[KV metadata](https://www.consul.io/api/agent/service.html#meta) but no other
+backend supports attributes.
 
 Attributes can also be used by backends for registry specific features, not just
-generic metadata. For example, Consul uses them for specifying HTTP health
-checks.
+generic metadata. For example, Consul uses them for [specifying HTTP health
+checks](./backends.md#consul).
 
 ## Unique ID
 
@@ -165,6 +167,13 @@ Results in `Service`:
 	}
 
 Keep in mind not all of the `Service` object may be used by the registry backend. For example, currently none of them support registering arbitrary attributes. This field is there for future use.
+
+The comma can be escaped by adding a backslash, such as the following example:
+
+    $ docker run -d --name redis.0 -p 10000:6379 \
+        -e "SERVICE_NAME=db" \
+        -e "SERVICE_TAGS=/(;\\,:-_)/" \
+        -e "SERVICE_REGION=us2" progrium/redis
 
 ### Multiple services with defaults
 

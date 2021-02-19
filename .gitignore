@@ -1,4 +1,4 @@
-release
+.gvm_local
 build
-.idea/
-registrator.iml
+release
+vendor
