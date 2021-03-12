@@ -309,6 +309,7 @@
     "github.com/hashicorp/consul/api",
     "github.com/hashicorp/go-cleanhttp",
     "github.com/samuel/go-zookeeper/zk",
+    "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",
     "gopkg.in/coreos/go-etcd.v0/etcd",
   ]
