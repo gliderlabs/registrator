@@ -2,7 +2,6 @@ package etcd
 
 import (
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
+	log "github.com/sirupsen/logrus"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
 )
 

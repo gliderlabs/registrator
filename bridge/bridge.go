@@ -2,7 +2,6 @@ package bridge
 
 import (
 	"errors"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"sync"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
+	log "github.com/sirupsen/logrus"
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)

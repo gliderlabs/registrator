@@ -2,7 +2,6 @@ package consul
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
+	log "github.com/sirupsen/logrus"
 )
 
 const DefaultInterval = "10s"

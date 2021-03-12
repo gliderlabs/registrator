@@ -1,7 +1,6 @@
 package consul
 
 import (
-	"log"
 	"net"
 	"net/url"
 	"strconv"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/gliderlabs/registrator/bridge"
 	consulapi "github.com/hashicorp/consul/api"
+	log "github.com/sirupsen/logrus"
 )
 
 func init() {
