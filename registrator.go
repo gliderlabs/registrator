@@ -41,7 +41,7 @@ func getopt(name, def string) string {
 
 func assert(err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln(err)
 	}
 }
 
@@ -50,7 +50,7 @@ func main() {
 		versionChecker.PrintVersion()
 		os.Exit(0)
 	}
-	log.Printf("Starting registrator %s ...", Version)
+	log.Infoln(fmt.Sprintf("Starting registrator %s ...", Version))
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -73,7 +73,7 @@ func main() {
 	}
 
 	if *hostIp != "" {
-		log.Println("Forcing host IP to", *hostIp)
+		log.Infoln("Forcing host IP to", *hostIp)
 	}
 
 	if (*refreshTtl == 0 && *refreshInterval > 0) || (*refreshTtl > 0 && *refreshInterval == 0) {
@@ -118,7 +118,7 @@ func main() {
 
 	attempt := 0
 	for *retryAttempts == -1 || attempt <= *retryAttempts {
-		log.Printf("Connecting to backend (%v/%v)", attempt, *retryAttempts)
+		log.Infoln(fmt.Sprintf("Connecting to backend (%v/%v)", attempt, *retryAttempts))
 
 		err = b.Ping()
 		if err == nil {
@@ -136,7 +136,7 @@ func main() {
 	// Start event listener before listing containers to avoid missing anything
 	events := make(chan *dockerapi.APIEvents)
 	assert(docker.AddEventListener(events))
-	log.Println("Listening for Docker events ...")
+	log.Infoln("Listening for Docker events ...")
 
 	b.Sync(false)
 
@@ -185,5 +185,5 @@ func main() {
 	}
 
 	close(quit)
-	log.Fatal("Docker event loop closed") // todo: reconnect?
+	log.Fatalln("Docker event loop closed") // todo: reconnect?
 }

@@ -23,7 +23,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	}
 
 	if len(uri.Path) < 2 {
-		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
+		log.Fatalln("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
 	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
@@ -48,7 +48,7 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
 	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
 	if err != nil {
-		log.Println("skydns2: failed to register service:", err)
+		log.Errorln("skydns2: failed to register service:", err)
 	}
 	return err
 }
@@ -56,7 +56,7 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
 	_, err := r.client.Delete(r.servicePath(service), false)
 	if err != nil {
-		log.Println("skydns2: failed to register service:", err)
+		log.Errorln("skydns2: failed to register service:", err)
 	}
 	return err
 }

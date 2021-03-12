@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
@@ -30,7 +31,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	}
 	client, err := consulapi.NewClient(config)
 	if err != nil {
-		log.Fatal("consulkv: ", uri.Scheme)
+		log.Fatalln("consulkv: ", uri.Scheme)
 	}
 	return &ConsulKVAdapter{client: client, path: path}
 }
@@ -47,20 +48,20 @@ func (r *ConsulKVAdapter) Ping() error {
 	if err != nil {
 		return err
 	}
-	log.Println("consulkv: current leader ", leader)
+	log.Infoln("consulkv: current leader ", leader)
 
 	return nil
 }
 
 func (r *ConsulKVAdapter) Register(service *bridge.Service) error {
-	log.Println("Register")
+	log.Infoln("Register")
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	port := strconv.Itoa(service.Port)
 	addr := net.JoinHostPort(service.IP, port)
-	log.Printf("path: %s", path)
+	log.Infoln(fmt.Sprintf("path: %s", path))
 	_, err := r.client.KV().Put(&consulapi.KVPair{Key: path, Value: []byte(addr)}, nil)
 	if err != nil {
-		log.Println("consulkv: failed to register service:", err)
+		log.Errorln("consulkv: failed to register service:", err)
 	}
 	return err
 }
@@ -69,7 +70,7 @@ func (r *ConsulKVAdapter) Deregister(service *bridge.Service) error {
 	path := r.path[1:] + "/" + service.Name + "/" + service.ID
 	_, err := r.client.KV().Delete(path, nil)
 	if err != nil {
-		log.Println("consulkv: failed to deregister service:", err)
+		log.Errorln("consulkv: failed to deregister service:", err)
 	}
 	return err
 }

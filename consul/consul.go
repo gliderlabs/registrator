@@ -44,7 +44,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
 		if err != nil {
-			log.Fatal("Cannot set up Consul TLSConfig", err)
+			log.Fatalln("Cannot set up Consul TLSConfig", err)
 		}
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
@@ -56,7 +56,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 	}
 	client, err := consulapi.NewClient(config)
 	if err != nil {
-		log.Fatal("consul: ", uri.Scheme)
+		log.Fatalln("consul: ", uri.Scheme)
 	}
 	return &ConsulAdapter{client: client}
 }
@@ -72,7 +72,7 @@ func (r *ConsulAdapter) Ping() error {
 	if err != nil {
 		return err
 	}
-	log.Println("consul: current leader ", leader)
+	log.Infoln("consul: current leader ", leader)
 
 	return nil
 }

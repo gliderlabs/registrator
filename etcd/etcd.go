@@ -30,14 +30,14 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 
 	res, err := http.Get(urls[0] + "/version")
 	if err != nil {
-		log.Fatal("etcd: error retrieving version", err)
+		log.Fatalln("etcd: error retrieving version", err)
 	}
 
 	defer res.Body.Close()
 	body, _ := ioutil.ReadAll(res.Body)
 
 	if match, _ := regexp.Match("0\\.4\\.*", body); match == true {
-		log.Println("etcd: using v0 client")
+		log.Infoln("etcd: using v0 client")
 		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
 	}
 
@@ -78,7 +78,7 @@ func (r *EtcdAdapter) syncEtcdCluster() {
 	}
 
 	if !result {
-		log.Println("etcd: sync cluster was unsuccessful")
+		log.Errorln("etcd: sync cluster was unsuccessful")
 	}
 }
 
@@ -97,7 +97,7 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	}
 
 	if err != nil {
-		log.Println("etcd: failed to register service:", err)
+		log.Errorln("etcd: failed to register service:", err)
 	}
 	return err
 }
@@ -115,7 +115,7 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	}
 
 	if err != nil {
-		log.Println("etcd: failed to deregister service:", err)
+		log.Errorln("etcd: failed to deregister service:", err)
 	}
 	return err
 }
