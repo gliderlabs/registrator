@@ -31,6 +31,7 @@ var deregister = flag.String("deregister", "always", "Deregister exited services
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
+var loglevel = flag.String("loglevel", "info", "Set log level")
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -45,12 +46,25 @@ func assert(err error) {
 	}
 }
 
+func loglevelNumber(level string) log.Level {
+	levels := map[string]log.Level{
+		"fatal": log.FatalLevel,
+		"error": log.ErrorLevel,
+		"warn":  log.WarnLevel,
+		"info":  log.InfoLevel,
+		"debug": log.DebugLevel,
+		"trace": log.PanicLevel,
+		"all":   log.PanicLevel,
+	}
+
+	return levels[level]
+}
+
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		versionChecker.PrintVersion()
 		os.Exit(0)
 	}
-	log.Infoln(fmt.Sprintf("Starting registrator %s ...", Version))
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -71,6 +85,10 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+
+	log.SetLevel(log.Level(loglevelNumber(*loglevel)))
+
+	log.Infoln(fmt.Sprintf("Starting registrator %s ...", Version))
 
 	if *hostIp != "" {
 		log.Infoln("Forcing host IP to", *hostIp)
