@@ -46,7 +46,7 @@ func assert(err error) {
 	}
 }
 
-func loglevelNumber(level string) log.Level {
+func loglevelNumber(level string) (log.Level, bool) {
 	levels := map[string]log.Level{
 		"fatal": log.FatalLevel,
 		"error": log.ErrorLevel,
@@ -56,8 +56,8 @@ func loglevelNumber(level string) log.Level {
 		"trace": log.PanicLevel,
 		"all":   log.PanicLevel,
 	}
-
-	return levels[level]
+	levelInt, ok := levels[level]
+	return levelInt, ok
 }
 
 func main() {
@@ -86,7 +86,15 @@ func main() {
 		os.Exit(2)
 	}
 
-	log.SetLevel(log.Level(loglevelNumber(*loglevel)))
+	logLevelInt, ok := loglevelNumber(*loglevel)
+
+	if !ok {
+		fmt.Fprintln(os.Stderr, "Log level specified is invalid")
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	log.SetLevel(logLevelInt)
 
 	log.Infoln(fmt.Sprintf("Starting registrator %s ...", Version))
 
