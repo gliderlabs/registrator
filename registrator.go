@@ -46,20 +46,6 @@ func assert(err error) {
 	}
 }
 
-func loglevelNumber(level string) (log.Level, bool) {
-	levels := map[string]log.Level{
-		"fatal": log.FatalLevel,
-		"error": log.ErrorLevel,
-		"warn":  log.WarnLevel,
-		"info":  log.InfoLevel,
-		"debug": log.DebugLevel,
-		"trace": log.PanicLevel,
-		"all":   log.PanicLevel,
-	}
-	levelInt, ok := levels[level]
-	return levelInt, ok
-}
-
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
 		versionChecker.PrintVersion()
@@ -86,10 +72,10 @@ func main() {
 		os.Exit(2)
 	}
 
-	logLevelInt, ok := loglevelNumber(*loglevel)
+	logLevelInt, err := log.ParseLevel(*loglevel)
 
-	if !ok {
-		fmt.Fprintln(os.Stderr, "Log level specified is invalid")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Log level %s is invalid: %s\n\n", *loglevel, err)
 		flag.Usage()
 		os.Exit(2)
 	}
