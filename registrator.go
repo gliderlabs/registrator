@@ -75,7 +75,7 @@ func main() {
 	logLevelInt, err := log.ParseLevel(*loglevel)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Log level %s is invalid: %s\n\n", *loglevel, err)
+		fmt.Fprintf(os.Stderr, "Log level %s is invalid.\n\n", *loglevel)
 		flag.Usage()
 		os.Exit(2)
 	}
