@@ -1,13 +1,19 @@
 package skydns2
 
 import (
+	"context"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
+	etcd3 "go.etcd.io/etcd/client/v3"
 )
 
 func init() {
@@ -26,17 +32,39 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		log.Fatal("skydns2: dns domain required e.g.: skydns2://<host>/<domain>")
 	}
 
+	res, err := http.Get(urls[0] + "/version")
+	if err != nil {
+		log.Fatal("etcd: error retrieving version", err)
+	}
+
+	defer res.Body.Close()
+	body, _ := ioutil.ReadAll(res.Body)
+
+	if match, _ := regexp.Match("3\\.[0-9]*\\.[0-9]*", body); match == true {
+		cli, err := etcd3.New(etcd3.Config{Endpoints: urls, DialTimeout: 5 * time.Second})
+		if err != nil {
+			log.Fatal("etcd: error connecting etcd", err)
+		}
+		log.Println("etcd: using v3 client")
+		return &Skydns2Adapter{client3: cli, path: domainPath(uri.Path[1:])}
+	}
+
+	log.Println("etcd: using v2 client")
 	return &Skydns2Adapter{client: etcd.NewClient(urls), path: domainPath(uri.Path[1:])}
 }
 
 type Skydns2Adapter struct {
-	client *etcd.Client
-	path   string
+	client  *etcd.Client
+	client3 *etcd3.Client
+	path    string
 }
 
 func (r *Skydns2Adapter) Ping() error {
-	rr := etcd.NewRawRequest("GET", "version", nil, nil)
-	_, err := r.client.SendRequest(rr)
+	var err error
+	if r.client != nil {
+		rr := etcd.NewRawRequest("GET", "version", nil, nil)
+		_, err = r.client.SendRequest(rr)
+	}
 	if err != nil {
 		return err
 	}
@@ -46,7 +74,20 @@ func (r *Skydns2Adapter) Ping() error {
 func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 	port := strconv.Itoa(service.Port)
 	record := `{"host":"` + service.IP + `","port":` + port + `}`
-	_, err := r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+	var err error
+	if r.client != nil {
+		_, err = r.client.Set(r.servicePath(service), record, uint64(service.TTL))
+	} else if r.client3 != nil {
+		if service.TTL == 0 {
+			_, err = r.client3.Put(context.TODO(), r.servicePath(service), record)
+		} else {
+			var resp *etcd3.LeaseGrantResponse
+			resp, err = r.client3.Grant(context.TODO(), int64(service.TTL))
+			if err == nil {
+				_, err = r.client3.Put(context.TODO(), r.servicePath(service), record, etcd3.WithLease(resp.ID))
+			}
+		}
+	}
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
@@ -54,7 +95,12 @@ func (r *Skydns2Adapter) Register(service *bridge.Service) error {
 }
 
 func (r *Skydns2Adapter) Deregister(service *bridge.Service) error {
-	_, err := r.client.Delete(r.servicePath(service), false)
+	var err error
+	if r.client != nil {
+		_, err = r.client.Delete(r.servicePath(service), false)
+	} else if r.client3 != nil {
+		_, err = r.client3.Delete(context.TODO(), r.servicePath(service))
+	}
 	if err != nil {
 		log.Println("skydns2: failed to register service:", err)
 	}
