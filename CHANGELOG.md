@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other
 - dd3ab2e Fix specific port names not overriding port suffix
+- Upgrade to golang1.16 and alpine3.13
 
 ### Added
 - bridge.Ping - calls adapter.Ping
