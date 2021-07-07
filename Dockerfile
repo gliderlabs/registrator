@@ -1,19 +1,18 @@
-FROM alpine:3.7 AS builder
-COPY . /go/src/github.com/gliderlabs/registrator
-RUN apk --no-cache add -t build-deps build-base go git curl \
-	&& apk --no-cache add ca-certificates
-
-RUN export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin \
+FROM golang:1.9.4-alpine3.7 AS builder
+WORKDIR /go/src/github.com/gliderlabs/registrator/
+COPY . .
+RUN \
+	apk add --no-cache curl git \
 	&& curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
-    && cd /go/src/github.com/gliderlabs/registrator \
-	&& export GOPATH=/go \
-	&& git config --global http.https://gopkg.in.followRedirects true \
-	&& dep ensure \
-	&& go build -ldflags "-X main.Version=$(cat VERSION)" -o /bin/registrator \
-	&& rm -rf /go \
-	&& apk del --purge build-deps
+	&& dep ensure -vendor-only \
+	&& CGO_ENABLED=0 GOOS=linux go build \
+		-a -installsuffix cgo \
+		-ldflags "-X main.Version=$(cat VERSION)" \
+		-o bin/registrator \
+		.
 
 FROM alpine:3.7
-COPY --from=builder /bin/registrator /bin/registrator
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /go/src/github.com/gliderlabs/registrator/bin/registrator /bin/registrator
+
 ENTRYPOINT ["/bin/registrator"]

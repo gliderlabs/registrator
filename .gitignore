@@ -1,5 +1,5 @@
-release
+.gvm_local
 build
-vendor
 .idea
-.Makeimage
+release
+vendor
