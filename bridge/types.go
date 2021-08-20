@@ -14,6 +14,7 @@ type AdapterFactory interface {
 type RegistryAdapter interface {
 	Ping() error
 	Register(service *Service) error
+	GetStatus(service *Service) error
 	Deregister(service *Service) error
 	Refresh(service *Service) error
 	Services() ([]*Service, error)
@@ -32,15 +33,16 @@ type Config struct {
 }
 
 type Service struct {
-	ID    string
-	Name  string
-	Port  int
-	IP    string
-	Tags  []string
-	Attrs map[string]string
-	TTL   int
-
-	Origin ServicePort
+	ID          string
+	Name        string
+	Port        int
+	IP          string
+	Tags        []string
+	Attrs       map[string]string
+	TTL         int
+	ContainerID string
+	Nodename    string
+	Origin      ServicePort
 }
 
 type DeadContainer struct {

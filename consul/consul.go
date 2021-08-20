@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gliderlabs/registrator/bridge"
+	"github.com/gliderlabs/registrator/influxdb"
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-cleanhttp"
 )
@@ -38,8 +39,8 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		tlsConfigDesc := &consulapi.TLSConfig{
 			Address:            uri.Host,
 			CAFile:             os.Getenv("CONSUL_CACERT"),
-			CertFile:           os.Getenv("CONSUL_CLIENT_CERT"),
-			KeyFile:            os.Getenv("CONSUL_CLIENT_KEY"),
+			CertFile:           os.Getenv("CONSUL_TLSCERT"),
+			KeyFile:            os.Getenv("CONSUL_TLSKEY"),
 			InsecureSkipVerify: false,
 		}
 		tlsConfig, err := consulapi.SetupTLSConfig(tlsConfigDesc)
@@ -49,7 +50,7 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		config.Scheme = "https"
 		transport := cleanhttp.DefaultPooledTransport()
 		transport.TLSClientConfig = tlsConfig
-		config.Transport = transport
+		config.HttpClient.Transport = transport
 		config.Address = uri.Host
 	} else if uri.Host != "" {
 		config.Address = uri.Host
@@ -78,6 +79,7 @@ func (r *ConsulAdapter) Ping() error {
 }
 
 func (r *ConsulAdapter) Register(service *bridge.Service) error {
+
 	registration := new(consulapi.AgentServiceRegistration)
 	registration.ID = service.ID
 	registration.Name = service.Name
@@ -86,6 +88,63 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
 	registration.Meta = service.Attrs
+	return r.client.Agent().ServiceRegister(registration)
+}
+
+func contains(s []string) string {
+	for _, v := range s {
+		if v == "critical" {
+			return "critical"
+		}
+	}
+
+	return "passing"
+}
+
+func (r *ConsulAdapter) GetStatus(service *bridge.Service) error {
+
+	registration := new(consulapi.AgentServiceRegistration)
+	registration.ID = service.ID
+	registration.Name = service.Name
+	registration.Port = service.Port
+	registration.Tags = service.Tags
+	registration.Address = service.IP
+	registration.Check = r.buildCheck(service)
+	registration.Meta = service.Attrs
+	var serviceStatus []string
+	var status string
+
+	log.Println("service.ID: ", service.ID, "service.Name: ",
+		service.Name, "service.Port: ", service.Port, "Service.ContainerID: ",
+		service.ContainerID, "Tags: ", service.Tags, "service.IP: ", service.IP, "service.Nodename: ", service.Nodename)
+
+	ServiceHealthCheck, _, _ := r.client.Health().Checks(service.Name, nil)
+
+	for _, v := range ServiceHealthCheck {
+
+		serviceStatus = append(serviceStatus, v.Status)
+		log.Println("serviceStatus:", serviceStatus)
+		_ = serviceStatus
+	}
+
+	status = contains(serviceStatus)
+	log.Println("Writing to Influxdb for ", service.Name)
+
+	// update variables for influxdb
+	metrics := &influxdb.Metrics{
+		ServiceName:   service.Name,
+		ContainerID:   service.ContainerID[:12],
+		HostName:      service.Nodename,
+		ServicePort:   service.Port,
+		ServiceIP:     service.IP,
+		ServiceStatus: status,
+		ServiceTags:   service.Tags,
+	}
+
+	influx := influxdb.New()
+
+	influx.WriteData(metrics)
+
 	return r.client.Agent().ServiceRegister(registration)
 }
 

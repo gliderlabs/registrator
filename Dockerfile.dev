@@ -1,7 +1,9 @@
 FROM alpine:3.13
-CMD ["/bin/registrator"]
 
 COPY . /go/src/github.com/gliderlabs/registrator
+
+COPY docker-entrypoint.sh /bin/docker-entrypoint.sh
+
 RUN apk --no-cache add -t build-deps build-base go git curl \
 	&& apk --no-cache add ca-certificates \
 	&& export GOPATH=/go && mkdir -p /go/bin && export PATH=$PATH:/go/bin \
@@ -9,3 +11,5 @@ RUN apk --no-cache add -t build-deps build-base go git curl \
 	&& export GOPATH=/go \
 	&& git config --global http.https://gopkg.in.followRedirects true \
 	&& go build -ldflags "-X main.Version=dev" -o /bin/registrator
+
+ENTRYPOINT ["/bin/docker-entrypoint.sh"]
