@@ -202,7 +202,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -290,8 +290,15 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	}
 	var p int
 
-	if b.config.Internal == true {
-		service.IP = port.ExposedIP
+	service.Network = strings.ToLower(mapDefault(metadata, "network", container.HostConfig.NetworkMode))
+	if b.config.Internal == true && service.Network != "host" {
+		log.Printf("service %s will use network %s", service.Name, service.Network)
+		network, exists := container.NetworkSettings.Networks[service.Network]
+		if !exists {
+			service.IP = port.ExposedIP
+		} else {
+			service.IP = network.IPAddress
+		}
 		p, _ = strconv.Atoi(port.ExposedPort)
 	} else {
 		service.IP = port.HostIP
@@ -309,7 +316,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
