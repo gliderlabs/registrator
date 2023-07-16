@@ -165,7 +165,7 @@ func main() {
 			for {
 				select {
 				case <-resyncTicker.C:
-					b.Sync(true)
+					b.Sync(false)
 				case <-quit:
 					resyncTicker.Stop()
 					return

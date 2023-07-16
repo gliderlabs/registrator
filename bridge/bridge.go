@@ -101,19 +101,11 @@ func (b *Bridge) Sync(quiet bool) {
 
 	log.Printf("Syncing services on %d containers", len(containers))
 
+	b.services = make(map[string][]*Service)
+
 	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
-		services := b.services[listing.ID]
-		if services == nil {
-			b.add(listing.ID, quiet)
-		} else {
-			for _, service := range services {
-				err := b.registry.Register(service)
-				if err != nil {
-					log.Println("sync register failed:", service, err)
-				}
-			}
-		}
+		b.add(listing.ID, quiet)
 	}
 
 	// Clean up services that were registered previously, but aren't
@@ -202,7 +194,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	// Extract configured host port mappings, relevant when using --net=host
 	for port, _ := range container.Config.ExposedPorts {
-		published := []dockerapi.PortBinding{ {"0.0.0.0", port.Port()}, }
+		published := []dockerapi.PortBinding{{"0.0.0.0", port.Port()}}
 		ports[string(port)] = servicePort(container, port, published)
 	}
 
@@ -309,7 +301,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 				service.IP = containerIp
 			}
 			log.Println("using container IP " + service.IP + " from label '" +
-				b.config.UseIpFromLabel  + "'")
+				b.config.UseIpFromLabel + "'")
 		} else {
 			log.Println("Label '" + b.config.UseIpFromLabel +
 				"' not found in container configuration")
