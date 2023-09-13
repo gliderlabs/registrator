@@ -183,7 +183,7 @@ Within the base path specified in the zookeeper URI, registrator will create the
 
 	<service-name>/<service-port> = <JSON>
 
-The JSON will contain all infromation about the published container service. As an example, the following container start:
+The JSON will contain all information about the published container service. As an example, the following container start:
 
      docker run -i -p 80 -e 'SERVICE_80_NAME=www' -t ubuntu:14.04 /bin/bash
 
