@@ -1,7 +1,10 @@
 package bridge
 
 import (
+	"archive/tar"
+	"bufio"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/url"
@@ -75,9 +78,25 @@ func (b *Bridge) Refresh() {
 		}
 	}
 
+	if b.config.DynamicEnvFile != "" {
+		// Refresh service name, tags and attrs from withib container...
+		for _, services := range b.services {
+			isGroup := len(services) > 1
+
+			for _, service := range services {
+				newService := b.newService(service.Origin, isGroup)
+				// We can't change ID of already registered service
+				service.Name = newService.Name
+				service.Tags = newService.Tags
+				service.Attrs = newService.Attrs
+			}
+		}
+	}
+
 	for containerId, services := range b.services {
 		for _, service := range services {
 			err := b.registry.Refresh(service)
+
 			if err != nil {
 				log.Println("refresh failed:", service.ID, err)
 				continue
@@ -246,6 +265,40 @@ func (b *Bridge) add(containerId string, quiet bool) {
 	}
 }
 
+func (b *Bridge) readEnvFileFromContainer(containerID, path string) []string {
+	r, w := io.Pipe()
+	defer r.Close()
+
+	go func() {
+		opts := dockerapi.DownloadFromContainerOptions{
+			Path:         path,
+			OutputStream: w,
+		}
+		w.CloseWithError(b.docker.DownloadFromContainer(containerID, opts))
+	}()
+
+	tarreader := tar.NewReader(r)
+	_, err := tarreader.Next()
+	if err != nil {
+		log.Printf("unable to read file %s from container %s: %s", path, containerID, err)
+		return nil
+	}
+
+	result := []string{}
+
+	scanner := bufio.NewScanner(tarreader)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		parts := strings.Split(line, "=")
+		if len(parts) == 2 {
+			result = append(result, line)
+		}
+	}
+
+	return result
+}
+
 func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	container := port.container
 	defaultName := strings.Split(path.Base(container.Config.Image), ":")[0]
@@ -266,7 +319,15 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 		port.HostIP = b.config.HostIp
 	}
 
-	metadata, metadataFromPort := serviceMetaData(container.Config, port.ExposedPort)
+	// metadata that takes priority when parsing in serviceMetaData
+	meta := []string{}
+
+	// Try to read env-file from within container if its path specified
+	if b.config.DynamicEnvFile != "" {
+		meta = b.readEnvFileFromContainer(container.ID, b.config.DynamicEnvFile)
+	}
+
+	metadata, metadataFromPort := serviceMetaData(meta, container.Config, port.ExposedPort)
 
 	ignore := mapDefault(metadata, "ignore", "")
 	if ignore != "" {

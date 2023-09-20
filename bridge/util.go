@@ -54,11 +54,20 @@ func combineTags(tagParts ...string) []string {
 	return tags
 }
 
-func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
-	meta := config.Env
+// serviceMetaData extracts metadata from Docker-container config.
+// meta - is highest priority metadata from other source
+func serviceMetaData(meta []string, config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
+	if meta == nil {
+		meta = make([]string, 0)
+	}
+
+	for _, line := range config.Env {
+		meta = append(meta, line)
+	}
 	for k, v := range config.Labels {
 		meta = append(meta, k+"="+v)
 	}
+
 	metadata := make(map[string]string)
 	metadataFromPort := make(map[string]bool)
 	for _, kv := range meta {
