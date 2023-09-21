@@ -14,5 +14,7 @@ RUN \
 FROM alpine:3.7
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /go/src/github.com/gliderlabs/registrator/bin/registrator /bin/registrator
-
-ENTRYPOINT ["/bin/registrator"]
+COPY --from=builder /go/src/github.com/gliderlabs/registrator/docker-entrypoint.sh /usr/local/bin/
+RUN chmod 777 /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["/bin/registrator"]
