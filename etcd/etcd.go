@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"context"
 	"io/ioutil"
 	"log"
 	"net"
@@ -8,9 +9,11 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
+	etcd3 "go.etcd.io/etcd/client/v3"
 	etcd "gopkg.in/coreos/go-etcd.v0/etcd"
 )
 
@@ -41,12 +44,23 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		return &EtcdAdapter{client: etcd.NewClient(urls), path: uri.Path}
 	}
 
+	if match, _ := regexp.Match("3\\.[0-9]*\\.[0-9]*", body); match == true {
+		cli, err := etcd3.New(etcd3.Config{Endpoints: urls, DialTimeout: 5 * time.Second})
+		if err != nil {
+			log.Fatal("etcd: error connecting etcd", err)
+		}
+		log.Println("etcd: using v3 client")
+		return &EtcdAdapter{client3: cli, path: uri.Path}
+	}
+
+	log.Println("etcd: using v2 client")
 	return &EtcdAdapter{client2: etcd2.NewClient(urls), path: uri.Path}
 }
 
 type EtcdAdapter struct {
 	client  *etcd.Client
 	client2 *etcd2.Client
+	client3 *etcd3.Client
 
 	path string
 }
@@ -58,6 +72,7 @@ func (r *EtcdAdapter) Ping() error {
 	if r.client != nil {
 		rr := etcd.NewRawRequest("GET", "version", nil, nil)
 		_, err = r.client.SendRequest(rr)
+	} else if r.client3 != nil {
 	} else {
 		rr := etcd2.NewRawRequest("GET", "version", nil, nil)
 		_, err = r.client2.SendRequest(rr)
@@ -73,6 +88,8 @@ func (r *EtcdAdapter) syncEtcdCluster() {
 	var result bool
 	if r.client != nil {
 		result = r.client.SyncCluster()
+	} else if r.client3 != nil {
+		r.client3.Sync(context.TODO())
 	} else {
 		result = r.client2.SyncCluster()
 	}
@@ -92,6 +109,16 @@ func (r *EtcdAdapter) Register(service *bridge.Service) error {
 	var err error
 	if r.client != nil {
 		_, err = r.client.Set(path, addr, uint64(service.TTL))
+	} else if r.client3 != nil {
+		if service.TTL == 0 {
+			_, err = r.client3.Put(context.TODO(), path, addr)
+		} else {
+			var resp *etcd3.LeaseGrantResponse
+			resp, err = r.client3.Grant(context.TODO(), int64(service.TTL))
+			if err == nil {
+				_, err = r.client3.Put(context.TODO(), path, addr, etcd3.WithLease(resp.ID))
+			}
+		}
 	} else {
 		_, err = r.client2.Set(path, addr, uint64(service.TTL))
 	}
@@ -110,6 +137,8 @@ func (r *EtcdAdapter) Deregister(service *bridge.Service) error {
 	var err error
 	if r.client != nil {
 		_, err = r.client.Delete(path, false)
+	} else if r.client3 != nil {
+		_, err = r.client3.Delete(context.TODO(), path)
 	} else {
 		_, err = r.client2.Delete(path, false)
 	}
