@@ -317,6 +317,7 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	}
 
 	// NetworkMode can point to another container (kuberenetes pods)
+	var ipFromNetworkContainer string
 	networkMode := container.HostConfig.NetworkMode
 	if networkMode != "" {
 		if strings.HasPrefix(networkMode, "container:") {
@@ -326,8 +327,28 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 			if err != nil {
 				log.Println("unable to inspect network container:", networkContainerId[:12], err)
 			} else {
-				service.IP = networkContainer.NetworkSettings.IPAddress
-				log.Println(service.Name + ": using network container IP " + service.IP)
+				ipFromNetworkContainer = networkContainer.NetworkSettings.IPAddress
+
+				if ipFromNetworkContainer != "" {
+					service.IP = networkContainer.NetworkSettings.IPAddress
+					log.Println(service.Name + ": using network container IP " + service.IP)
+				} else {
+					log.Println(service.Name + ": network container IP address is empty")
+				}
+			}
+		}
+	}
+
+	// Grab the container IP address from docker or kubernetes env
+	if b.config.UseIpFromEnv != "" && ipFromNetworkContainer == "" {
+		for _, requiredEnv := range container.Config.Env {
+			if strings.Contains(requiredEnv, b.config.UseIpFromEnv) {
+				service.IP = requiredEnv[len(b.config.UseIpFromEnv)+1:]
+				log.Println(service.Name + ": using container IP '" + service.IP +
+					"' from env '" + b.config.UseIpFromEnv  + "'")
+			} else {
+				log.Println(service.Name + ": could not found env '" + b.config.UseIpFromEnv  +
+					"' from docker env")
 			}
 		}
 	}
