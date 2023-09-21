@@ -96,17 +96,11 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 	}
 	if path := service.Attrs["check_http"]; path != "" {
 		check.HTTP = fmt.Sprintf("http://%s:%d%s", service.IP, service.Port, path)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
-		}
 		if method := service.Attrs["check_http_method"]; method != "" {
 			check.Method = method
 		}
 	} else if path := service.Attrs["check_https"]; path != "" {
 		check.HTTP = fmt.Sprintf("https://%s:%d%s", service.IP, service.Port, path)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
-		}
 		if method := service.Attrs["check_https_method"]; method != "" {
 			check.Method = method
 		}
@@ -118,19 +112,10 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 		check.TTL = ttl
 	} else if tcp := service.Attrs["check_tcp"]; tcp != "" {
 		check.TCP = fmt.Sprintf("%s:%d", service.IP, service.Port)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
-		}
 	} else if grpc := service.Attrs["check_grpc"]; grpc != "" {
 		check.GRPC = fmt.Sprintf("%s:%d", service.IP, service.Port)
-		if timeout := service.Attrs["check_timeout"]; timeout != "" {
-			check.Timeout = timeout
-		}
 		if useTLS := service.Attrs["check_grpc_use_tls"]; useTLS != "" {
 			check.GRPCUseTLS = true
-			if tlsSkipVerify := service.Attrs["check_tls_skip_verify"]; tlsSkipVerify != "" {
-				check.TLSSkipVerify = true
-			}
 		}
 	} else {
 		return nil
@@ -140,6 +125,12 @@ func (r *ConsulAdapter) buildCheck(service *bridge.Service) *consulapi.AgentServ
 			check.Interval = interval
 		} else {
 			check.Interval = DefaultInterval
+		}
+		if timeout := service.Attrs["check_timeout"]; timeout != "" {
+			check.Timeout = timeout
+		}
+		if tlsSkipVerify := service.Attrs["check_tls_skip_verify"]; tlsSkipVerify != "" {
+			check.TLSSkipVerify = true
 		}
 	}
 	if deregister_after := service.Attrs["check_deregister_after"]; deregister_after != "" {
