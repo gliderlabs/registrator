@@ -103,15 +103,14 @@ func main() {
 	}
 
 	b, err := bridge.New(docker, flag.Arg(0), bridge.Config{
-		HostIp:          *hostIp,
-		Internal:        *internal,
-		Explicit:        *explicit,
-		UseIpFromLabel:  *useIpFromLabel,
-		ForceTags:       *forceTags,
-		RefreshTtl:      *refreshTtl,
-		RefreshInterval: *refreshInterval,
-		DeregisterCheck: *deregister,
-		Cleanup:         *cleanup,
+		HostIp:            *hostIp,
+		Internal:          *internal,
+		UseIpFromLabel:    *useIpFromLabel,
+		ForceTags:         *forceTags,
+		RefreshTtl:        *refreshTtl,
+		RefreshInterval:   *refreshInterval,
+		DeregisterCheck:   *deregister,
+		Cleanup:           *cleanup,
 	})
 
 	assert(err)
