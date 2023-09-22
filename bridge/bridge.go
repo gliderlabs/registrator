@@ -16,6 +16,7 @@ import (
 )
 
 var serviceIDPattern = regexp.MustCompile(`^(.+?):([a-zA-Z0-9][a-zA-Z0-9_.-]+):[0-9]+(?::udp)?$`)
+var LOGLEVEL  = os.Getenv("LOGLEVEL")
 
 type Bridge struct {
 	sync.Mutex
@@ -82,7 +83,9 @@ func (b *Bridge) Refresh() {
 				log.Println("refresh failed:", service.ID, err)
 				continue
 			}
-			log.Println("refreshed:", containerId[:12], service.ID)
+			if LOGLEVEL == "1" {
+				log.Println("refreshed:", containerId[:12], service.ID)
+			}
 		}
 	}
 }
@@ -98,8 +101,9 @@ func (b *Bridge) Sync(quiet bool) {
 	} else if err != nil && !quiet {
 		log.Fatal(err)
 	}
-
-	log.Printf("Syncing services on %d containers", len(containers))
+	if LOGLEVEL == "1" {
+		log.Printf("Syncing services on %d containers", len(containers))
+	}
 
 	// NOTE: This assumes reregistering will do the right thing, i.e. nothing..
 	for _, listing := range containers {
