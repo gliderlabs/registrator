@@ -10,6 +10,22 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+## [v8] - 2016-10-10
+### Fixed
+- servicePort HostIP detection logic
+- logic for appending port to SERVICE_NAME
+- Fixes problem with exposed ports in newer Docker versions
+
+### Added
+- Consul initial check status added to service attributes
+- Consul status added to the health check attributes
+- Removes stale services from registrator
+
+### Removed
+
+### Changed
+- Base image for Docker container upgraded to alpine:3.3
+
 ## [v7] - 2016-03-05
 ### Fixed
 - Providing a SERVICE_NAME for a container with multiple ports exposed would cause services to overwrite each other

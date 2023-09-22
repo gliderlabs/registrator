@@ -45,7 +45,7 @@ you can also use `SERVICE_CHECK_HTTP`.
 ### Consul HTTPS Check
 
 This feature is only available when using Consul 0.5 or newer. Containers
-specifying these extra metedata in labels or environment will be used to
+specifying these extra metadata in labels or environment will be used to
 register an HTTPS health check with the service.
 
 ```bash
