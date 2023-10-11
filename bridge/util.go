@@ -54,6 +54,13 @@ func combineTags(tagParts ...string) []string {
 	return tags
 }
 
+func combineMetadataTags(key string, metadata map[string]string, newVal string) string {
+	if oldVal, ok := metadata[key]; ok == true && len(oldVal) > 0 && key == "tags" {
+		return oldVal + "," + newVal
+	}
+	return newVal
+}
+
 func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
@@ -74,10 +81,10 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 				if portkey[0] != port {
 					continue
 				}
-				metadata[portkey[1]] = kvp[1]
+				metadata[portkey[1]] = combineMetadataTags(portkey[1], metadata, kvp[1])
 				metadataFromPort[portkey[1]] = true
 			} else {
-				metadata[key] = kvp[1]
+				metadata[key] = combineMetadataTags(key, metadata, kvp[1])
 			}
 		}
 	}
