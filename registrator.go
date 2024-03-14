@@ -28,6 +28,7 @@ var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
+var deregisterOnStop = flag.Bool("deregister-on-stop", false, "Deregister when container stopped versus once it dies")
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
 var retryInterval = flag.Int("retry-interval", 2000, "Interval (in millisecond) between retry-attempts.")
 var cleanup = flag.Bool("cleanup", false, "Remove dangling services")
@@ -181,6 +182,10 @@ func main() {
 			go b.Add(msg.ID)
 		case "die":
 			go b.RemoveOnExit(msg.ID)
+		case "kill":
+			if *deregisterOnStop {
+				go b.RemoveOnExit(msg.ID)
+			}
 		}
 	}
 
