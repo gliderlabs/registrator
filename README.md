@@ -46,6 +46,7 @@ Usage of /bin/registrator:
 
   -cleanup=false: Remove dangling services
   -deregister="always": Deregister exited services "always" or "on-success"
+  -explicit=false: Only register containers which have SERVICE_NAME label set
   -internal=false: Use internal ports instead of published ones
   -ip="": IP for ports mapped to the host
   -resync=0: Frequency with which services are resynchronized
