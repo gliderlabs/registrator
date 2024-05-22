@@ -13,7 +13,7 @@ supports pluggable service registries, which currently includes
 [Consul](http://www.consul.io/), [etcd](https://github.com/coreos/etcd) and
 [SkyDNS 2](https://github.com/skynetservices/skydns/).
 
-Full documentation available at http://gliderlabs.com/registrator
+Full documentation available at [docs page](docs/index.md).
 
 ## Getting Registrator
 
@@ -27,9 +27,9 @@ and version tags to pin to specific releases.
 ## Using Registrator
 
 The quickest way to see Registrator in action is our
-[Quickstart](https://gliderlabs.com/registrator/latest/user/quickstart)
+[Quickstart](docs/user/quickstart.md)
 tutorial. Otherwise, jump to the [Run
-Reference](https://gliderlabs.com/registrator/latest/user/run) in the User
+Reference](docs/user/run.md) in the User
 Guide. Typically, running Registrator looks like this:
 
     $ docker run -d \
@@ -64,8 +64,8 @@ opening a [GitHub issue](https://github.com/gliderlabs/registrator/issues) or
 discussing in [Slack](http://glider-slackin.herokuapp.com/).
 
 Also check out our Developer Guide on [Contributing
-Backends](https://gliderlabs.com/registrator/latest/dev/backends) and [Staging
-Releases](https://gliderlabs.com/registrator/latest/dev/releases).
+Backends](docs/dev/backends.md) and [Staging
+Releases](docs/dev/releases.md).
 
 ## Sponsors and Thanks
 
