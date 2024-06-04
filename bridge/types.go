@@ -24,6 +24,7 @@ type Config struct {
 	Internal        bool
 	Explicit        bool
 	UseIpFromLabel  string
+	UseIpFromEnv    string
 	ForceTags       string
 	RefreshTtl      int
 	RefreshInterval int
