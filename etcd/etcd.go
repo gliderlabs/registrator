@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 
 	etcd2 "github.com/coreos/go-etcd/etcd"
 	"github.com/gliderlabs/registrator/bridge"
@@ -28,9 +29,24 @@ func (f *Factory) New(uri *url.URL) bridge.RegistryAdapter {
 		urls = append(urls, "http://127.0.0.1:2379")
 	}
 
-	res, err := http.Get(urls[0] + "/version")
+	// When starting the service it is possible that etcd is not ready
+	backOff := 1
+	var res *http.Response
+	var err error
+	for backOff < 1024 {
+		res, err = http.Get(urls[0] + "/version")
+		if err != nil {
+			backOff += backOff
+			log.Println("etcd: error retrieving version:", err)
+			log.Printf("etcd: retrying in: %d seconds\n", backOff)
+			time.Sleep(time.Duration(backOff) * time.Second)
+		} else {
+			break
+		}
+	}
+
 	if err != nil {
-		log.Fatal("etcd: error retrieving version", err)
+		log.Fatal("etcd: giving up trying to retrieve version: ", err)
 	}
 
 	defer res.Body.Close()
