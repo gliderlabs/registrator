@@ -26,6 +26,7 @@ var useIpFromLabel = flag.String("useIpFromLabel", "", "Use IP which is stored i
 var refreshInterval = flag.Int("ttl-refresh", 0, "Frequency with which service TTLs are refreshed")
 var refreshTtl = flag.Int("ttl", 0, "TTL for services (default is no expiry)")
 var forceTags = flag.String("tags", "", "Append tags for all registered services")
+var forceAttrs = flag.String("attrs", "", "Append attrs (ServiceMeta) for all registered services (only for consul)")
 var resyncInterval = flag.Int("resync", 0, "Frequency with which services are resynchronized")
 var deregister = flag.String("deregister", "always", "Deregister exited services \"always\" or \"on-success\"")
 var retryAttempts = flag.Int("retry-attempts", 0, "Max retry attempts to establish a connection with the backend. Use -1 for infinite retries")
@@ -108,6 +109,7 @@ func main() {
 		Explicit:        *explicit,
 		UseIpFromLabel:  *useIpFromLabel,
 		ForceTags:       *forceTags,
+		ForceAttrs:      *forceAttrs,
 		RefreshTtl:      *refreshTtl,
 		RefreshInterval: *refreshInterval,
 		DeregisterCheck: *deregister,

@@ -44,6 +44,7 @@ Guide. Typically, running Registrator looks like this:
 Usage of /bin/registrator:
   /bin/registrator [options] <registry URI>
 
+  -attrs="": Append attrs (ServiceMeta) for all registered services (only for consul)
   -cleanup=false: Remove dangling services
   -deregister="always": Deregister exited services "always" or "on-success"
   -explicit=false: Only register containers which have SERVICE_NAME label set
@@ -53,8 +54,8 @@ Usage of /bin/registrator:
   -retry-attempts=0: Max retry attempts to establish a connection with the backend. Use -1 for infinite retries
   -retry-interval=2000: Interval (in millisecond) between retry-attempts.
   -tags="": Append tags for all registered services
-  -ttl=0: TTL for services (default is no expiry)
   -ttl-refresh=0: Frequency with which service TTLs are refreshed
+  -ttl=0: TTL for services (default is no expiry)
 ```
 
 ## Contributing

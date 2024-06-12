@@ -25,6 +25,7 @@ type Config struct {
 	Explicit        bool
 	UseIpFromLabel  string
 	ForceTags       string
+	ForceAttrs      string
 	RefreshTtl      int
 	RefreshInterval int
 	DeregisterCheck string
