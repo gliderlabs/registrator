@@ -44,6 +44,7 @@ Option                           | Since | Description
 `-ttl <seconds>`                 |       | TTL for services. Default: 0, no expiry (supported backends only)
 `-ttl-refresh <seconds>`         |       | Frequency service TTLs are refreshed (supported backends only)
 `-useIpFromLabel <label>`        |       | Uses the IP address stored in the given label, which is assigned to a container, for registration with Consul
+`-envFile <filepath>`            |       | Read envs from within container from specified file. Updates on each refresh
 
 If the `-internal` option is used, Registrator will register the docker0
 internal IP and port instead of the host mapped ones.
@@ -63,6 +64,17 @@ containers and reregister all services.  This allows Registrator and the service
 registry to get back in sync if they fall out of sync. Use this option with caution
 as it will notify all the watches you may have registered on your services, and
 may rapidly flood your system (e.g. consul-template makes extensive use of watches).
+
+If the `-envFile` option is used, Registrator will try to extract specified file from **each** container. This file must be in simple env-file form:
+```
+SERVICE_DYNAMIC_META=metavalue
+SERVICE_NAME=dynamicname
+```
+
+It's contents will be used on first service initialization like any Label or ENV variable. Variables in file take highest priority over Label or ENV.
+If refreshInterval specified file will be rereaded on each refresh operation, so it is posiible to change Tags or Meta of registered service from inside container by application logic. It is even possible to change service name by specify diffrent `SERVICE_NAME` in file. 
+
+`-envFile` may not be supported by all backends, but Consul-catalog backend works well.
 
 ## Consul ACL token
 
