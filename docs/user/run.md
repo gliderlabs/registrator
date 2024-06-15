@@ -35,6 +35,7 @@ Option                           | Since | Description
 ------                           | ----- | -----------
 `-cleanup`                       | v7    | Cleanup dangling services
 `-deregister <mode>`             | v6    | Deregister exited services "always" or "on-success". Default: always
+`-explicit`                      |       | Only register containers which have SERVICE_NAME label set
 `-internal`                      |       | Use exposed ports instead of published ports
 `-ip <ip address>`               |       | Force IP address used for registering services
 `-resync <seconds>`              | v6    | Frequency all services are resynchronized. Default: 0, never
