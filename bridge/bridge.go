@@ -349,6 +349,10 @@ func (b *Bridge) newService(port ServicePort, isgroup bool) *Service {
 	delete(metadata, "id")
 	delete(metadata, "tags")
 	delete(metadata, "name")
+
+	if b.config.HostnameTag {
+		service.Tags = append(service.Tags, port.ContainerHostname)
+	}
 	service.Attrs = metadata
 	service.TTL = b.config.RefreshTtl
 
