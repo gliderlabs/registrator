@@ -70,7 +70,9 @@ func (r *Skydns2Adapter) Services() ([]*bridge.Service, error) {
 }
 
 func (r *Skydns2Adapter) servicePath(service *bridge.Service) string {
-	return r.path + "/" + service.Name + "/" + service.ID
+	longContainerId := service.Origin.ContainerID
+	shortContainerId := longContainerId[0:13]
+	return r.path + "/" + service.Name + "/" + service.ID + "/" + shortContainerId
 }
 
 func domainPath(domain string) string {
