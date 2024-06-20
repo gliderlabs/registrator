@@ -198,6 +198,14 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		return
 	}
 
+	if b.config.FilterRegexp) != "" {
+		match, _ := regexp.MatchString(b.config.FilterRegexp, container.Name)
+			if !match {
+				log.Println("not match name:", container.Name, "[", b.config.FilterRegexp, "]")
+				return
+			}
+	}
+
 	ports := make(map[string]ServicePort)
 
 	// Extract configured host port mappings, relevant when using --net=host
