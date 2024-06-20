@@ -16,11 +16,12 @@ object into a particular registry.
 		Port  int                  // port service is listening on
 		Tags  []string             // extra tags to classify service
 		Attrs map[string]string    // extra attribute metadata
+		Mesh  bool                 // Enable basic ServiceMesh support in Consul
 	}
 
 ## Container Overrides
 
-The fields `Name`, `Tags`, `Attrs`, and `ID` can be overridden by user-defined
+The fields `Name`, `Tags`, `Attrs`, `Mesh` and `ID` can be overridden by user-defined
 container metadata. You can use environment variables or labels prefixed with
 `SERVICE_` or `SERVICE_x_` to set values, where `x` is the internal exposed port.
 For example `SERVICE_NAME=customerdb` and `SERVICE_80_NAME=api`.

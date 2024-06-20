@@ -22,10 +22,10 @@ func init() {
 	bridge.Register(f, "consul-unix")
 }
 
-func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) string {
+func (r *ConsulAdapter) interpolateService(script string, service *bridge.Service) []string {
 	withIp := strings.Replace(script, "$SERVICE_IP", service.IP, -1)
 	withPort := strings.Replace(withIp, "$SERVICE_PORT", strconv.Itoa(service.Port), -1)
-	return withPort
+	return strings.Split(withPort, " ")
 }
 
 type Factory struct{}
@@ -86,6 +86,11 @@ func (r *ConsulAdapter) Register(service *bridge.Service) error {
 	registration.Address = service.IP
 	registration.Check = r.buildCheck(service)
 	registration.Meta = service.Attrs
+	if service.Mesh == true {
+		registration.Connect = &consulapi.AgentServiceConnect{
+			SidecarService: &consulapi.AgentServiceRegistration{},
+		}
+	}
 	return r.client.Agent().ServiceRegister(registration)
 }
 

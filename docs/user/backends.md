@@ -126,6 +126,24 @@ If enabled this should be much longer than any expected recoverable outage.
 SERVICE_CHECK_DEREGISTER_AFTER=10m
 ```
 
+### Consul ServiceMesh Support
+
+Consul can support ServiceMesh by integrating with proxies like Envoy, the most convenient way to enable this capability is creating a Service like [this](https://www.consul.io/docs/connect/registration/sidecar-service.html#minimal-example):
+
+```json
+{
+  "service": {
+    "name": "web",
+    "port": 8080,
+    "connect": { "sidecar_service": {} }
+  }
+}
+```
+
+Then Consul will automatically generate a corresponding SidecarService with default configurations.
+
+In Registrator, you may add the `"connect": { "sidecar_service": {} }` configuration by the `-service-mesh` flag. It's also overridable by `SERVICE_MESH`.
+
 ## Consul KV
 
 	consulkv://<address>:<port>/<prefix>
