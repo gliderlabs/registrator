@@ -129,3 +129,31 @@ func servicePort(container *dockerapi.Container, port dockerapi.Port, published 
 		container:         container,
 	}
 }
+
+func servicePortOverride(container *dockerapi.Container, port string) ServicePort {
+	var hp, hip, ep, ept, eip, nm string
+	hip = "0.0.0.0"
+	nm = container.HostConfig.NetworkMode
+	if nm != "bridge" && nm != "default" && nm != "host" {
+		hip = container.NetworkSettings.Networks[nm].IPAddress
+	}
+	ep = port
+	ept = "tcp" // default
+	eip = container.NetworkSettings.IPAddress
+	if eip == "" {
+		for _, network := range container.NetworkSettings.Networks {
+			eip = network.IPAddress
+		}
+	}
+
+	return ServicePort{
+		HostPort:          hp,
+		HostIP:            hip,
+		ExposedPort:       ep,
+		ExposedIP:         eip,
+		PortType:          ept,
+		ContainerID:       container.ID,
+		ContainerHostname: container.Config.Hostname,
+		container:         container,
+	}
+}
