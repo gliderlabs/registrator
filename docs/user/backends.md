@@ -190,3 +190,24 @@ The JSON will contain all information about the published container service. As 
 Will result in the zookeeper path and JSON znode body:
 
     /basepath/www/80 = {"Name":"www","IP":"192.168.1.123","PublicPort":49153,"PrivatePort":80,"ContainerID":"9124853ff0d1","Tags":[],"Attrs":{}}
+
+## AWS Service Discovery
+
+	aws-sd://<namespaceID>
+
+AWS service discovery expects a namespace to already exist. You can read more about creating a namespace from the Amazon [Documentation](https://docs.aws.amazon.com/Route53/latest/APIReference/API_autonaming_CreatePrivateDnsNamespace.html).
+
+This backend uses the service name to look up services from the specified namespace (e.g. linkerd-4140). It is recommended that you use docker labels on your containers to specify `SERVICE_NAME` (e.g. linkerd), and run Registrator in explicit mode.
+
+Setting the environment variable `AUTOCREATE_SERVICES` to true will allow Registrator to create service entries in AWS Service Discovery. This is not recommended for production. Ideally the AWS services should be [manually](https://docs.aws.amazon.com/Route53/latest/APIReference/API_autonaming_CreateService.html) specified, with the name of the service being the same as the `SERVICE_NAME` label of the docker containers. If the service uses multiple ports, multiple AWS services need to be created. The AWS service names should include the port, i.e. `SERVICE_NAME-<PORT>`.
+
+The environment variable `OPERATION_TIMEOUT` can be used to specify how long to continue checking the AWS RegisterInstance and DeregisterInstance status. It defaults to 10 seconds.
+
+If running from an ecs container, you can use the AWS meta-data endpoint to obtain the IP address to pass to registrator. This can be specified in the task definition as the `entryPoint`.
+
+	["sh", "-c", "registrator -e -ip $(curl 169.254.169.254/latest/meta-data/local-ipv4) aws-sd://<NAMESPACE_ID>"]
+
+### Warnings
+Changes made to AWS task definitions may result in unclean exit codes for containers. Unclean exits are ignored by Registrator. E.g. if updating the `SERVICE_NAME` label, the containers will most likely not be deregistered due to an unclean shutdown. It is recommended that you stop the containers cleanly and restart them with the new definition. Otherwise, you can use the `-cleanup -resync` options to periodically clean up dangling services.
+
+Due to a 64 character limit on the instance ID field in AWS service Discovery, you may wish to use the registrator container with the `-hash-id` flag. This will replace the generated container names in the unique ID, such as those created by AWS ECS, with 40 character long hashes.
