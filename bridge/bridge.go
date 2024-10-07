@@ -218,6 +218,7 @@ func (b *Bridge) add(containerId string, quiet bool) {
 
 	servicePorts := make(map[string]ServicePort)
 	for key, port := range ports {
+		log.Println("DEBUG:", container.ID[:12], "ExposedPort", port.ExposedPort, "HostPort", port.HostPort)
 		if b.config.Internal != true && port.HostPort == "" {
 			if !quiet {
 				log.Println("ignored:", container.ID[:12], "port", port.ExposedPort, "not published on host")
