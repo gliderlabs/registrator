@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -215,6 +216,12 @@ func (b *Bridge) add(containerId string, quiet bool) {
 		log.Println("ignored:", container.ID[:12], "no published ports")
 		return
 	}
+
+	// Exposed ports without assigned host ports are ignored, but assigning host ports can take some
+	// time after a container is started. Sleeping gives more time to assign host ports before
+	// registering them
+	log.Println("DEBUG: sleeping")
+	time.Sleep(1 * time.Second)
 
 	servicePorts := make(map[string]ServicePort)
 	for key, port := range ports {
