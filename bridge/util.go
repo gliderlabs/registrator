@@ -54,7 +54,7 @@ func combineTags(tagParts ...string) []string {
 	return tags
 }
 
-func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, map[string]bool) {
+func serviceMetaData(config *dockerapi.Config, port ServicePort) (map[string]string, map[string]bool) {
 	meta := config.Env
 	for k, v := range config.Labels {
 		meta = append(meta, k+"="+v)
@@ -68,15 +68,28 @@ func serviceMetaData(config *dockerapi.Config, port string) (map[string]string, 
 			if metadataFromPort[key] {
 				continue
 			}
-			portkey := strings.SplitN(key, "_", 2)
+			portkey := strings.Split(key, "_")
 			_, err := strconv.Atoi(portkey[0])
 			if err == nil && len(portkey) > 1 {
-				if portkey[0] != port {
+				if portkey[0] != port.ExposedPort {
 					continue
 				}
-				metadata[portkey[1]] = kvp[1]
-				metadataFromPort[portkey[1]] = true
+
+				// SERVICE_<port>_<type>_<metadata> encodings
+				if len(portkey) > 2 {
+					if portkey[1] != port.PortType {
+						continue
+					}
+
+					metadata[portkey[2]] = kvp[1]
+					metadataFromPort[portkey[2]] = true
+				} else {
+					// SERVICE_<port>_<metadata> encodings
+					metadata[portkey[1]] = kvp[1]
+					metadataFromPort[portkey[1]] = true
+				}
 			} else {
+				// SERVICE_<metadata> encodings
 				metadata[key] = kvp[1]
 			}
 		}
