@@ -154,6 +154,22 @@ Using the prefix from the Registry URI, service definitions are stored as:
 
 	<prefix>/<service-name>/<service-id> = <ip>:<port>
 
+## Etcd JSON
+
+	etcd-json://<address>:<port>/<prefix>
+
+Etcd JSON works similar to Etcd except it encodes the service discovery value in JSON format. Additionally, unlike Etcd this backend supports service attributes and tags. Using the prefix from the Registry URI, service defintions are stored as:
+
+	<prefix>/service-name>/<service-id> = <JSON>
+
+The JSON will contain the IP and Port about the published container service as well as the tags and attributes. As an example, the following container start:
+
+	docker run -it -p 3000:3000 -e SERVICE_3000_NAME="my-service" -e SERVICE_3000_PATH="/my-rest-endpoint/v1" -e SERVICE_3000_PROTOCOL="http" -e SERVICE_TAGS="east" ubuntu:14.04 /bin/bash
+
+Will result in the JSON body:
+
+	{"IP":"192.168.1.123","Port":3000,"Tags":["east"],"Attrs":{"path":"/my-rest-endpoint/v1","protocol":"http"}}
+
 ## SkyDNS 2
 
 	skydns2://<address>:<port>/<domain>
